@@ -4,6 +4,7 @@ import { ResponseViewer } from "@/components/Response/ResponseViewer";
 import { BenchmarkResults } from "@/components/Response/BenchmarkResults";
 import { WebSocketPanel } from "@/components/WebSocketPanel";
 import { RunnerPanel } from "@/components/RunnerPanel";
+import { IntelligenceDashboard } from "@/components/Intelligence/IntelligenceDashboard";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -14,6 +15,15 @@ export function MainPanel() {
   const error = useRequestStore((s) => s.error);
   const toolMode = useUIStore((s) => s.toolMode);
   const showRunner = useUIStore((s) => s.showRunner);
+  const showIntelligence = useUIStore((s) => s.showIntelligence);
+
+  if (showIntelligence) {
+    return (
+      <div className="h-full flex flex-col">
+        <IntelligenceDashboard />
+      </div>
+    );
+  }
 
   if (showRunner) {
     return (

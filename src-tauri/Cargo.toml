@@ -36,3 +36,4 @@ rquickjs = { version = "0.7", features = ["parallel"] }
 aes-gcm = "0.10"
 rand = "0.8"
 dirs = "5"
+sha2 = "0.10"

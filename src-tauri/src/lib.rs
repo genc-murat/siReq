@@ -1,3 +1,4 @@
+mod api_intelligence;
 mod commands;
 mod curl_parser;
 mod http;
@@ -70,6 +71,13 @@ pub fn run() {
             commands::get_cookies,
             commands::delete_cookie,
             commands::clear_cookies,
+            api_intelligence::analyze_api_behavior_cmd,
+            api_intelligence::get_api_intelligence_overview,
+            api_intelligence::get_all_endpoint_insights,
+            api_intelligence::get_endpoint_detail_cmd,
+            api_intelligence::get_performance_timeline_cmd,
+            api_intelligence::get_schema_evolution_cmd,
+            api_intelligence::get_performance_regressions,
             websocket::ws_connect,
             websocket::ws_send,
             websocket::ws_disconnect,

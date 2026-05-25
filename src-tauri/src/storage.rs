@@ -58,6 +58,27 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             variables TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS api_intelligence (
+            id TEXT PRIMARY KEY,
+            endpoint_key TEXT NOT NULL,
+            method TEXT NOT NULL,
+            first_seen TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            request_count INTEGER DEFAULT 0,
+            avg_time_ms REAL DEFAULT 0,
+            p95_time_ms REAL DEFAULT 0,
+            min_time_ms REAL DEFAULT 0,
+            max_time_ms REAL DEFAULT 0,
+            status_200_count INTEGER DEFAULT 0,
+            status_400_count INTEGER DEFAULT 0,
+            status_500_count INTEGER DEFAULT 0,
+            status_other_count INTEGER DEFAULT 0,
+            total_size_bytes INTEGER DEFAULT 0,
+            schema_versions TEXT DEFAULT '[]',
+            performance_history TEXT DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );"
     )?;
     Ok(())

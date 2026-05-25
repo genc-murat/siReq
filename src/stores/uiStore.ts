@@ -14,6 +14,7 @@ interface UIState {
   activeEnvironmentId: string | null;
   showRunner: boolean;
   runnerCollectionId: string | null;
+  showIntelligence: boolean;
   compareResponse: HttpResponse | null;
   setTheme: (theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord") => void;
   setSidebarOpen: (open: boolean) => void;
@@ -27,6 +28,7 @@ interface UIState {
   setActiveEnvironmentId: (id: string | null) => void;
   setCompareResponse: (response: HttpResponse | null) => void;
   setShowRunner: (show: boolean, collectionId?: string | null) => void;
+  setShowIntelligence: (show: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -52,6 +54,8 @@ export const useUIStore = create<UIState>()(
       showRunner: false,
   runnerCollectionId: null,
   setShowRunner: (show, collectionId) => set({ showRunner: show, runnerCollectionId: collectionId ?? null }),
+  showIntelligence: false,
+  setShowIntelligence: (show) => set({ showIntelligence: show, showRunner: false }),
   setCompareResponse: (response) => set({ compareResponse: response, responseTab: response ? "diff" : "body" }),
       setActiveHistoryId: (id) => set({ activeHistoryId: id }),
       setActiveCollectionId: (id) => set({ activeCollectionId: id }),

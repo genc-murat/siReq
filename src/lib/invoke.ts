@@ -167,6 +167,98 @@ export interface BenchmarkHistoryEntry {
   created_at: string;
 }
 
+// ─── API Intelligence types ──────────────────────────────────────────────────
+
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
+export interface ApiIntelligenceOverview {
+  total_endpoints: number;
+  total_requests: number;
+  total_schema_changes: number;
+  endpoints_with_regression: number;
+  avg_response_time_ms: number;
+  last_analyzed: string;
+  status_200_pct: number;
+  status_400_pct: number;
+  status_500_pct: number;
+  daily_request_counts: DailyCount[];
+}
+
+export interface EndpointInsight {
+  endpoint_key: string;
+  method: string;
+  request_count: number;
+  avg_time_ms: number;
+  p95_time_ms: number;
+  min_time_ms: number;
+  max_time_ms: number;
+  last_seen: string;
+  first_seen: string;
+  status_200_count: number;
+  status_400_count: number;
+  status_500_count: number;
+  status_other_count: number;
+  schema_version_count: number;
+  has_recent_regression: boolean;
+  avg_size_bytes: number;
+}
+
+export interface PerformancePoint {
+  date: string;
+  avg_ms: number;
+  p95_ms: number;
+  min_ms: number;
+  max_ms: number;
+  count: number;
+}
+
+export interface SchemaVersionInfo {
+  fingerprint: string;
+  seen_at: string;
+  field_count: number;
+  fields: string[];
+}
+
+export interface RecentRequest {
+  id: string;
+  created_at: string;
+  status: number;
+  time_ms: number;
+  size: number;
+  schema_fingerprint: string;
+}
+
+export interface EndpointDetail {
+  endpoint_key: string;
+  method: string;
+  request_count: number;
+  avg_time_ms: number;
+  p95_time_ms: number;
+  min_time_ms: number;
+  max_time_ms: number;
+  last_seen: string;
+  first_seen: string;
+  status_200_count: number;
+  status_400_count: number;
+  status_500_count: number;
+  status_other_count: number;
+  avg_size_bytes: number;
+  performance_history: PerformancePoint[];
+  schema_evolution: SchemaVersionInfo[];
+  recent_requests: RecentRequest[];
+}
+
+export interface PerformanceRegression {
+  endpoint_key: string;
+  method: string;
+  current_avg_ms: number;
+  baseline_avg_ms: number;
+  increase_pct: number;
+}
+
 export interface GlobalVariables {
   id: string;
   variables: KeyValue[];
@@ -341,4 +433,34 @@ export interface WsMessageEvent {
   direction: "sent" | "received" | "system";
   data: string;
   is_binary: boolean;
+}
+
+// ─── API Intelligence commands ───────────────────────────────────────────────
+
+export async function analyzeApiBehavior(): Promise<ApiIntelligenceOverview> {
+  return invoke("analyze_api_behavior_cmd");
+}
+
+export async function getApiIntelligenceOverview(): Promise<ApiIntelligenceOverview> {
+  return invoke("get_api_intelligence_overview");
+}
+
+export async function getAllEndpointInsights(): Promise<EndpointInsight[]> {
+  return invoke("get_all_endpoint_insights");
+}
+
+export async function getEndpointDetail(endpointKey: string): Promise<EndpointDetail> {
+  return invoke("get_endpoint_detail_cmd", { endpointKey });
+}
+
+export async function getPerformanceTimeline(endpointKey: string): Promise<PerformancePoint[]> {
+  return invoke("get_performance_timeline_cmd", { endpointKey });
+}
+
+export async function getSchemaEvolution(endpointKey: string): Promise<SchemaVersionInfo[]> {
+  return invoke("get_schema_evolution_cmd", { endpointKey });
+}
+
+export async function getPerformanceRegressions(): Promise<PerformanceRegression[]> {
+  return invoke("get_performance_regressions");
 }
