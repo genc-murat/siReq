@@ -1,6 +1,23 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyConfig {
+    pub enabled: bool,
+    pub url: String,
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestSettings {
+    pub timeout: u64,
+    pub follow_redirects: bool,
+    pub ssl_verify: bool,
+    pub proxy: Option<ProxyConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum HttpMethod {
     GET,
     POST,
@@ -12,7 +29,7 @@ pub enum HttpMethod {
     TRACE,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum BodyType {
     none,
@@ -40,6 +57,18 @@ pub struct KeyValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FormField {
+    pub key: String,
+    pub value: String,
+    pub file_path: Option<String>,
+    pub file_name: Option<String>,
+    pub file_data: Option<String>,
+    pub content_type: Option<String>,
+    pub field_type: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthConfig {
     #[serde(rename = "type")]
     pub auth_type: AuthType,
@@ -54,13 +83,16 @@ pub struct AuthConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpRequest {
     pub id: String,
+    pub name: String,
     pub method: HttpMethod,
     pub url: String,
     pub headers: Vec<KeyValue>,
     pub query_params: Vec<KeyValue>,
     pub body_type: BodyType,
     pub body: String,
+    pub form_fields: Vec<FormField>,
     pub auth: AuthConfig,
+    pub settings: RequestSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +102,7 @@ pub struct HttpResponse {
     pub headers: Vec<(String, String)>,
     pub cookies: Vec<(String, String)>,
     pub body: String,
+    pub body_base64: Option<String>,
     pub size: u64,
     pub time_ms: u64,
 }
@@ -89,6 +122,19 @@ pub struct Collection {
     pub requests: Vec<HttpRequest>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredCookie {
+    pub id: String,
+    pub domain: String,
+    pub path: String,
+    pub name: String,
+    pub value: String,
+    pub secure: bool,
+    pub http_only: bool,
+    pub expires: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

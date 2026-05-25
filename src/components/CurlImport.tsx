@@ -18,8 +18,8 @@ export function CurlImport() {
       setOpen(false);
       setCurl("");
       addToast("cURL imported", "success");
-    } catch (e: any) {
-      setError(e?.toString() ?? "Failed to parse cURL command");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : e?.toString() ?? "Failed to parse cURL command");
     }
   };
 

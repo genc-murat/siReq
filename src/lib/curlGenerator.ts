@@ -1,4 +1,4 @@
-import type { HttpRequest, KeyValue } from "@/lib/invoke";
+import type { HttpRequest, KeyValue, FormField } from "@/lib/invoke";
 
 export function generateCurl(request: HttpRequest): string {
   const parts: string[] = ["curl"];
@@ -37,7 +37,17 @@ export function generateCurl(request: HttpRequest): string {
       break;
   }
 
-  if (request.body_type !== "none" && request.body) {
+  if (request.body_type === "form" && request.form_fields) {
+    const enabled = request.form_fields.filter((f: FormField) => f.enabled && f.key);
+    for (const field of enabled) {
+      if (field.field_type === "file") {
+        // Files are uploaded via Tauri file API, cannot fully represent in cURL
+        parts.push(`-F '${field.key}=@${field.value}'`);
+      } else {
+        parts.push(`-F '${field.key}=${field.value}'`);
+      }
+    }
+  } else if (request.body_type !== "none" && request.body) {
     parts.push(`-d '${request.body.replace(/'/g, "'\\''")}'`);
   }
 

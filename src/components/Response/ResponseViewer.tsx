@@ -20,8 +20,23 @@ export function ResponseViewer() {
 
   if (!response && !loading) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        Send a request to see the response
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-3 text-center px-8">
+          <svg className="h-10 w-10 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          <div className="text-sm text-muted-foreground">
+            <p>Enter a URL and send a request to see the response</p>
+          </div>
+          <div className="flex gap-4 text-[10px] text-muted-foreground/50">
+            <span className="flex items-center gap-1">
+              <kbd className="px-1 py-0.5 bg-secondary rounded text-[9px]">Ctrl+Enter</kbd> Send
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1 py-0.5 bg-secondary rounded text-[9px]">Ctrl+K</kbd> Commands
+            </span>
+          </div>
+        </div>
       </div>
     );
   }

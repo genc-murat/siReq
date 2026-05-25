@@ -215,14 +215,29 @@ pub fn parse_curl(input: &str) -> Result<HttpRequest, String> {
         BodyType::none
     };
 
+    let request_url = final_url;
+
+    let method_str = match &final_method {
+        HttpMethod::GET => "GET",
+        HttpMethod::POST => "POST",
+        HttpMethod::PUT => "PUT",
+        HttpMethod::PATCH => "PATCH",
+        HttpMethod::DELETE => "DELETE",
+        HttpMethod::HEAD => "HEAD",
+        HttpMethod::OPTIONS => "OPTIONS",
+        HttpMethod::TRACE => "TRACE",
+    };
+
     Ok(HttpRequest {
         id: uuid::Uuid::new_v4().to_string(),
+        name: format!("{} {}", method_str, request_url),
         method: final_method,
-        url: final_url,
+        url: request_url,
         headers,
         query_params: vec![],
         body_type,
         body: body.unwrap_or_default(),
+        form_fields: vec![],
         auth: AuthConfig {
             auth_type: AuthType::none,
             username: String::new(),
@@ -231,6 +246,12 @@ pub fn parse_curl(input: &str) -> Result<HttpRequest, String> {
             api_key: String::new(),
             api_key_name: String::new(),
             api_key_in: "header".to_string(),
+        },
+        settings: RequestSettings {
+            timeout: 30,
+            follow_redirects: true,
+            ssl_verify: true,
+            proxy: None,
         },
     })
 }

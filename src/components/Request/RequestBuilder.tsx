@@ -7,6 +7,7 @@ import { AuthTab } from "./AuthTab";
 import { BodyTab } from "./BodyTab";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useTabStore } from "@/stores/tabStore";
 import { useToastStore } from "@/stores/toastStore";
 import { generateCurl } from "@/lib/curlGenerator";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -22,7 +23,6 @@ const tabs = [
 export function RequestBuilder() {
   const loading = useRequestStore((s) => s.loading);
   const activeTab = useUIStore((s) => s.activeTab);
-  const timeout = useUIStore((s) => s.timeout);
   const environmentId = useUIStore((s) => s.activeEnvironmentId);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
   const addToast = useToastStore((s) => s.addToast);
@@ -30,13 +30,15 @@ export function RequestBuilder() {
 
   useKeyboardShortcuts(urlRef);
 
+  const request = useRequestStore((s) => s.request);
+
   return (
     <div className="h-full flex flex-col p-3 gap-2 overflow-hidden">
-      <div className="flex gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <MethodSelector />
         <UrlBar inputRef={urlRef} />
         <button
-          onClick={() => useRequestStore.getState().send(timeout, environmentId)}
+          onClick={() => useRequestStore.getState().send(environmentId)}
           disabled={loading}
           className={cn(
             "px-5 py-1.5 rounded-md text-sm font-medium transition-colors shrink-0",
@@ -55,18 +57,29 @@ export function RequestBuilder() {
             Cancel
           </button>
         )}
-        <div className="flex items-center gap-1 shrink-0 border rounded-md px-2">
-          <input
-            type="number"
-            min={1}
-            max={300}
-            value={timeout}
-            onChange={(e) => useUIStore.getState().setTimeout(Number(e.target.value) || 30)}
-            className="w-10 bg-transparent text-xs text-center focus:outline-none"
-          />
-          <span className="text-xs text-muted-foreground">s</span>
-        </div>
+        <button
+          onClick={() => useUIStore.getState().setSettingsOpen(true)}
+          className="shrink-0 px-2 py-1.5 text-muted-foreground hover:text-foreground border rounded-md text-xs transition-colors flex items-center gap-1"
+          title="Request settings"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
       </div>
+      {request.name !== undefined && (
+        <input
+          type="text"
+          value={request.name || ""}
+          onChange={(e) => {
+            useRequestStore.getState().setName(e.target.value);
+            useTabStore.getState().syncCurrentToTab();
+          }}
+          placeholder="Request name..."
+          className="shrink-0 bg-transparent text-xs text-muted-foreground border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
+        />
+      )}
       <div className="flex gap-1 border-b shrink-0 items-center">
         {tabs.map((tab) => (
           <button

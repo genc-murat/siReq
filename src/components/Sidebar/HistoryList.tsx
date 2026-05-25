@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { getHistory, deleteHistory, clearHistory } from "@/lib/invoke";
 import type { HistoryEntry } from "@/lib/invoke";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useToastStore } from "@/stores/toastStore";
+import { cn } from "@/lib/utils";
 
 const methodColors: Record<string, string> = {
   GET: "text-green-500",
@@ -16,8 +17,34 @@ const methodColors: Record<string, string> = {
   TRACE: "text-gray-500",
 };
 
+function getDateGroup(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date >= today) return "Today";
+  if (date >= yesterday) return "Yesterday";
+
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  if (date >= weekAgo) return "This Week";
+
+  const monthAgo = new Date(today);
+  monthAgo.setDate(monthAgo.getDate() - 30);
+  if (date >= monthAgo) return "This Month";
+
+  return "Older";
+}
+
+const methodOptions = ["ALL", "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE"];
+
 export function HistoryList() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [methodFilter, setMethodFilter] = useState("ALL");
+  const [showFilters, setShowFilters] = useState(false);
   const activeHistoryId = useUIStore((s) => s.activeHistoryId);
   const setActiveHistoryId = useUIStore((s) => s.setActiveHistoryId);
   const addToast = useToastStore((s) => s.addToast);
@@ -25,6 +52,45 @@ export function HistoryList() {
   useEffect(() => {
     getHistory().then(setEntries);
   }, []);
+
+  // Filter and group entries
+  const { grouped, totalCount } = useMemo(() => {
+    let filtered = entries;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (e) =>
+          e.request.url.toLowerCase().includes(q) ||
+          e.request.method.toLowerCase().includes(q) ||
+          String(e.response.status).includes(q) ||
+          (e.request.name && e.request.name.toLowerCase().includes(q))
+      );
+    }
+
+    // Method filter
+    if (methodFilter !== "ALL") {
+      filtered = filtered.filter((e) => e.request.method === methodFilter);
+    }
+
+    // Group by date
+    const groups: Record<string, HistoryEntry[]> = {};
+    for (const entry of filtered) {
+      const group = getDateGroup(entry.created_at);
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(entry);
+    }
+
+    // Order groups chronologically
+    const groupOrder = ["Today", "Yesterday", "This Week", "This Month", "Older"];
+    const ordered: Record<string, HistoryEntry[]> = {};
+    for (const g of groupOrder) {
+      if (groups[g]) ordered[g] = groups[g];
+    }
+
+    return { grouped: ordered, totalCount: filtered.length };
+  }, [entries, searchQuery, methodFilter]);
 
   const loadEntry = (entry: HistoryEntry) => {
     useRequestStore.getState().setRequest(entry.request);
@@ -47,46 +113,143 @@ export function HistoryList() {
     addToast("History cleared", "info");
   };
 
+  const hasEntries = entries.length > 0;
+
   return (
     <div className="flex flex-col">
-      {entries.length > 0 && (
+      {/* Search */}
+      {hasEntries && (
+        <div className="px-2 pt-1.5 pb-1 flex flex-col gap-1">
+          <div className="flex items-center gap-1">
+            <div className="flex items-center flex-1 bg-background rounded border border-input px-2 py-1">
+              <svg className="h-3 w-3 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search history..."
+                className="flex-1 bg-transparent text-xs px-1.5 py-0.5 focus:outline-none text-foreground placeholder:text-muted-foreground"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="text-muted-foreground hover:text-foreground">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "text-xs px-1.5 py-1 rounded hover:bg-accent transition-colors",
+                showFilters || methodFilter !== "ALL" ? "text-primary" : "text-muted-foreground"
+              )}
+              title="Filter by method"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </button>
+          </div>
+          {showFilters && (
+            <div className="flex gap-1 flex-wrap">
+              {methodOptions.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMethodFilter(methodFilter === m ? "ALL" : m)}
+                  className={cn(
+                    "px-1.5 py-0.5 text-xs rounded transition-colors",
+                    methodFilter === m
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Clear all button */}
+      {hasEntries && (
         <div className="flex justify-end px-2 py-1">
           <button onClick={clear} className="text-xs text-destructive hover:underline">
             Clear all
           </button>
         </div>
       )}
-      {entries.length === 0 && (
-        <div className="px-3 py-4 text-xs text-muted-foreground text-center">No history yet</div>
+
+      {/* Empty state */}
+      {!hasEntries && (
+        <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
+          <svg className="h-8 w-8 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs text-muted-foreground">No requests sent yet</span>
+          <span className="text-[10px] text-muted-foreground/60">History will appear here after you send requests</span>
+        </div>
       )}
-      {entries.map((entry) => (
-        <div
-          key={entry.id}
-          onClick={() => loadEntry(entry)}
-          className={`px-3 py-1.5 cursor-pointer hover:bg-sidebar-accent text-xs border-b border-sidebar-border ${
-            activeHistoryId === entry.id ? "bg-sidebar-accent" : ""
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <span className={`font-bold ${methodColors[entry.request.method] ?? ""}`}>
-              {entry.request.method}
-            </span>
-            <span className="truncate flex-1">{entry.request.url || "No URL"}</span>
-            <span className="text-muted-foreground shrink-0">
-              {entry.response.status}
-            </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); remove(entry.id); }}
-              className="text-muted-foreground hover:text-destructive shrink-0"
+
+      {searchQuery && totalCount === 0 && hasEntries && (
+        <div className="flex flex-col items-center gap-1 px-6 py-6 text-center">
+          <svg className="h-6 w-6 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <span className="text-xs text-muted-foreground">No matching requests</span>
+        </div>
+      )}
+
+      {/* Grouped entries */}
+      {Object.entries(grouped).map(([groupName, groupEntries]) => (
+        <div key={groupName}>
+          <div className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider bg-sidebar/50 sticky top-0">
+            {groupName}
+          </div>
+          {groupEntries.map((entry) => (                <div
+              key={entry.id}
+              onClick={() => loadEntry(entry)}
+              className={cn(
+                "group px-3 py-1.5 cursor-pointer hover:bg-sidebar-accent text-xs border-b border-sidebar-border transition-colors",
+                activeHistoryId === entry.id ? "bg-sidebar-accent" : ""
+              )}
             >
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="text-muted-foreground mt-0.5">
-            {new Date(entry.created_at).toLocaleString()}
-          </div>
+              <div className="flex items-center gap-2">
+                <span className={cn("font-bold shrink-0", methodColors[entry.request.method] ?? "")}>
+                  {entry.request.method}
+                </span>
+                <span className="truncate flex-1">{entry.request.url || "No URL"}</span>
+                <span className={cn(
+                  "text-muted-foreground shrink-0 font-medium",
+                  entry.response.status >= 200 && entry.response.status < 300 ? "text-green-500" :
+                  entry.response.status >= 400 && entry.response.status < 500 ? "text-orange-500" :
+                  entry.response.status >= 500 ? "text-red-500" : ""
+                )}>
+                  {entry.response.status}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); remove(entry.id); }}
+                  className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground mt-0.5">
+                <span>{new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {entry.request.name && (
+                  <>
+                    <span>·</span>
+                    <span className="truncate">{entry.request.name}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       ))}
     </div>

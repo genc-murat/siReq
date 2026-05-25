@@ -1,11 +1,22 @@
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { RequestBuilder } from "@/components/Request/RequestBuilder";
 import { ResponseViewer } from "@/components/Response/ResponseViewer";
+import { WebSocketPanel } from "@/components/WebSocketPanel";
 import { useRequestStore } from "@/stores/requestStore";
+import { useUIStore } from "@/stores/uiStore";
 
 export function MainPanel() {
   const loading = useRequestStore((s) => s.loading);
   const error = useRequestStore((s) => s.error);
+  const toolMode = useUIStore((s) => s.toolMode);
+
+  if (toolMode === "websocket") {
+    return (
+      <div className="h-full flex flex-col">
+        <WebSocketPanel />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">

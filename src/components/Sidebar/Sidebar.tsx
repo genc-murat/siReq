@@ -5,6 +5,7 @@ import { CollectionList } from "./CollectionList";
 import { EnvironmentSelector } from "./EnvironmentSelector";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CurlImport } from "@/components/CurlImport";
+import { OpenApiImport } from "@/components/OpenApiImport";
 
 const sidebarTabs = [
   { id: "history", label: "History" },
@@ -40,7 +41,11 @@ export function Sidebar() {
         {activeSidebarTab === "collections" && <CollectionList />}
       </div>
       <div className="p-2 border-t border-sidebar-border flex items-center justify-between shrink-0">
-        <CurlImport />
+        <div className="flex items-center gap-1">
+          <CurlImport />
+          <span className="text-muted-foreground/40">|</span>
+          <OpenApiImport onImported={() => setActiveSidebarTab("collections")} />
+        </div>
         <ThemeToggle />
       </div>
     </div>

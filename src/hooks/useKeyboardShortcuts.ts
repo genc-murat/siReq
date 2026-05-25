@@ -6,7 +6,6 @@ import { useToastStore } from "@/stores/toastStore";
 export function useKeyboardShortcuts(urlInputRef?: React.RefObject<HTMLInputElement | null>) {
   const send = useRequestStore((s) => s.send);
   const reset = useRequestStore((s) => s.reset);
-  const timeout = useUIStore((s) => s.timeout);
   const environmentId = useUIStore((s) => s.activeEnvironmentId);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const addToast = useToastStore((s) => s.addToast);
@@ -23,7 +22,7 @@ export function useKeyboardShortcuts(urlInputRef?: React.RefObject<HTMLInputElem
       switch (e.key) {
         case "Enter":
           e.preventDefault();
-          send(timeout, environmentId);
+          send(environmentId);
           break;
         case "l":
           e.preventDefault();
@@ -44,5 +43,5 @@ export function useKeyboardShortcuts(urlInputRef?: React.RefObject<HTMLInputElem
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [send, reset, timeout, environmentId, toggleSidebar, urlInputRef, addToast]);
+  }, [send, reset, environmentId, toggleSidebar, urlInputRef, addToast]);
 }

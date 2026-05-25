@@ -1,6 +1,7 @@
 import { useRequestStore } from "@/stores/requestStore";
 import type { BodyType } from "@/lib/invoke";
 import { CodeMirrorEditor } from "@/components/CodeMirrorEditor";
+import { FormFieldEditor } from "@/components/Request/FormFieldEditor";
 import { cn } from "@/lib/utils";
 
 const bodyTypes: { value: BodyType; label: string }[] = [
@@ -15,8 +16,10 @@ const bodyTypes: { value: BodyType; label: string }[] = [
 export function BodyTab() {
   const bodyType = useRequestStore((s) => s.request.body_type);
   const body = useRequestStore((s) => s.request.body);
+  const formFields = useRequestStore((s) => s.request.form_fields);
   const setBodyType = useRequestStore((s) => s.setBodyType);
   const setBody = useRequestStore((s) => s.setBody);
+  const setFormFields = useRequestStore((s) => s.setFormFields);
 
   return (
     <div className="flex flex-col h-full gap-2">
@@ -36,7 +39,11 @@ export function BodyTab() {
           </button>
         ))}
       </div>
-      {bodyType !== "none" && (
+      {bodyType === "form" ? (
+        <div className="flex-1 min-h-0">
+          <FormFieldEditor fields={formFields} onChange={setFormFields} />
+        </div>
+      ) : bodyType !== "none" ? (
         <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
           <CodeMirrorEditor
             value={body}
@@ -44,7 +51,7 @@ export function BodyTab() {
             language={bodyType === "json" ? "json" : bodyType === "xml" ? "xml" : "text"}
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

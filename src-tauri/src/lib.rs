@@ -2,12 +2,15 @@ mod commands;
 mod curl_parser;
 mod http;
 mod models;
+mod openapi_parser;
 mod storage;
+mod websocket;
 
 use reqwest::Client;
 use storage::Db;
 use http::RequestHandles;
-use std::sync::Mutex;
+use websocket::WsState;
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use tauri::Manager;
 
@@ -25,6 +28,7 @@ pub fn run() {
             app.manage(Db(Mutex::new(conn)));
             app.manage(Client::new());
             app.manage(RequestHandles(Mutex::new(HashMap::new())));
+            app.manage(WsState(Arc::new(Mutex::new(HashMap::new()))));
 
             Ok(())
         })
@@ -43,6 +47,13 @@ pub fn run() {
             commands::update_environment,
             commands::delete_environment,
             commands::import_curl,
+            commands::import_openapi,
+            commands::get_cookies,
+            commands::delete_cookie,
+            commands::clear_cookies,
+            websocket::ws_connect,
+            websocket::ws_send,
+            websocket::ws_disconnect,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

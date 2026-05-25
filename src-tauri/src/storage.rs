@@ -26,6 +26,18 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             variables TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS cookies (
+            id TEXT PRIMARY KEY,
+            domain TEXT NOT NULL,
+            path TEXT NOT NULL,
+            name TEXT NOT NULL,
+            value TEXT NOT NULL,
+            secure INTEGER NOT NULL DEFAULT 0,
+            http_only INTEGER NOT NULL DEFAULT 0,
+            expires TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(domain, path, name)
         );"
     )?;
     Ok(())
@@ -55,10 +67,10 @@ pub fn get_history_list(db: &State<Db>, limit: i64, offset: i64) -> Result<Vec<H
         Ok((id, request_json, response_json, created_at))
     }).map_err(|e| e.to_string())?
     .filter_map(|r| r.ok())
-    .map(|(id, req_json, resp_json, created_at)| {
-        let request: HttpRequest = serde_json::from_str(&req_json).unwrap();
-        let response: HttpResponse = serde_json::from_str(&resp_json).unwrap();
-        HistoryEntry { id, request, response, created_at }
+    .filter_map(|(id, req_json, resp_json, created_at)| {
+        let request: HttpRequest = serde_json::from_str(&req_json).ok()?;
+        let response: HttpResponse = serde_json::from_str(&resp_json).ok()?;
+        Some(HistoryEntry { id, request, response, created_at })
     })
     .collect();
     Ok(entries)
@@ -98,6 +110,16 @@ pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
     Ok(collections)
 }
 
+pub fn insert_collection(db: &State<Db>, collection: &Collection) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let requests_json = serde_json::to_string(&collection.requests).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO collections (id, name, requests, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![collection.id, collection.name, requests_json, collection.created_at, collection.updated_at],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn create_new_collection(db: &State<Db>, name: &str) -> Result<Collection, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let id = uuid::Uuid::new_v4().to_string();
@@ -131,6 +153,102 @@ pub fn delete_existing_collection(db: &State<Db>, id: &str) -> Result<(), String
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM collections WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+pub fn save_cookie_to_db(conn: &Connection, cookie: &StoredCookie) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR REPLACE INTO cookies (id, domain, path, name, value, secure, http_only, expires, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            cookie.id,
+            cookie.domain,
+            cookie.path,
+            cookie.name,
+            cookie.value,
+            cookie.secure as i32,
+            cookie.http_only as i32,
+            cookie.expires,
+            cookie.created_at,
+        ],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+
+
+pub fn delete_cookie_entry(db: &State<Db>, id: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM cookies WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn clear_all_cookies(db: &State<Db>) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM cookies", []).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_all_cookies_list(db: &State<Db>) -> Result<Vec<StoredCookie>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, domain, path, name, value, secure, http_only, expires, created_at
+         FROM cookies ORDER BY domain ASC, name ASC"
+    ).map_err(|e| e.to_string())?;
+    let cookies = stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let domain: String = row.get(1)?;
+        let path: String = row.get(2)?;
+        let name: String = row.get(3)?;
+        let value: String = row.get(4)?;
+        let secure: i32 = row.get(5)?;
+        let http_only: i32 = row.get(6)?;
+        let expires: Option<String> = row.get(7)?;
+        let created_at: String = row.get(8)?;
+        Ok((id, domain, path, name, value, secure, http_only, expires, created_at))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .map(|(id, domain, path, name, value, secure, http_only, expires, created_at)| {
+        StoredCookie {
+            id, domain, path, name, value,
+            secure: secure != 0,
+            http_only: http_only != 0,
+            expires, created_at,
+        }
+    })
+    .collect();
+    Ok(cookies)
+}
+
+pub fn load_cookies_for_domain_conn(conn: &Connection, domain: &str) -> Result<Vec<StoredCookie>, String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, domain, path, name, value, secure, http_only, expires, created_at
+         FROM cookies
+         WHERE domain = ?1 OR instr(?1, domain) > 0
+         ORDER BY created_at ASC"
+    ).map_err(|e| e.to_string())?;
+    let cookies = stmt.query_map(params![domain], |row| {
+        let id: String = row.get(0)?;
+        let domain: String = row.get(1)?;
+        let path: String = row.get(2)?;
+        let name: String = row.get(3)?;
+        let value: String = row.get(4)?;
+        let secure: i32 = row.get(5)?;
+        let http_only: i32 = row.get(6)?;
+        let expires: Option<String> = row.get(7)?;
+        let created_at: String = row.get(8)?;
+        Ok((id, domain, path, name, value, secure, http_only, expires, created_at))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .map(|(id, domain, path, name, value, secure, http_only, expires, created_at)| {
+        StoredCookie {
+            id, domain, path, name, value,
+            secure: secure != 0,
+            http_only: http_only != 0,
+            expires, created_at,
+        }
+    })
+    .collect();
+    Ok(cookies)
 }
 
 pub fn get_all_environments(db: &State<Db>) -> Result<Vec<Environment>, String> {

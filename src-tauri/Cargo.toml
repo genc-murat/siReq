@@ -28,3 +28,7 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2"
 nom = "7"
+base64 = "0.22"
+serde_yaml = "0.9"
+tokio-tungstenite = { version = "0.24", features = ["connect"] }
+futures-util = "0.3"

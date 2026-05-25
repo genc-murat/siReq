@@ -8,7 +8,7 @@ use reqwest::Client;
 #[tauri::command]
 pub async fn send_request(
     request: HttpRequest,
-    timeout: u64,
+    _timeout: u64,
     environment_id: Option<String>,
     client: State<'_, Client>,
     handles: State<'_, RequestHandles>,
@@ -29,15 +29,23 @@ pub async fn send_request(
     };
 
     let resolved = apply_env(&request, &env_vars);
+    let owned_client = (*client).clone();
+
+    // Load stored cookies for the request domain
+    let stored_cookies: Vec<StoredCookie> = if let Some(domain) = extract_domain(&resolved.url) {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        let cookies = load_cookies_for_domain_conn(&conn, &domain)?;
+        drop(conn);
+        cookies
+    } else {
+        vec![]
+    };
 
     let request_id = request.id.clone();
-    let (tx, rx) = tokio::sync::oneshot::channel::<Result<HttpResponse, String>>();
-
-    let owned_client = (*client).clone();
-    let timeout_val = if timeout == 0 { 30 } else { timeout };
+    let (tx, rx) = tokio::sync::oneshot::channel::<Result<(HttpResponse, Vec<StoredCookie>), String>>();
 
     let handle = tokio::spawn(async move {
-        let result = execute_request(&owned_client, &resolved, timeout_val).await;
+        let result = execute_request(&owned_client, &resolved, &stored_cookies).await;
         let _ = tx.send(result);
     });
 
@@ -46,7 +54,15 @@ pub async fn send_request(
         map.insert(request_id, handle);
     }
 
-    let response = rx.await.map_err(|_| "Request cancelled".to_string())??;
+    let (response, new_cookies) = rx.await.map_err(|_| "Request cancelled".to_string())??;
+
+    // Save new cookies from Set-Cookie headers
+    if !new_cookies.is_empty() {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        for cookie in &new_cookies {
+            let _ = save_cookie_to_db(&conn, cookie);
+        }
+    }
 
     let entry = HistoryEntry {
         id: uuid::Uuid::new_v4().to_string(),
@@ -65,6 +81,7 @@ pub async fn cancel_request(
 ) -> Result<(), String> {
     crate::http::cancel_request(&handles, &request_id)
 }
+
 #[tauri::command]
 pub fn get_history(
     limit: i64,
@@ -148,4 +165,36 @@ pub fn delete_environment(
 #[tauri::command]
 pub fn import_curl(curl_command: String) -> Result<HttpRequest, String> {
     crate::curl_parser::parse_curl(&curl_command)
+}
+
+#[tauri::command]
+pub fn import_openapi(
+    spec_content: String,
+    collection_name: String,
+    db: State<'_, Db>,
+) -> Result<Collection, String> {
+    let collection = crate::openapi_parser::parse_openapi(&spec_content, &collection_name)?;
+    // Save the collection to the database
+    insert_collection(&db, &collection)?;
+    Ok(collection)
+}
+
+// --- Cookie management commands ---
+
+#[tauri::command]
+pub fn get_cookies(db: State<'_, Db>) -> Result<Vec<StoredCookie>, String> {
+    get_all_cookies_list(&db)
+}
+
+#[tauri::command]
+pub fn delete_cookie(
+    id: String,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    delete_cookie_entry(&db, &id)
+}
+
+#[tauri::command]
+pub fn clear_cookies(db: State<'_, Db>) -> Result<(), String> {
+    clear_all_cookies(&db)
 }
