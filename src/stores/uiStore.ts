@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { HttpResponse } from "@/lib/invoke";
 
 interface UIState {
-  theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal";
+  theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord";
   toolMode: "http" | "websocket";
   sidebarOpen: boolean;
   settingsOpen: boolean;
@@ -15,7 +15,7 @@ interface UIState {
   showRunner: boolean;
   runnerCollectionId: string | null;
   compareResponse: HttpResponse | null;
-  setTheme: (theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal") => void;
+  setTheme: (theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord") => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSettingsOpen: (open: boolean) => void;

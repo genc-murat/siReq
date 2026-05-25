@@ -195,6 +195,114 @@
   --color-sidebar-accent-foreground: hsl(120 70% 55%);
 }
 
+.true-dark {
+  --color-background: hsl(0 0% 0%);
+  --color-foreground: hsl(0 0% 95%);
+  --color-card: hsl(0 0% 2%);
+  --color-card-foreground: hsl(0 0% 95%);
+  --color-popover: hsl(0 0% 4%);
+  --color-popover-foreground: hsl(0 0% 95%);
+  --color-primary: hsl(210 100% 60%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(0 0% 9%);
+  --color-secondary-foreground: hsl(0 0% 95%);
+  --color-muted: hsl(0 0% 6%);
+  --color-muted-foreground: hsl(0 0% 50%);
+  --color-accent: hsl(0 0% 9%);
+  --color-accent-foreground: hsl(0 0% 95%);
+  --color-destructive: hsl(0 80% 55%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(0 0% 14%);
+  --color-input: hsl(0 0% 14%);
+  --color-ring: hsl(210 100% 60%);
+  --color-sidebar: hsl(0 0% 1%);
+  --color-sidebar-foreground: hsl(0 0% 95%);
+  --color-sidebar-border: hsl(0 0% 10%);
+  --color-sidebar-accent: hsl(0 0% 6%);
+  --color-sidebar-accent-foreground: hsl(210 100% 62%);
+}
+
+.matrix {
+  --color-background: hsl(0 0% 2%);
+  --color-foreground: hsl(120 100% 80%);
+  --color-card: hsl(120 60% 4%);
+  --color-card-foreground: hsl(120 100% 80%);
+  --color-popover: hsl(120 50% 5%);
+  --color-popover-foreground: hsl(120 100% 80%);
+  --color-primary: hsl(120 100% 50%);
+  --color-primary-foreground: hsl(0 0% 0%);
+  --color-secondary: hsl(160 60% 30%);
+  --color-secondary-foreground: hsl(0 0% 100%);
+  --color-muted: hsl(120 50% 7%);
+  --color-muted-foreground: hsl(120 80% 40%);
+  --color-accent: hsl(120 50% 10%);
+  --color-accent-foreground: hsl(120 100% 80%);
+  --color-destructive: hsl(0 80% 50%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(120 50% 14%);
+  --color-input: hsl(120 50% 14%);
+  --color-ring: hsl(120 100% 50%);
+  --color-sidebar: hsl(0 0% 1.5%);
+  --color-sidebar-foreground: hsl(120 100% 80%);
+  --color-sidebar-border: hsl(120 40% 10%);
+  --color-sidebar-accent: hsl(120 50% 6%);
+  --color-sidebar-accent-foreground: hsl(120 100% 55%);
+}
+
+.solarized {
+  --color-background: hsl(35 50% 92%);
+  --color-foreground: hsl(25 40% 20%);
+  --color-card: hsl(40 50% 96%);
+  --color-card-foreground: hsl(25 40% 20%);
+  --color-popover: hsl(40 50% 96%);
+  --color-popover-foreground: hsl(25 40% 20%);
+  --color-primary: hsl(30 75% 55%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(20 30% 50%);
+  --color-secondary-foreground: hsl(0 0% 100%);
+  --color-muted: hsl(35 40% 88%);
+  --color-muted-foreground: hsl(30 20% 50%);
+  --color-accent: hsl(35 40% 88%);
+  --color-accent-foreground: hsl(25 40% 20%);
+  --color-destructive: hsl(10 60% 50%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(30 35% 82%);
+  --color-input: hsl(30 35% 82%);
+  --color-ring: hsl(30 75% 55%);
+  --color-sidebar: hsl(35 60% 96%);
+  --color-sidebar-foreground: hsl(25 40% 20%);
+  --color-sidebar-border: hsl(30 35% 82%);
+  --color-sidebar-accent: hsl(35 40% 88%);
+  --color-sidebar-accent-foreground: hsl(30 75% 55%);
+}
+
+.nord {
+  --color-background: hsl(220 20% 96%);
+  --color-foreground: hsl(220 16% 22%);
+  --color-card: hsl(220 18% 98%);
+  --color-card-foreground: hsl(220 16% 22%);
+  --color-popover: hsl(220 18% 98%);
+  --color-popover-foreground: hsl(220 16% 22%);
+  --color-primary: hsl(193 43% 60%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(210 15% 55%);
+  --color-secondary-foreground: hsl(0 0% 100%);
+  --color-muted: hsl(220 15% 92%);
+  --color-muted-foreground: hsl(220 12% 45%);
+  --color-accent: hsl(220 15% 92%);
+  --color-accent-foreground: hsl(220 16% 22%);
+  --color-destructive: hsl(0 60% 55%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(220 15% 85%);
+  --color-input: hsl(220 15% 85%);
+  --color-ring: hsl(193 43% 60%);
+  --color-sidebar: hsl(220 22% 97%);
+  --color-sidebar-foreground: hsl(220 16% 22%);
+  --color-sidebar-border: hsl(220 15% 85%);
+  --color-sidebar-accent: hsl(220 15% 92%);
+  --color-sidebar-accent-foreground: hsl(193 43% 55%);
+}
+
 * {
   border-color: var(--color-border);
 }

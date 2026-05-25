@@ -189,7 +189,7 @@ export function SettingsDrawer() {
 }
 
 const THEMES: {
-  id: "light" | "dark" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "system";
+  id: "light" | "dark" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "system";
   name: string;
   swatches: string[];
 }[] = [
@@ -227,6 +227,26 @@ const THEMES: {
     id: "terminal",
     name: "Terminal",
     swatches: ["#030a03", "#3adb3a", "#0f260f", "#558855", "#1a3d1a"],
+  },
+  {
+    id: "true-dark",
+    name: "True Dark",
+    swatches: ["#000000", "#3399ff", "#171717", "#808080", "#242424"],
+  },
+  {
+    id: "matrix",
+    name: "Matrix",
+    swatches: ["#050505", "#00ff00", "#0a1a0a", "#66cc66", "#142214"],
+  },
+  {
+    id: "solarized",
+    name: "Solarized",
+    swatches: ["#f5edd6", "#d79921", "#f0e6d0", "#a8976a", "#e0d5b8"],
+  },
+  {
+    id: "nord",
+    name: "Nord",
+    swatches: ["#f0f4fa", "#81b9cb", "#e8eef6", "#6e7b8f", "#d5dee8"],
   },
   {
     id: "system",
