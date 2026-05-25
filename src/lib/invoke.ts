@@ -1,4 +1,14 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+
+/// Safe invoke wrapper — handles browser-only (non-Tauri) environments gracefully.
+/// In browser-only Vite dev mode, `tauriInvoke` is undefined, so we catch and
+/// return a clear error instead of crashing the app.
+async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (typeof tauriInvoke !== "function") {
+    throw new Error(`Tauri backend not available: command '${cmd}' cannot be executed. Run 'cargo tauri dev' to start the full app.`);
+  }
+  return tauriInvoke(cmd, args ?? {}) as Promise<T>;
+}
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "TRACE";
 export type BodyType = "none" | "json" | "xml" | "text" | "form" | "form_urlencoded";
@@ -275,31 +285,31 @@ export interface Environment {
 }
 
 export async function sendRequest(request: HttpRequest, timeout?: number, environmentId?: string | null): Promise<HttpResponse> {
-  return invoke("send_request", { request, timeout: timeout ?? 30, environmentId: environmentId ?? null });
+  return safeInvoke("send_request", { request, timeout: timeout ?? 30, environmentId: environmentId ?? null });
 }
 
 export async function cancelRequest(requestId: string): Promise<void> {
-  return invoke("cancel_request", { requestId });
+  return safeInvoke("cancel_request", { requestId });
 }
 
 export async function benchmarkRequest(request: HttpRequest, count: number): Promise<BenchmarkResult> {
-  return invoke("benchmark_request", { request, count });
+  return safeInvoke("benchmark_request", { request, count });
 }
 
 export async function getBenchmarkHistory(limit?: number, offset?: number): Promise<BenchmarkHistoryEntry[]> {
-  return invoke("get_benchmark_history", { limit: limit ?? 50, offset: offset ?? 0 });
+  return safeInvoke("get_benchmark_history", { limit: limit ?? 50, offset: offset ?? 0 });
 }
 
 export async function deleteBenchmarkHistory(id: string): Promise<void> {
-  return invoke("delete_benchmark_history", { id });
+  return safeInvoke("delete_benchmark_history", { id });
 }
 
 export async function clearBenchmarkHistory(): Promise<void> {
-  return invoke("clear_benchmark_history");
+  return safeInvoke("clear_benchmark_history");
 }
 
 export async function importCurl(curlCommand: string): Promise<HttpRequest> {
-  return invoke("import_curl", { curlCommand });
+  return safeInvoke("import_curl", { curlCommand });
 }
 
 export async function runCollection(
@@ -308,7 +318,7 @@ export async function runCollection(
   delayMs?: number,
   stopOnFailure?: boolean
 ): Promise<CollectionRunResult> {
-  return invoke("run_collection", {
+  return safeInvoke("run_collection", {
     collectionId,
     environmentId: environmentId ?? null,
     delayMs: delayMs ?? 0,
@@ -317,115 +327,115 @@ export async function runCollection(
 }
 
 export async function getRunHistory(limit?: number, offset?: number): Promise<CollectionRunResult[]> {
-  return invoke("get_run_history", { limit: limit ?? 50, offset: offset ?? 0 });
+  return safeInvoke("get_run_history", { limit: limit ?? 50, offset: offset ?? 0 });
 }
 
 export async function deleteRunHistory(id: string): Promise<void> {
-  return invoke("delete_run_history", { id });
+  return safeInvoke("delete_run_history", { id });
 }
 
 export async function clearRunHistory(): Promise<void> {
-  return invoke("clear_run_history");
+  return safeInvoke("clear_run_history");
 }
 
 export async function importOpenApi(specContent: string, collectionName: string): Promise<Collection> {
-  return invoke("import_openapi", { specContent, collectionName });
+  return safeInvoke("import_openapi", { specContent, collectionName });
 }
 
 export async function importPostmanCollection(specContent: string, collectionName?: string): Promise<Collection> {
-  return invoke("import_postman_collection", { specContent, collectionName: collectionName ?? null });
+  return safeInvoke("import_postman_collection", { specContent, collectionName: collectionName ?? null });
 }
 
 export async function exportPostmanCollection(collectionId: string): Promise<string> {
-  return invoke("export_postman_collection", { collectionId });
+  return safeInvoke("export_postman_collection", { collectionId });
 }
 
 export async function getHistory(limit?: number, offset?: number): Promise<HistoryEntry[]> {
-  return invoke("get_history", { limit: limit ?? 50, offset: offset ?? 0 });
+  return safeInvoke("get_history", { limit: limit ?? 50, offset: offset ?? 0 });
 }
 
 export async function deleteHistory(id: string): Promise<void> {
-  return invoke("delete_history", { id });
+  return safeInvoke("delete_history", { id });
 }
 
 export async function clearHistory(): Promise<void> {
-  return invoke("clear_history");
+  return safeInvoke("clear_history");
 }
 
 export async function getCollections(): Promise<Collection[]> {
-  return invoke("get_collections");
+  return safeInvoke("get_collections");
 }
 
 export async function createCollection(name: string): Promise<Collection> {
-  return invoke("create_collection", { name });
+  return safeInvoke("create_collection", { name });
 }
 
 export async function updateCollection(collection: Collection): Promise<void> {
-  return invoke("update_collection", { collection });
+  return safeInvoke("update_collection", { collection });
 }
 
 export async function deleteCollection(id: string): Promise<void> {
-  return invoke("delete_collection", { id });
+  return safeInvoke("delete_collection", { id });
 }
 
 export async function getEnvironments(): Promise<Environment[]> {
-  return invoke("get_environments");
+  return safeInvoke("get_environments");
 }
 
 export async function createEnvironment(name: string): Promise<Environment> {
-  return invoke("create_environment", { name });
+  return safeInvoke("create_environment", { name });
 }
 
 export async function updateEnvironment(environment: Environment): Promise<void> {
-  return invoke("update_environment", { environment });
+  return safeInvoke("update_environment", { environment });
 }
 
 export async function deleteEnvironment(id: string): Promise<void> {
-  return invoke("delete_environment", { id });
+  return safeInvoke("delete_environment", { id });
 }
 
 export async function getCookies(): Promise<StoredCookie[]> {
-  return invoke("get_cookies");
+  return safeInvoke("get_cookies");
 }
 
 export async function deleteCookie(id: string): Promise<void> {
-  return invoke("delete_cookie", { id });
+  return safeInvoke("delete_cookie", { id });
 }
 
 export async function clearCookies(): Promise<void> {
-  return invoke("clear_cookies");
+  return safeInvoke("clear_cookies");
 }
 
 // --- Global variables & secrets ---
 
 export async function getGlobalVariables(): Promise<GlobalVariables> {
-  return invoke("get_global_variables_cmd");
+  return safeInvoke("get_global_variables_cmd");
 }
 
 export async function saveGlobalVariables(global: GlobalVariables): Promise<void> {
-  return invoke("save_global_variables_cmd", { global });
+  return safeInvoke("save_global_variables_cmd", { global });
 }
 
 export async function encryptSecretValue(plaintext: string): Promise<string> {
-  return invoke("encrypt_secret_value", { plaintext });
+  return safeInvoke("encrypt_secret_value", { plaintext });
 }
 
 export async function decryptSecretValue(ciphertext: string): Promise<string> {
-  return invoke("decrypt_secret_value", { ciphertext });
+  return safeInvoke("decrypt_secret_value", { ciphertext });
 }
 
 // --- WebSocket commands ---
 
 export async function wsConnect(url: string): Promise<string> {
-  return invoke("ws_connect", { url });
+  return safeInvoke("ws_connect", { url });
 }
 
 export async function wsSend(connectionId: string, message: string): Promise<void> {
-  return invoke("ws_send", { connectionId, message });
+  return safeInvoke("ws_send", { connectionId, message });
 }
 
 export async function wsDisconnect(connectionId: string): Promise<void> {
-  return invoke("ws_disconnect", { connectionId });
+  return safeInvoke("ws_disconnect", { connectionId });
 }
 
 export interface WsMessageEvent {
@@ -438,29 +448,29 @@ export interface WsMessageEvent {
 // ─── API Intelligence commands ───────────────────────────────────────────────
 
 export async function analyzeApiBehavior(): Promise<ApiIntelligenceOverview> {
-  return invoke("analyze_api_behavior_cmd");
+  return safeInvoke("analyze_api_behavior_cmd");
 }
 
 export async function getApiIntelligenceOverview(): Promise<ApiIntelligenceOverview> {
-  return invoke("get_api_intelligence_overview");
+  return safeInvoke("get_api_intelligence_overview");
 }
 
 export async function getAllEndpointInsights(): Promise<EndpointInsight[]> {
-  return invoke("get_all_endpoint_insights");
+  return safeInvoke("get_all_endpoint_insights");
 }
 
 export async function getEndpointDetail(endpointKey: string): Promise<EndpointDetail> {
-  return invoke("get_endpoint_detail_cmd", { endpointKey });
+  return safeInvoke("get_endpoint_detail_cmd", { endpointKey });
 }
 
 export async function getPerformanceTimeline(endpointKey: string): Promise<PerformancePoint[]> {
-  return invoke("get_performance_timeline_cmd", { endpointKey });
+  return safeInvoke("get_performance_timeline_cmd", { endpointKey });
 }
 
 export async function getSchemaEvolution(endpointKey: string): Promise<SchemaVersionInfo[]> {
-  return invoke("get_schema_evolution_cmd", { endpointKey });
+  return safeInvoke("get_schema_evolution_cmd", { endpointKey });
 }
 
 export async function getPerformanceRegressions(): Promise<PerformanceRegression[]> {
-  return invoke("get_performance_regressions");
+  return safeInvoke("get_performance_regressions");
 }
