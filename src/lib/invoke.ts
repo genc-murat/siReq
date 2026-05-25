@@ -45,6 +45,16 @@ export interface AuthConfig {
   api_key_in: "header" | "query";
 }
 
+export interface ScriptLog {
+  level: string;
+  message: string;
+}
+
+export interface TestResult {
+  name: string;
+  passed: boolean;
+}
+
 export interface HttpRequest {
   id: string;
   name: string;
@@ -57,6 +67,9 @@ export interface HttpRequest {
   form_fields: FormField[];
   auth: AuthConfig;
   settings: RequestSettings;
+  pre_script: string;
+  post_script: string;
+  json_schema: string;
 }
 
 export interface HttpResponse {
@@ -68,6 +81,9 @@ export interface HttpResponse {
   body_base64?: string | null;
   size: number;
   time_ms: number;
+  script_logs?: ScriptLog[];
+  test_results?: TestResult[];
+  modified_variables?: KeyValue[];
 }
 
 export interface HistoryEntry {
@@ -97,6 +113,45 @@ export interface StoredCookie {
   created_at: string;
 }
 
+export interface BenchmarkResult {
+  iterations: number;
+  times_ms: number[];
+  min_ms: number;
+  max_ms: number;
+  avg_ms: number;
+  median_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+  success_count: number;
+  failure_count: number;
+  statuses: number[];
+  errors: string[];
+  total_bytes: number;
+}
+
+export interface BenchmarkHistoryEntry {
+  id: string;
+  request: HttpRequest;
+  result: BenchmarkResult;
+  created_at: string;
+}
+
+export interface BenchmarkResult {
+  iterations: number;
+  times_ms: number[];
+  min_ms: number;
+  max_ms: number;
+  avg_ms: number;
+  median_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+  success_count: number;
+  failure_count: number;
+  statuses: number[];
+  errors: string[];
+  total_bytes: number;
+}
+
 export interface Environment {
   id: string;
   name: string;
@@ -111,6 +166,22 @@ export async function sendRequest(request: HttpRequest, timeout?: number, enviro
 
 export async function cancelRequest(requestId: string): Promise<void> {
   return invoke("cancel_request", { requestId });
+}
+
+export async function benchmarkRequest(request: HttpRequest, count: number): Promise<BenchmarkResult> {
+  return invoke("benchmark_request", { request, count });
+}
+
+export async function getBenchmarkHistory(limit?: number, offset?: number): Promise<BenchmarkHistoryEntry[]> {
+  return invoke("get_benchmark_history", { limit: limit ?? 50, offset: offset ?? 0 });
+}
+
+export async function deleteBenchmarkHistory(id: string): Promise<void> {
+  return invoke("delete_benchmark_history", { id });
+}
+
+export async function clearBenchmarkHistory(): Promise<void> {
+  return invoke("clear_benchmark_history");
 }
 
 export async function importCurl(curlCommand: string): Promise<HttpRequest> {

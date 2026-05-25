@@ -253,5 +253,7 @@ pub fn parse_curl(input: &str) -> Result<HttpRequest, String> {
             ssl_verify: true,
             proxy: None,
         },
+        pre_script: String::new(),
+        post_script: String::new(),
     })
 }

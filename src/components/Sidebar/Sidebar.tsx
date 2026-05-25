@@ -20,16 +20,16 @@ export function Sidebar() {
       <div className="px-3 py-2 border-b border-sidebar-border shrink-0">
         <EnvironmentSelector />
       </div>
-      <div className="flex border-b border-sidebar-border shrink-0">
+      <div className="flex border-b border-sidebar-border shrink-0 px-1 pb-1 pt-1.5 gap-0.5">
         {sidebarTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveSidebarTab(tab.id)}
             className={cn(
-              "flex-1 px-2 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px",
+              "flex-1 px-2 py-1 text-xs font-medium rounded-md transition-all duration-150",
               activeSidebarTab === tab.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
             )}
           >
             {tab.label}

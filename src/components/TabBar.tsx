@@ -12,8 +12,8 @@ export function TabBar() {
   if (tabs.length === 0) return null;
 
   return (
-    <div className="flex items-center bg-card border-b shrink-0 h-9 select-none">
-      <div className="flex items-center flex-1 overflow-x-auto min-w-0">
+    <div className="flex items-center bg-card border-b shrink-0 h-9 select-none px-1">
+      <div className="flex items-center flex-1 overflow-x-auto min-w-0 gap-0.5">
         {tabs.map((tab) => (
           <TabItem
             key={tab.id}
@@ -27,7 +27,7 @@ export function TabBar() {
       </div>
       <button
         onClick={() => createTab()}
-        className="shrink-0 px-2 h-full flex items-center text-muted-foreground hover:text-foreground transition-colors"
+        className="shrink-0 ml-1 h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
         title="New tab (Ctrl+T)"
       >
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,15 +61,15 @@ function TabItem({
         onDuplicate();
       }}
       className={cn(
-        "group flex items-center gap-1.5 px-3 h-full border-r text-xs cursor-pointer shrink-0 max-w-[200px] transition-colors",
+        "group relative flex items-center gap-1.5 pl-2 pr-1 h-7 text-xs cursor-pointer shrink-0 max-w-[200px] rounded-md transition-all duration-150",
         isActive
-          ? "bg-background text-foreground border-b-2 border-b-primary"
-          : "bg-card text-muted-foreground hover:text-foreground hover:bg-accent/50"
+          ? "bg-background text-foreground shadow-sm border"
+          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
       )}
       title={`${tab.request.method} ${tab.request.url || "No URL"}\nRight-click to duplicate`}
     >
       <span className={cn(
-        "font-semibold shrink-0",
+        "font-semibold shrink-0 text-[10px]",
         methodColor(tab.request.method)
       )}>
         {tab.request.method}
@@ -80,7 +80,7 @@ function TabItem({
           e.stopPropagation();
           onClose();
         }}
-        className="shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-sm p-0.5 transition-opacity"
+        className="shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-sm p-0.5 transition-all duration-150"
         title="Close tab"
       >
         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

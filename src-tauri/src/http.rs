@@ -353,6 +353,9 @@ pub async fn execute_request(
         body_base64,
         size,
         time_ms: elapsed,
+        script_logs: vec![],
+        test_results: vec![],
+        modified_variables: vec![],
     };
 
     Ok((http_response, new_cookies))

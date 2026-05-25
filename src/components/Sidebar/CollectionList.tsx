@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { getCollections, createCollection, deleteCollection, updateCollection } from "@/lib/invoke";
 import type { Collection, HttpRequest } from "@/lib/invoke";
 import { useRequestStore } from "@/stores/requestStore";
@@ -22,6 +22,9 @@ export function CollectionList() {
   const [newName, setNewName] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+  const [dragOverReqParent, setDragOverReqParent] = useState<string | null>(null);
+  const dragItemRef = useRef<{ type: "collection" | "request"; id: string; parentId?: string; index: number } | null>(null);
   const activeCollectionId = useUIStore((s) => s.activeCollectionId);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -150,16 +153,50 @@ export function CollectionList() {
       )}
 
       {/* Collection list */}
-      {filteredCollections.map((col) => {
+      {filteredCollections.map((col, colIndex) => {
         const isExpanded = expandedId === col.id && !searchQuery;
         const hasRequests = col.requests.length > 0;
+        const isDraggedOver = dragOverColId === col.id;
 
         return (
-          <div key={col.id} className="border-b border-sidebar-border">
+          <div
+            key={col.id}
+            className={cn("border-b border-sidebar-border", isDraggedOver && "bg-sidebar-accent/50")}
+            draggable={!searchQuery}
+            onDragStart={(e) => {
+              dragItemRef.current = { type: "collection", id: col.id, index: colIndex };
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", col.id);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setDragOverColId(col.id);
+            }}
+            onDragLeave={() => setDragOverColId(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverColId(null);
+              const dragged = dragItemRef.current;
+              if (!dragged || dragged.type !== "collection" || dragged.id === col.id) return;
+              const newCols = [...collections];
+              const fromIdx = newCols.findIndex((c) => c.id === dragged.id);
+              if (fromIdx === -1) return;
+              const [moved] = newCols.splice(fromIdx, 1);
+              const toIdx = newCols.findIndex((c) => c.id === col.id);
+              newCols.splice(toIdx, 0, moved);
+              setCollections(newCols);
+              // Persist new order by updating updated_at for each collection
+              const now = new Date().toISOString();
+              Promise.all(newCols.map((c, i) =>
+                updateCollection({ ...c, updated_at: new Date(Date.now() - i).toISOString() })
+              )).then(() => addToast("Collections reordered", "success"));
+            }}
+          >
             <div className="flex items-center gap-1 px-3 py-1.5 group">
               <button
                 onClick={() => {
-                  if (searchQuery) return; // Don't toggle in search mode - show all
+                  if (searchQuery) return;
                   setExpandedId(isExpanded ? null : col.id);
                 }}
                 className={cn(
@@ -191,22 +228,88 @@ export function CollectionList() {
 
             {/* Expanded requests or search results */}
             {(isExpanded || searchQuery) && (
-              <div className="pl-5">
+              <div
+                className="pl-5"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDragOverReqParent(col.id);
+                }}
+                onDragLeave={() => setDragOverReqParent(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverReqParent(null);
+                  const dragged = dragItemRef.current;
+                  if (!dragged) return;
+                  if (dragged.type === "request") {
+                    if (dragged.parentId === col.id) return; // same collection
+                    // Move request between collections
+                    const srcIdx = collections.findIndex((c) => c.id === dragged.parentId);
+                    const reqToMove = collections[srcIdx]?.requests[dragged.index];
+                    if (!reqToMove) return;
+                    const newCols = collections.map((c) => ({ ...c }));
+                    const srcColClone = { ...newCols.find((c) => c.id === dragged.parentId)! };
+                    const dstColClone = { ...newCols.find((c) => c.id === col.id)! };
+                    srcColClone.requests = srcColClone.requests.filter((_, i) => i !== dragged.index);
+                    dstColClone.requests = [...dstColClone.requests, reqToMove];
+                    const updated = newCols.map((c) => {
+                      if (c.id === srcColClone.id) return srcColClone;
+                      if (c.id === dstColClone.id) return dstColClone;
+                      return c;
+                    });
+                    setCollections(updated);
+                    Promise.all([
+                      updateCollection(srcColClone),
+                      updateCollection(dstColClone),
+                    ]).then(() => addToast("Request moved", "success"));
+                  }
+                }}
+              >
                 {col.requests.map((req, i) => (
                   <div
                     key={i}
+                    draggable
+                    onDragStart={(e) => {
+                      dragItemRef.current = { type: "request", id: `${col.id}-${i}`, parentId: col.id, index: i };
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const dragged = dragItemRef.current;
+                      if (!dragged || dragged.type !== "request" || dragged.parentId !== col.id) return;
+                      // Reorder within same collection
+                      const newCols = [...collections];
+                      const colIdx = newCols.findIndex((c) => c.id === col.id);
+                      if (colIdx === -1) return;
+                      const reqs = [...newCols[colIdx].requests];
+                      const [moved] = reqs.splice(dragged.index, 1);
+                      // After removing, adjust target index if needed
+                      const targetIdx = dragged.index < i ? i - 1 : i;
+                      reqs.splice(targetIdx, 0, moved);
+                      newCols[colIdx] = { ...newCols[colIdx], requests: reqs };
+                      setCollections(newCols);
+                      updateCollection(newCols[colIdx]).then(() => addToast("Request reordered", "success"));
+                    }}
                     onClick={() => loadRequest(req)}
                     className={cn(
-                      "px-2 py-1 text-xs cursor-pointer hover:bg-sidebar-accent flex items-center gap-2 transition-colors",
-                      searchQuery ? "bg-sidebar-accent/30" : ""
+                      "px-2 py-1 text-xs cursor-pointer hover:bg-sidebar-accent flex items-center gap-2 transition-colors rounded",
+                      searchQuery ? "bg-sidebar-accent/30" : "",
+                      dragOverReqParent === col.id ? "bg-sidebar-accent/30" : ""
                     )}
                   >
+                    <span className="text-muted-foreground/30 cursor-grab active:cursor-grabbing shrink-0 text-xs">⠿</span>
                     <span className={cn("font-bold shrink-0", methodColors[req.method] ?? "")}>{req.method}</span>
                     <span className="truncate flex-1">{req.name || req.url || "No URL"}</span>
                   </div>
                 ))}
                 {!hasRequests && (
-                  <div className="px-2 py-1 text-xs text-muted-foreground">No requests saved</div>
+                  <div className="px-2 py-1 text-xs text-muted-foreground italic">
+                    Drop requests here
+                  </div>
                 )}
               </div>
             )}

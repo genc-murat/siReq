@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar/Sidebar";
 import { MainPanel } from "@/components/MainPanel";
 import { TabBar } from "@/components/TabBar";
 import { CommandPalette } from "@/components/CommandPalette";
+import { ShortcutsDialog } from "@/components/ShortcutsDialog";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { ToastContainer } from "@/components/ToastContainer";
 import { useUIStore } from "@/stores/uiStore";
@@ -10,6 +11,7 @@ import { useRequestStore } from "@/stores/requestStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useToastStore } from "@/stores/toastStore";
 import { useWebSocketStore } from "@/stores/websocketStore";
+import { useEffect } from "react";
 import { generateCurl } from "@/lib/curlGenerator";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +33,27 @@ export function Layout() {
     navigator.clipboard.writeText(curl);
     addToast("Copied as cURL", "success");
   };
+
+  // Global keyboard shortcuts for tool mode switching
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      const alt = e.altKey;
+      if (!mod || !alt) return;
+      if (e.key === "h") {
+        e.preventDefault();
+        setToolMode("http");
+      } else if (e.key === "w") {
+        e.preventDefault();
+        if (!wsDisconnected) {
+          useWebSocketStore.getState().reset();
+        }
+        setToolMode("websocket");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setToolMode, wsDisconnected]);
 
   return (
     <div className="h-screen w-screen flex flex-col">
@@ -124,6 +147,7 @@ export function Layout() {
         </Panel>
       </Group>
       <CommandPalette />
+      <ShortcutsDialog />
       <SettingsDrawer />
       <ToastContainer />
     </div>

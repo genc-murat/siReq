@@ -81,6 +81,26 @@ pub struct AuthConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptLog {
+    pub level: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestResult {
+    pub name: String,
+    pub passed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptResults {
+    pub logs: Vec<ScriptLog>,
+    pub tests: Vec<TestResult>,
+    pub errors: Vec<String>,
+    pub modified_variables: Vec<KeyValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpRequest {
     pub id: String,
     pub name: String,
@@ -93,6 +113,10 @@ pub struct HttpRequest {
     pub form_fields: Vec<FormField>,
     pub auth: AuthConfig,
     pub settings: RequestSettings,
+    #[serde(default)]
+    pub pre_script: String,
+    #[serde(default)]
+    pub post_script: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,6 +129,12 @@ pub struct HttpResponse {
     pub body_base64: Option<String>,
     pub size: u64,
     pub time_ms: u64,
+    #[serde(default)]
+    pub script_logs: Vec<ScriptLog>,
+    #[serde(default)]
+    pub test_results: Vec<TestResult>,
+    #[serde(default)]
+    pub modified_variables: Vec<KeyValue>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,4 +174,29 @@ pub struct Environment {
     pub variables: Vec<KeyValue>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BenchmarkResult {
+    pub iterations: u64,
+    pub times_ms: Vec<u64>,
+    pub min_ms: u64,
+    pub max_ms: u64,
+    pub avg_ms: f64,
+    pub median_ms: f64,
+    pub p95_ms: f64,
+    pub p99_ms: f64,
+    pub success_count: u64,
+    pub failure_count: u64,
+    pub statuses: Vec<u16>,
+    pub errors: Vec<String>,
+    pub total_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BenchmarkHistoryEntry {
+    pub id: String,
+    pub request: HttpRequest,
+    pub result: BenchmarkResult,
+    pub created_at: String,
 }

@@ -3,6 +3,7 @@ use tauri::State;
 use crate::models::*;
 use crate::storage::*;
 use crate::http::*;
+use crate::scripts::*;
 use reqwest::Client;
 
 #[tauri::command]
@@ -28,7 +29,21 @@ pub async fn send_request(
         None => HashMap::new()
     };
 
-    let resolved = apply_env(&request, &env_vars);
+    // Step 1: Execute pre-request script
+    let (modified_request, pre_script_results) = execute_pre_request(
+        &request.pre_script,
+        &request,
+        &env_vars,
+    )?;
+
+    // Merge any variables set by the pre-script
+    let mut merged_env = env_vars.clone();
+    for kv in &pre_script_results.modified_variables {
+        merged_env.insert(kv.key.clone(), kv.value.clone());
+    }
+
+    // Step 2: Apply environment variable substitution
+    let resolved = apply_env(&modified_request, &merged_env);
     let owned_client = (*client).clone();
 
     // Load stored cookies for the request domain
@@ -64,14 +79,70 @@ pub async fn send_request(
         }
     }
 
+    // Step 3: Execute post-response script
+    let post_script_results = execute_post_response(
+        &request.post_script,
+        &modified_request,
+        &response,
+        &merged_env,
+    )?;
+
+    // Step 4: Collect all modified variables from pre and post scripts
+    let mut all_modified_vars = pre_script_results.modified_variables.clone();
+    all_modified_vars.extend(post_script_results.modified_variables.clone());
+
+    // Step 5: Persist modified variables back to the environment in DB
+    if let Some(ref env_id) = environment_id {
+        if !all_modified_vars.is_empty() {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            if let Some(mut env) = get_environment_by_id(&conn, env_id)? {
+                for kv in &all_modified_vars {
+                    // Update existing variable or add new one
+                    if let Some(existing) = env.variables.iter_mut().find(|v| v.key == kv.key) {
+                        existing.value = kv.value.clone();
+                        existing.enabled = true;
+                    } else {
+                        env.variables.push(kv.clone());
+                    }
+                }
+                env.updated_at = chrono::Utc::now().to_rfc3339();
+                let vars_json = serde_json::to_string(&env.variables).map_err(|e| e.to_string())?;
+                conn.execute(
+                    "UPDATE environments SET variables = ?1, updated_at = ?2 WHERE id = ?3",
+                    rusqlite::params![vars_json, env.updated_at, env.id],
+                ).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    // Step 6: Attach script results to response
+    let mut response_with_scripts = response.clone();
+    let mut all_logs = pre_script_results.logs.clone();
+    all_logs.extend(post_script_results.logs.clone());
+    let mut all_tests = pre_script_results.tests.clone();
+    all_tests.extend(post_script_results.tests.clone());
+    let mut all_errors = pre_script_results.errors.clone();
+    all_errors.extend(post_script_results.errors.clone());
+
+    response_with_scripts.script_logs = all_logs;
+    response_with_scripts.test_results = all_tests;
+    response_with_scripts.modified_variables = all_modified_vars;
+
+    if !all_errors.is_empty() {
+        response_with_scripts.script_logs.push(ScriptLog {
+            level: "error".to_string(),
+            message: all_errors.join("\n"),
+        });
+    }
+
     let entry = HistoryEntry {
         id: uuid::Uuid::new_v4().to_string(),
         request,
-        response: response.clone(),
+        response: response_with_scripts.clone(),
         created_at: chrono::Utc::now().to_rfc3339(),
     };
     let _ = save_history_with_conn(&db, &entry);
-    Ok(response)
+    Ok(response_with_scripts)
 }
 
 #[tauri::command]
@@ -177,6 +248,119 @@ pub fn import_openapi(
     // Save the collection to the database
     insert_collection(&db, &collection)?;
     Ok(collection)
+}
+
+#[tauri::command]
+pub async fn benchmark_request(
+    request: HttpRequest,
+    count: u64,
+    client: State<'_, Client>,
+    db: State<'_, Db>,
+) -> Result<BenchmarkResult, String> {
+    use std::time::Instant;
+
+    if count == 0 || count > 1000 {
+        return Err("Count must be between 1 and 1000".to_string());
+    }
+
+    let owned_client = (*client).clone();
+    let stored_cookies: Vec<StoredCookie> = vec![];
+
+    let mut times_ms: Vec<u64> = Vec::with_capacity(count as usize);
+    let mut statuses: Vec<u16> = Vec::with_capacity(count as usize);
+    let mut errors: Vec<String> = Vec::new();
+    let mut total_bytes: u64 = 0;
+
+    for _ in 0..count {
+        let start = Instant::now();
+        match execute_request(&owned_client, &request, &stored_cookies).await {
+            Ok((resp, _)) => {
+                times_ms.push(start.elapsed().as_millis() as u64);
+                statuses.push(resp.status);
+                total_bytes += resp.size;
+            }
+            Err(e) => {
+                times_ms.push(start.elapsed().as_millis() as u64);
+                errors.push(e);
+            }
+        }
+    }
+
+    let total = times_ms.len() as u64;
+    let success_count = statuses.len() as u64;
+    let failure_count = errors.len() as u64;
+    let mut sorted = times_ms.clone();
+    sorted.sort_unstable();
+
+    let avg_ms = if total > 0 {
+        let sum: u64 = times_ms.iter().sum();
+        sum as f64 / total as f64
+    } else {
+        0.0
+    };
+
+    let min_ms = *sorted.first().unwrap_or(&0);
+    let max_ms = *sorted.last().unwrap_or(&0);
+    let median_ms = percentile(&sorted, 50.0);
+    let p95_ms = percentile(&sorted, 95.0);
+    let p99_ms = percentile(&sorted, 99.0);
+
+    let result = BenchmarkResult {
+        iterations: count,
+        times_ms,
+        min_ms,
+        max_ms,
+        avg_ms,
+        median_ms,
+        p95_ms,
+        p99_ms,
+        success_count,
+        failure_count,
+        statuses,
+        errors,
+        total_bytes,
+    };
+
+    // Auto-save to benchmark history
+    let history_entry = BenchmarkHistoryEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        request: request.clone(),
+        result: result.clone(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = save_benchmark_history(&db, &history_entry);
+
+    Ok(result)
+}
+
+fn percentile(sorted: &[u64], p: f64) -> f64 {
+    if sorted.is_empty() {
+        return 0.0;
+    }
+    let idx = ((p / 100.0) * (sorted.len() as f64 - 1.0)).round() as usize;
+    sorted[idx.min(sorted.len() - 1)] as f64
+}
+
+#[tauri::command]
+pub fn get_benchmark_history(
+    limit: i64,
+    offset: i64,
+    db: State<'_, Db>,
+) -> Result<Vec<BenchmarkHistoryEntry>, String> {
+    get_benchmark_history_list(&db, limit, offset)
+}
+
+#[tauri::command]
+pub fn delete_benchmark_history(
+    id: String,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    delete_benchmark_history_entry(&db, &id)
+}
+
+#[tauri::command]
+pub fn clear_benchmark_history(db: State<'_, Db>) -> Result<(), String> {
+    clear_all_benchmark_history(&db)
 }
 
 // --- Cookie management commands ---

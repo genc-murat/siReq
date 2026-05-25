@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { HttpMethod, BodyType, KeyValue, AuthConfig, HttpRequest, HttpResponse, FormField, RequestSettings } from "@/lib/invoke";
-import { sendRequest, cancelRequest } from "@/lib/invoke";
+import { sendRequest, cancelRequest, benchmarkRequest, getBenchmarkHistory, deleteBenchmarkHistory } from "@/lib/invoke";
+import type { BenchmarkResult, BenchmarkHistoryEntry } from "@/lib/invoke";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -26,6 +27,11 @@ const defaultAuth: AuthConfig = {
 interface RequestState {
   request: HttpRequest;
   response: HttpResponse | null;
+  lastResponse: HttpResponse | null;
+  benchmarkResult: BenchmarkResult | null;
+  benchmarkLoading: boolean;
+  benchmarkHistory: BenchmarkHistoryEntry[];
+  benchmarkHistoryLoading: boolean;
   loading: boolean;
   error: string | null;
   setMethod: (method: HttpMethod) => void;
@@ -39,8 +45,15 @@ interface RequestState {
   setAuth: (auth: AuthConfig) => void;
   setSettings: (settings: RequestSettings) => void;
   setRequest: (request: HttpRequest) => void;
+  setPreScript: (script: string) => void;
+  setPostScript: (script: string) => void;
+  setJsonSchema: (schema: string) => void;
   send: (environmentId?: string | null) => Promise<void>;
   cancel: () => Promise<void>;
+  runBenchmark: (count: number, environmentId?: string | null) => Promise<void>;
+  loadBenchmarkHistory: (limit?: number, offset?: number) => Promise<void>;
+  deleteBenchmarkHistoryItem: (id: string) => Promise<void>;
+  loadHistoricBenchmark: (entry: BenchmarkHistoryEntry) => void;
   reset: () => void;
 }
 
@@ -56,11 +69,19 @@ const createDefaultRequest = (): HttpRequest => ({
   form_fields: [],
   auth: { ...defaultAuth },
   settings: { ...defaultSettings },
+  pre_script: "",
+  post_script: "",
+  json_schema: "",
 });
 
 export const useRequestStore = create<RequestState>((set, get) => ({
   request: createDefaultRequest(),
   response: null,
+  lastResponse: null,
+  benchmarkResult: null,
+  benchmarkLoading: false,
+  benchmarkHistory: [],
+  benchmarkHistoryLoading: false,
   loading: false,
   error: null,
 
@@ -74,18 +95,22 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   setAuth: (auth) => set((s) => ({ request: { ...s.request, auth } })),
   setName: (name) => set((s) => ({ request: { ...s.request, name } })),
   setSettings: (settings) => set((s) => ({ request: { ...s.request, settings } })),
+  setPreScript: (script) => set((s) => ({ request: { ...s.request, pre_script: script } })),
+  setPostScript: (script) => set((s) => ({ request: { ...s.request, post_script: script } })),
+  setJsonSchema: (json_schema) => set((s) => ({ request: { ...s.request, json_schema } })),
   setRequest: (request) => set({ request, response: null, error: null }),
 
   send: async (environmentId?: string | null) => {
-    const { request } = get();
-    set({ loading: true, error: null, response: null });
+    const { request, response: currentResponse } = get();
+    set({ loading: true, error: null, response: null, benchmarkResult: null });
     try {
       const response = await sendRequest(
         { ...request, id: generateId() },
         request.settings.timeout,
         environmentId
       );
-      set({ response, loading: false });
+      // Save previous response as lastResponse before overwriting
+      set({ lastResponse: currentResponse, response, loading: false });
     } catch (e: unknown) {
       const errMsg = e instanceof Error ? e.message : e?.toString() ?? "Request failed";
       set({ error: errMsg, loading: false });
@@ -102,5 +127,50 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     }
   },
 
-  reset: () => set({ request: createDefaultRequest(), response: null, error: null, loading: false }),
+  runBenchmark: async (count: number, environmentId?: string | null) => {
+    const { request } = get();
+    set({ benchmarkLoading: true, error: null, benchmarkResult: null });
+    try {
+      const result = await benchmarkRequest(
+        { ...request, id: generateId() },
+        count
+      );
+      set({ benchmarkResult: result, benchmarkLoading: false });
+      // Refresh history list
+      get().loadBenchmarkHistory();
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : e?.toString() ?? "Benchmark failed";
+      set({ error: errMsg, benchmarkLoading: false });
+    }
+  },
+
+  loadBenchmarkHistory: async (limit?: number, offset?: number) => {
+    set({ benchmarkHistoryLoading: true });
+    try {
+      const entries = await getBenchmarkHistory(limit, offset);
+      set({ benchmarkHistory: entries, benchmarkHistoryLoading: false });
+    } catch {
+      set({ benchmarkHistoryLoading: false });
+    }
+  },
+
+  deleteBenchmarkHistoryItem: async (id: string) => {
+    await deleteBenchmarkHistory(id);
+    set((s) => ({ benchmarkHistory: s.benchmarkHistory.filter((e) => e.id !== id) }));
+  },
+
+  loadHistoricBenchmark: (entry: BenchmarkHistoryEntry) => {
+    set({ benchmarkResult: entry.result, error: null });
+  },
+
+  reset: () => set({
+    request: createDefaultRequest(),
+    response: null,
+    lastResponse: null,
+    benchmarkResult: null,
+    benchmarkLoading: false,
+    benchmarkHistory: [],
+    error: null,
+    loading: false,
+  }),
 }));

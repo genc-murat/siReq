@@ -3,12 +3,14 @@ import { useEffect, useState, useCallback } from "react";
 import { getCookies, deleteCookie, clearCookies } from "@/lib/invoke";
 import type { StoredCookie } from "@/lib/invoke";
 import { cn } from "@/lib/utils";
+import { Tabs } from "@/components/Tabs";
+import type { Tab } from "@/components/Tabs";
 
-type Tab = "response" | "stored";
+type CookieTab = "response" | "stored";
 
 export function CookiesViewer() {
   const response = useRequestStore((s) => s.response);
-  const [tab, setTab] = useState<Tab>("response");
+  const [tab, setTab] = useState<CookieTab>("response");
   const [stored, setStored] = useState<StoredCookie[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -51,35 +53,15 @@ export function CookiesViewer() {
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div className="flex gap-1 border-b shrink-0 px-3 pt-1">
-        <button
-          onClick={() => setTab("response")}
-          className={cn(
-            "px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px",
-            tab === "response"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          )}
-        >
-          Response Cookies
-        </button>
-        <button
-          onClick={() => setTab("stored")}
-          className={cn(
-            "px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px",
-            tab === "stored"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          )}
-        >
-          Stored Cookies
-          {stored.length > 0 && (
-            <span className="ml-1.5 text-[10px] bg-muted text-muted-foreground rounded-full px-1.5 py-0.5">
-              {stored.length}
-            </span>
-          )}
-        </button>
-      </div>
+      <Tabs
+        tabs={[
+          { id: "response", label: "Response Cookies" },
+          { id: "stored", label: "Stored Cookies", badge: stored.length > 0 ? stored.length : undefined },
+        ]}
+        activeTab={tab}
+        onChange={(id) => setTab(id as CookieTab)}
+        size="sm"
+      />
 
       <div className="flex-1 overflow-auto min-h-0">
         {tab === "response" && <ResponseCookies />}

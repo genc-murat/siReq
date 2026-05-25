@@ -3,20 +3,35 @@ import { useUIStore } from "@/stores/uiStore";
 import { BodyViewer } from "./BodyViewer";
 import { HeadersViewer } from "./HeadersViewer";
 import { CookiesViewer } from "./CookiesViewer";
+import { DiffViewer } from "./DiffViewer";
+import { SchemaViewer } from "./SchemaViewer";
 import { StatsBar } from "./StatsBar";
-import { cn } from "@/lib/utils";
+import { Tabs, type Tab } from "@/components/Tabs";
 
-const tabs = [
-  { id: "body", label: "Body" },
-  { id: "headers", label: "Headers" },
-  { id: "cookies", label: "Cookies" },
-];
+function getTabs(showDiff: boolean, hasSchema: boolean): Tab[] {
+  const base: Tab[] = [
+    { id: "body", label: "Body" },
+    { id: "headers", label: "Headers" },
+    { id: "cookies", label: "Cookies" },
+  ];
+  if (showDiff) {
+    base.push({ id: "diff", label: "Diff", badge: <svg className="h-3 w-3 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6h18M9 12h6m-7 6h8" /></svg> });
+  }
+  if (hasSchema) {
+    base.push({ id: "schema", label: "Schema" });
+  }
+  return base;
+}
 
 export function ResponseViewer() {
   const response = useRequestStore((s) => s.response);
   const loading = useRequestStore((s) => s.loading);
   const responseTab = useUIStore((s) => s.responseTab);
   const setResponseTab = useUIStore((s) => s.setResponseTab);
+  const compareResponse = useUIStore((s) => s.compareResponse);
+  const jsonSchema = useRequestStore((s) => s.request.json_schema);
+  const showDiff = compareResponse !== null;
+  const hasSchema = (jsonSchema ?? "").trim().length > 0;
 
   if (!response && !loading) {
     return (
@@ -57,26 +72,18 @@ export function ResponseViewer() {
   return (
     <div className="flex flex-col h-full">
       <StatsBar />
-      <div className="flex gap-1 border-b shrink-0 px-3">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setResponseTab(tab.id)}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px",
-              responseTab === tab.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={getTabs(showDiff, hasSchema)}
+        activeTab={responseTab}
+        onChange={setResponseTab}
+        className="shrink-0 px-3"
+      />
       <div className="flex-1 overflow-auto min-h-0">
         {responseTab === "body" && <BodyViewer />}
         {responseTab === "headers" && <HeadersViewer />}
         {responseTab === "cookies" && <CookiesViewer />}
+        {responseTab === "diff" && showDiff && <DiffViewer />}
+        {responseTab === "schema" && hasSchema && <SchemaViewer />}
       </div>
     </div>
   );

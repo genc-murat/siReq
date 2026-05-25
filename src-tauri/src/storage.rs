@@ -27,6 +27,12 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS benchmark_history (
+            id TEXT PRIMARY KEY,
+            request TEXT NOT NULL,
+            result TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS cookies (
             id TEXT PRIMARY KEY,
             domain TEXT NOT NULL,
@@ -217,6 +223,51 @@ pub fn get_all_cookies_list(db: &State<Db>) -> Result<Vec<StoredCookie>, String>
     })
     .collect();
     Ok(cookies)
+}
+
+pub fn save_benchmark_history(db: &State<Db>, entry: &BenchmarkHistoryEntry) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let request_json = serde_json::to_string(&entry.request).map_err(|e| e.to_string())?;
+    let result_json = serde_json::to_string(&entry.result).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO benchmark_history (id, request, result, created_at) VALUES (?1, ?2, ?3, ?4)",
+        params![entry.id, request_json, result_json, entry.created_at],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_benchmark_history_list(db: &State<Db>, limit: i64, offset: i64) -> Result<Vec<BenchmarkHistoryEntry>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, request, result, created_at FROM benchmark_history ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt.query_map(params![limit, offset], |row| {
+        let id: String = row.get(0)?;
+        let request_json: String = row.get(1)?;
+        let result_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        Ok((id, request_json, result_json, created_at))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .filter_map(|(id, req_json, res_json, created_at)| {
+        let request: HttpRequest = serde_json::from_str(&req_json).ok()?;
+        let result: BenchmarkResult = serde_json::from_str(&res_json).ok()?;
+        Some(BenchmarkHistoryEntry { id, request, result, created_at })
+    })
+    .collect();
+    Ok(entries)
+}
+
+pub fn delete_benchmark_history_entry(db: &State<Db>, id: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM benchmark_history WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn clear_all_benchmark_history(db: &State<Db>) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM benchmark_history", []).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 pub fn load_cookies_for_domain_conn(conn: &Connection, domain: &str) -> Result<Vec<StoredCookie>, String> {

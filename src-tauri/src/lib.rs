@@ -3,6 +3,7 @@ mod curl_parser;
 mod http;
 mod models;
 mod openapi_parser;
+mod scripts;
 mod storage;
 mod websocket;
 
@@ -35,6 +36,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::send_request,
             commands::cancel_request,
+            commands::benchmark_request,
+            commands::get_benchmark_history,
+            commands::delete_benchmark_history,
+            commands::clear_benchmark_history,
             commands::get_history,
             commands::delete_history,
             commands::clear_history,

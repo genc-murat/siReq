@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { HttpResponse } from "@/lib/invoke";
 
 interface UIState {
   theme: "light" | "dark" | "system";
@@ -11,6 +12,7 @@ interface UIState {
   activeHistoryId: string | null;
   activeCollectionId: string | null;
   activeEnvironmentId: string | null;
+  compareResponse: HttpResponse | null;
   setTheme: (theme: "light" | "dark" | "system") => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -21,6 +23,7 @@ interface UIState {
   setActiveHistoryId: (id: string | null) => void;
   setActiveCollectionId: (id: string | null) => void;
   setActiveEnvironmentId: (id: string | null) => void;
+  setCompareResponse: (response: HttpResponse | null) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -42,6 +45,8 @@ export const useUIStore = create<UIState>()(
       setActiveTab: (tab) => set({ activeTab: tab }),
       setToolMode: (mode: "http" | "websocket") => set({ toolMode: mode }),
   setResponseTab: (tab) => set({ responseTab: tab }),
+      compareResponse: null,
+      setCompareResponse: (response) => set({ compareResponse: response, responseTab: response ? "diff" : "body" }),
       setActiveHistoryId: (id) => set({ activeHistoryId: id }),
       setActiveCollectionId: (id) => set({ activeCollectionId: id }),
       setActiveEnvironmentId: (id) => set({ activeEnvironmentId: id }),

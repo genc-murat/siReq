@@ -285,6 +285,8 @@ fn parse_operation(
             ssl_verify: true,
             proxy: None,
         },
+        pre_script: String::new(),
+        post_script: String::new(),
     })
 }
 
