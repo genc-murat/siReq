@@ -33,6 +33,14 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             result TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS run_history (
+            id TEXT PRIMARY KEY,
+            collection_id TEXT NOT NULL,
+            collection_name TEXT NOT NULL,
+            environment_id TEXT,
+            result TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS cookies (
             id TEXT PRIMARY KEY,
             domain TEXT NOT NULL,
@@ -44,6 +52,12 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             expires TEXT,
             created_at TEXT NOT NULL,
             UNIQUE(domain, path, name)
+        );
+        CREATE TABLE IF NOT EXISTS global_variables (
+            id TEXT PRIMARY KEY,
+            variables TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );"
     )?;
     Ok(())
@@ -110,7 +124,7 @@ pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
     .filter_map(|r| r.ok())
     .map(|(id, name, req_json, created_at, updated_at)| {
         let requests: Vec<HttpRequest> = serde_json::from_str(&req_json).unwrap_or_default();
-        Collection { id, name, requests, created_at, updated_at }
+        Collection { id, name, requests, created_at, updated_at, variables: vec![] }
     })
     .collect();
     Ok(collections)
@@ -141,6 +155,7 @@ pub fn create_new_collection(db: &State<Db>, name: &str) -> Result<Collection, S
         requests: vec![],
         created_at: now.clone(),
         updated_at: now,
+        variables: vec![],
     })
 }
 
@@ -356,6 +371,107 @@ pub fn update_existing_environment(db: &State<Db>, environment: &Environment) ->
 pub fn delete_existing_environment(db: &State<Db>, id: &str) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM environments WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// --- Run history functions ---
+
+pub fn save_run_result(db: &State<Db>, entry: &CollectionRunResult) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let result_json = serde_json::to_string(entry).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO run_history (id, collection_id, collection_name, environment_id, result, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![entry.id, entry.collection_id, entry.collection_name, entry.environment_id, result_json, entry.started_at],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_run_history_list(db: &State<Db>, limit: i64, offset: i64) -> Result<Vec<CollectionRunResult>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, collection_id, collection_name, environment_id, result, created_at FROM run_history ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt.query_map(params![limit, offset], |row| {
+        let id: String = row.get(0)?;
+        let collection_id: String = row.get(1)?;
+        let collection_name: String = row.get(2)?;
+        let environment_id: Option<String> = row.get(3)?;
+        let result_json: String = row.get(4)?;
+        let created_at: String = row.get(5)?;
+        Ok((id, collection_id, collection_name, environment_id, result_json, created_at))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .filter_map(|(id, col_id, col_name, env_id, res_json, _created_at)| {
+        let mut result: CollectionRunResult = serde_json::from_str(&res_json).ok()?;
+        // Override the id/collection fields to ensure consistency
+        result.id = id;
+        result.collection_id = col_id;
+        result.collection_name = col_name;
+        result.environment_id = env_id;
+        Some(result)
+    })
+    .collect();
+    Ok(entries)
+}
+
+pub fn delete_run_history_entry(db: &State<Db>, id: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM run_history WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn clear_all_run_history(db: &State<Db>) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM run_history", []).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// --- Global variables ---
+
+pub fn get_global_variables(db: &State<Db>) -> Result<GlobalVariables, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, variables, created_at, updated_at FROM global_variables ORDER BY created_at ASC LIMIT 1"
+    ).map_err(|e| e.to_string())?;
+
+    let result = stmt.query_row([], |row| {
+        let id: String = row.get(0)?;
+        let variables_json: String = row.get(1)?;
+        let created_at: String = row.get(2)?;
+        let updated_at: String = row.get(3)?;
+        Ok((id, variables_json, created_at, updated_at))
+    });
+
+    match result {
+        Ok((id, vars_json, created_at, updated_at)) => {
+            let variables: Vec<KeyValue> = serde_json::from_str(&vars_json).unwrap_or_default();
+            Ok(GlobalVariables { id, variables, created_at, updated_at })
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            // Return empty global variables
+            let now = chrono::Utc::now().to_rfc3339();
+            Ok(GlobalVariables {
+                id: uuid::Uuid::new_v4().to_string(),
+                variables: vec![],
+                created_at: now.clone(),
+                updated_at: now,
+            })
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+pub fn save_global_variables(db: &State<Db>, global: &GlobalVariables) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let vars_json = serde_json::to_string(&global.variables).map_err(|e| e.to_string())?;
+
+    // Upsert: delete existing then insert
+    conn.execute("DELETE FROM global_variables", []).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO global_variables (id, variables, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+        params![global.id, vars_json, global.created_at, now],
+    ).map_err(|e| e.to_string())?;
     Ok(())
 }
 

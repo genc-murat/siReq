@@ -40,7 +40,7 @@ pub enum BodyType {
     form_urlencoded,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum AuthType {
     none,
@@ -54,6 +54,8 @@ pub struct KeyValue {
     pub key: String,
     pub value: String,
     pub enabled: bool,
+    #[serde(default)]
+    pub is_secret: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,6 +154,16 @@ pub struct Collection {
     pub requests: Vec<HttpRequest>,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(default)]
+    pub variables: Vec<KeyValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalVariables {
+    pub id: String,
+    pub variables: Vec<KeyValue>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -191,6 +203,37 @@ pub struct BenchmarkResult {
     pub statuses: Vec<u16>,
     pub errors: Vec<String>,
     pub total_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunRequestResult {
+    pub request_name: String,
+    pub request_method: String,
+    pub request_url: String,
+    pub status_code: u16,
+    pub status_text: String,
+    pub time_ms: u64,
+    pub size: u64,
+    pub test_results: Vec<TestResult>,
+    pub script_logs: Vec<ScriptLog>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionRunResult {
+    pub id: String,
+    pub collection_id: String,
+    pub collection_name: String,
+    pub environment_id: Option<String>,
+    pub started_at: String,
+    pub completed_at: String,
+    pub delay_ms: u64,
+    pub stop_on_failure: bool,
+    pub results: Vec<RunRequestResult>,
+    pub total: u32,
+    pub passed: u32,
+    pub failed: u32,
+    pub total_time_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

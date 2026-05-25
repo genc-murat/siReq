@@ -115,9 +115,9 @@ export function FindBar({ text, onClose, onResultCount, onQueryChange, readOnly 
   return (
     <div className="flex items-center gap-1.5 px-3 py-1.5 border-b bg-muted/30 shrink-0 text-xs">
       {/* Search input */}
-      <div className="relative flex-1 max-w-[200px]">
-        <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      <div className="relative flex-1 max-w-[200px] focus-within:ring-1 focus-within:ring-ring rounded-lg transition-all duration-150">
+        <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
           ref={inputRef}
@@ -126,7 +126,7 @@ export function FindBar({ text, onClose, onResultCount, onQueryChange, readOnly 
           onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
           onKeyDown={handleKeyDown}
           placeholder="Find..."
-          className="w-full pl-7 pr-2 py-1 rounded border bg-background text-[11px] focus:outline-none focus:border-primary"
+          className="w-full pl-7 pr-2 py-1 rounded-lg border bg-background text-[11px] focus:outline-none"
         />
       </div>
 
@@ -142,19 +142,19 @@ export function FindBar({ text, onClose, onResultCount, onQueryChange, readOnly 
       <button
         onClick={() => goTo(safeActive - 1)}
         disabled={!hasResults}
-        className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
       >
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
       <button
         onClick={() => goTo(safeActive + 1)}
         disabled={!hasResults}
-        className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
       >
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </button>
 
@@ -165,13 +165,13 @@ export function FindBar({ text, onClose, onResultCount, onQueryChange, readOnly 
           <button
             onClick={() => setReplaceMode(!replaceMode)}
             className={cn(
-              "p-0.5 rounded transition-colors",
-              replaceMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+              "p-1 rounded-lg transition-all duration-150",
+              replaceMode ? "text-primary bg-primary/10 ring-1 ring-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}
             title="Replace"
           >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
           {/* Replace input */}
@@ -187,19 +187,19 @@ export function FindBar({ text, onClose, onResultCount, onQueryChange, readOnly 
                   if (e.key === "Escape") onClose();
                 }}
                 placeholder="Replace..."
-                className="w-24 px-2 py-1 rounded border bg-background text-[11px] focus:outline-none focus:border-primary"
+                className="w-24 px-2 py-1 rounded-lg border bg-background text-[11px] focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150"
               />
               <button
                 onClick={handleReplace}
                 disabled={!hasResults}
-                className="px-1.5 py-0.5 rounded text-[10px] bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-2 py-1 rounded-lg text-[10px] font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
               >
                 Replace
               </button>
               <button
                 onClick={handleReplaceAll}
                 disabled={!hasResults}
-                className="px-1.5 py-0.5 rounded text-[10px] bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-2 py-1 rounded-lg text-[10px] font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
               >
                 All
               </button>
@@ -216,10 +216,11 @@ export function FindBar({ text, onClose, onResultCount, onQueryChange, readOnly 
       {/* Close */}
       <button
         onClick={onClose}
-        className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+        className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+        title="Close"
       >
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>

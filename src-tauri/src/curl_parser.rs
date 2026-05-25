@@ -128,6 +128,7 @@ pub fn parse_curl(input: &str) -> Result<HttpRequest, String> {
                     key: k.trim().to_string(),
                     value: v.trim().to_string(),
                     enabled: true,
+                    is_secret: false,
                 });
             }
             remaining = r;
@@ -139,6 +140,7 @@ pub fn parse_curl(input: &str) -> Result<HttpRequest, String> {
                     key: k.trim().to_string(),
                     value: v.trim().to_string(),
                     enabled: true,
+                    is_secret: false,
                 });
             }
             remaining = r;

@@ -38,14 +38,14 @@ export function SettingsDrawer() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 z-40"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
         onClick={() => setSettingsOpen(false)}
       />
 
       {/* Drawer */}
       <div
         ref={drawerRef}
-        className="fixed right-0 top-0 h-full w-80 max-w-[90vw] bg-card border-l shadow-2xl z-50 flex flex-col animate-in slide-in-from-right"
+        className="fixed right-0 top-0 h-full w-80 max-w-[90vw] bg-popover border-l shadow-2xl z-50 flex flex-col animate-in slide-in-from-right"
         style={{ animationDuration: "150ms" }}
       >
         {/* Header */}
@@ -53,10 +53,10 @@ export function SettingsDrawer() {
           <h2 className="text-sm font-semibold">Request Settings</h2>
           <button
             onClick={() => setSettingsOpen(false)}
-            className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -75,7 +75,7 @@ export function SettingsDrawer() {
                 max={600}
                 value={settings.timeout}
                 onChange={(e) => update({ timeout: Math.max(1, Number(e.target.value) || 30) })}
-                className="flex-1 bg-secondary text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex-1 bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150"
               />
               <span className="text-xs text-muted-foreground">seconds</span>
             </div>
@@ -117,10 +117,10 @@ export function SettingsDrawer() {
                   }
                 }}
                 className={cn(
-                  "text-[10px] px-2 py-0.5 rounded transition-colors",
+                  "text-[10px] px-2 py-1 rounded-lg transition-all duration-150",
                   settings.proxy?.enabled
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 )}
               >
                 {settings.proxy?.enabled ? "Enabled" : "Disabled"}
@@ -128,7 +128,7 @@ export function SettingsDrawer() {
             </div>
 
             {settings.proxy && (
-              <div className="space-y-2 border rounded-md p-3 bg-secondary/30">
+              <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
                 <div>
                   <label className="text-[10px] text-muted-foreground">Proxy URL</label>
                   <input
@@ -138,7 +138,7 @@ export function SettingsDrawer() {
                     onChange={(e) =>
                       update({ proxy: { ...settings.proxy!, url: e.target.value } })
                     }
-                    className="w-full bg-background text-foreground text-xs px-2 py-1 rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring mt-0.5"
+                    className="w-full bg-background text-foreground text-xs px-2 py-1 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150 mt-0.5"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -151,7 +151,7 @@ export function SettingsDrawer() {
                       onChange={(e) =>
                         update({ proxy: { ...settings.proxy!, username: e.target.value } })
                       }
-                      className="w-full bg-background text-foreground text-xs px-2 py-1 rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring mt-0.5"
+                      className="w-full bg-background text-foreground text-xs px-2 py-1 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150 mt-0.5"
                     />
                   </div>
                   <div className="flex-1">
@@ -163,7 +163,7 @@ export function SettingsDrawer() {
                       onChange={(e) =>
                         update({ proxy: { ...settings.proxy!, password: e.target.value } })
                       }
-                      className="w-full bg-background text-foreground text-xs px-2 py-1 rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring mt-0.5"
+                      className="w-full bg-background text-foreground text-xs px-2 py-1 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150 mt-0.5"
                     />
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export function SettingsDrawer() {
             {!settings.proxy && (
               <button
                 onClick={() => update({ proxy: { enabled: true, url: "", username: "", password: "" } })}
-                className="w-full text-xs px-3 py-1.5 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                className="w-full text-xs px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-150"
               >
                 + Add Proxy
               </button>
@@ -201,7 +201,7 @@ function ToggleRow({
       <button
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative shrink-0 w-9 h-5 rounded-full transition-colors mt-0.5",
+          "relative shrink-0 w-9 h-5 rounded-full transition-all duration-150 mt-0.5",
           checked ? "bg-primary" : "bg-secondary"
         )}
       >

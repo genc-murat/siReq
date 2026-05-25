@@ -18,9 +18,9 @@ export function HeadersViewer() {
     <div className="flex flex-col h-full">
       {response.headers.length > 0 && (
         <div className="px-3 pt-2 pb-1 shrink-0">
-          <div className="flex items-center bg-background rounded border border-input px-2 py-1">
-            <svg className="h-3 w-3 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <div className="flex items-center bg-background rounded-lg border border-input px-2 py-1 focus-within:ring-1 focus-within:ring-ring transition-all duration-150">
+            <svg className="h-3 w-3 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
@@ -30,9 +30,9 @@ export function HeadersViewer() {
               className="flex-1 bg-transparent text-xs px-1.5 py-0.5 focus:outline-none text-foreground placeholder:text-muted-foreground"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="text-muted-foreground hover:text-foreground">
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <button onClick={() => setSearch("")} className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
@@ -43,7 +43,7 @@ export function HeadersViewer() {
         {headers.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <svg className="h-6 w-6 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <span className="text-xs text-muted-foreground">
               {search ? "No matching headers" : "No response headers"}
@@ -59,7 +59,7 @@ export function HeadersViewer() {
             </thead>
             <tbody>
               {headers.map(([key, value], i) => (
-                <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-all duration-150">
                   <td className="py-1.5 pr-4 text-primary font-medium max-w-[240px] truncate" title={key}>{key}</td>
                   <td className="py-1.5 text-foreground break-all font-mono text-[11px]">{value}</td>
                 </tr>

@@ -230,52 +230,69 @@ export function BodyViewer() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex gap-1 px-3 py-1 shrink-0 items-center">
-        {viewModes.map((vm) => (
-          <button
-            key={vm.value}
-            onClick={() => setViewMode(vm.value)}
-            className={cn(
-              "px-2 py-0.5 text-xs rounded",
-              viewMode === vm.value
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-            )}
-          >
-            {vm.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-1 px-3 py-1.5 shrink-0 border-b bg-muted/20">
+        {/* View mode pills */}
+        <div className="flex items-center bg-muted/60 rounded-lg p-0.5 gap-0">
+          {viewModes.map((vm) => (
+            <button
+              key={vm.value}
+              onClick={() => setViewMode(vm.value)}
+              className={cn(
+                "px-2.5 py-0.5 text-xs font-medium rounded-md transition-all duration-150",
+                viewMode === vm.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {vm.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <span className="w-px h-4 bg-border/40 mx-0.5 shrink-0" />
+
         {/* Find button */}
         {isTextMode && (
           <button
             onClick={handleFind}
             className={cn(
-              "px-2 py-0.5 text-xs rounded flex items-center gap-1",
+              "p-1.5 rounded-lg transition-all duration-150",
               findOpen
                 ? "bg-primary/10 text-primary"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}
             title={isLargeBody ? "Find in page (Ctrl+F)" : "Find (Ctrl+F)"}
           >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            Find
           </button>
         )}
+
         <div className="flex-1" />
+
+        {/* Copy — icon button */}
         <button
           onClick={handleCopy}
-          className="px-2 py-0.5 text-xs rounded bg-secondary text-secondary-foreground hover:bg-secondary/80"
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+          title="Copy response body"
         >
-          Copy
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9-3.664A2.251 2.251 0 0015 2.25h-1.5a2.251 2.251 0 00-2.15 1.586m5.8 0c.065.21.1.433.1.664v.75h-6V4.5c0-.231.035-.454.1-.664M6.75 7.5H4.875c-.621 0-1.125.504-1.125 1.125v12c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V16.5a9 9 0 00-9-9z" />
+          </svg>
         </button>
+
+        {/* Save (binary only) */}
         {isBinary && (
           <button
             onClick={handleSave}
-            className="px-2 py-0.5 text-xs rounded bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+            title="Save binary response"
           >
-            Save
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+            </svg>
           </button>
         )}
       </div>
@@ -286,12 +303,12 @@ export function BodyViewer() {
               <img
                 src={`data:${contentType};base64,${response.body_base64}`}
                 alt="Response preview"
-                className="max-w-full max-h-full object-contain rounded shadow-lg"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
               />
             ) : previewType === "pdf" ? (
               <iframe
                 src={`data:application/pdf;base64,${response.body_base64}`}
-                className="w-full h-full rounded border"
+                className="w-full h-full rounded-lg border"
                 title="PDF preview"
               />
             ) : (

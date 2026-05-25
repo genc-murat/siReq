@@ -29,7 +29,7 @@ function DiffSummaryBar({ a, b }: { a: HttpResponse; b: HttpResponse }) {
   const sizeDir = a.size < b.size ? "larger" : a.size > b.size ? "smaller" : "same";
 
   return (
-    <div className="flex items-center gap-3 px-3 py-1.5 text-xs border-b bg-card shrink-0 flex-wrap">
+    <div className="flex items-center gap-3 px-3 py-2 text-xs border-b bg-card shrink-0 flex-wrap">
       {/* Status */}
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Status:</span>
@@ -37,10 +37,10 @@ function DiffSummaryBar({ a, b }: { a: HttpResponse; b: HttpResponse }) {
         <span className="text-muted-foreground">vs</span>
         <span className={cn("font-semibold", statusColor(b.status))}>{b.status}</span>
         {statusDiff && (
-          <span className="text-yellow-500 text-[10px] bg-yellow-500/10 rounded px-1">Changed</span>
+          <span className="text-yellow-500 text-[10px] bg-yellow-500/10 rounded-lg px-1.5 py-0.5 font-medium">Changed</span>
         )}
       </div>
-      <span className="text-muted-foreground/40">|</span>
+      <span className="w-px h-3.5 bg-border/40 shrink-0" />
       {/* Time */}
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Time:</span>
@@ -48,12 +48,12 @@ function DiffSummaryBar({ a, b }: { a: HttpResponse; b: HttpResponse }) {
         <span className="text-muted-foreground">vs</span>
         <span className="font-medium">{b.time_ms}ms</span>
         {timeDir !== "same" && (
-          <span className={cn("text-[10px] rounded px-1", timeDir === "faster" ? "text-green-500 bg-green-500/10" : "text-red-500 bg-red-500/10")}>
+          <span className={cn("text-[10px] rounded-lg px-1.5 py-0.5 font-medium", timeDir === "faster" ? "text-green-500 bg-green-500/10" : "text-red-500 bg-red-500/10")}>
             {timeDiff}ms {timeDir}
           </span>
         )}
       </div>
-      <span className="text-muted-foreground/40">|</span>
+      <span className="w-px h-3.5 bg-border/40 shrink-0" />
       {/* Size */}
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Size:</span>
@@ -229,7 +229,7 @@ function HeadersComparison({ a, b }: { a: HttpResponse; b: HttpResponse }) {
               <tr
                 key={key}
                 className={cn(
-                  "border-b border-border/40 transition-colors",
+                  "border-b border-border/40 transition-all duration-150",
                   changed ? "bg-yellow-500/5" : "hover:bg-muted/20"
                 )}
               >
@@ -306,7 +306,7 @@ export function DiffViewer() {
         <div className="flex items-center justify-center flex-1">
           <div className="flex flex-col items-center gap-2 text-center">
             <svg className="h-8 w-8 text-green-500/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-sm text-muted-foreground">No differences found</span>
             <span className="text-xs text-muted-foreground/60">
@@ -323,32 +323,36 @@ export function DiffViewer() {
       <DiffSummaryBar a={response} b={compareResponse} />
 
       {/* Scope + View controls */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0">
-        <div className="flex gap-1">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0 bg-muted/20">
+        {/* Scope pills */}
+        <div className="flex items-center bg-muted/60 rounded-lg p-0.5 gap-0">
           {(["body", "headers", "both"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setScope(s)}
               className={cn(
-                "px-2 py-0.5 text-xs rounded transition-colors",
+                "px-2.5 py-0.5 text-xs font-medium rounded-md transition-all duration-150",
                 scope === s
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               {s === "body" ? "Body" : s === "headers" ? "Headers" : "Both"}
             </button>
           ))}
         </div>
+
         <div className="flex-1" />
-        <div className="flex gap-1">
+
+        {/* View pills */}
+        <div className="flex items-center bg-muted/60 rounded-lg p-0.5 gap-0">
           <button
             onClick={() => setView("unified")}
             className={cn(
-              "px-2 py-0.5 text-xs rounded transition-colors",
+              "px-2.5 py-0.5 text-xs font-medium rounded-md transition-all duration-150",
               view === "unified"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             Unified
@@ -356,10 +360,10 @@ export function DiffViewer() {
           <button
             onClick={() => setView("split")}
             className={cn(
-              "px-2 py-0.5 text-xs rounded transition-colors",
+              "px-2.5 py-0.5 text-xs font-medium rounded-md transition-all duration-150",
               view === "split"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             Split
@@ -368,7 +372,7 @@ export function DiffViewer() {
       </div>
 
       {/* Diff stats */}
-      <div className="flex items-center gap-3 px-3 py-1 border-b text-[10px] text-muted-foreground shrink-0">
+      <div className="flex items-center gap-3 px-3 py-1.5 border-b text-[10px] text-muted-foreground shrink-0 bg-muted/20">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-sm bg-green-500" />
           <span>{addedLines} additions</span>

@@ -27,7 +27,7 @@ export function TabBar() {
       </div>
       <button
         onClick={() => createTab()}
-        className="shrink-0 ml-1 h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+        className="shrink-0 ml-1 h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-all duration-150"
         title="New tab (Ctrl+T)"
       >
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

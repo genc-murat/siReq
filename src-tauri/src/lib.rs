@@ -3,8 +3,11 @@ mod curl_parser;
 mod http;
 mod models;
 mod openapi_parser;
+mod postman_parser;
 mod scripts;
+mod secrets;
 mod storage;
+mod variables;
 mod websocket;
 
 use reqwest::Client;
@@ -53,6 +56,17 @@ pub fn run() {
             commands::delete_environment,
             commands::import_curl,
             commands::import_openapi,
+            commands::import_postman_collection,
+            commands::export_postman_collection,
+            commands::get_global_variables_cmd,
+            commands::save_global_variables_cmd,
+            commands::encrypt_secret_value,
+            commands::decrypt_secret_value,
+            commands::export_postman_collection,
+            commands::run_collection,
+            commands::get_run_history,
+            commands::delete_run_history,
+            commands::clear_run_history,
             commands::get_cookies,
             commands::delete_cookie,
             commands::clear_cookies,

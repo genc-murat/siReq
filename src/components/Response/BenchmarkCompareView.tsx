@@ -66,9 +66,9 @@ function StatCardSmall({ label, value, color, winner }: {
 }) {
   return (
     <div className={cn(
-      "flex flex-col items-center p-2 rounded-md min-w-0 transition-colors",
+      "flex flex-col items-center p-2 rounded-lg min-w-0 transition-all duration-150",
       winner === "a" ? "bg-green-500/10 ring-1 ring-green-500/30" :
-      winner === "b" ? "bg-red-500/5" :
+      winner === "b" ? "bg-red-500/10 ring-1 ring-red-500/30" :
       "bg-secondary/30"
     )}>
       <span className={cn("text-base font-bold tabular-nums truncate w-full text-center", color)}>{value}</span>
@@ -136,26 +136,26 @@ export function BenchmarkCompareView({ entryA, entryB, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       {/* Modal */}
-      <div className="relative bg-popover border rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="relative bg-popover border rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
           <div className="flex items-center gap-3">
-            <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6h18M9 12h6m-7 6h8" />
+            <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M9 12h6m-7 6h8" />
             </svg>
             <span className="text-sm font-semibold">Benchmark Comparison</span>
-            <span className="text-[10px] text-muted-foreground bg-secondary/50 rounded px-1.5 py-0.5">
+            <span className="text-[10px] text-muted-foreground bg-secondary/50 rounded-lg px-1.5 py-0.5 font-medium">
               {winsA > winsB ? "Run A leads" : winsB > winsA ? "Run B leads" : "Tie"}{" "}
               {winsA}-{winsB}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground">{a.iterations} req each</span>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -165,14 +165,14 @@ export function BenchmarkCompareView({ entryA, entryB, onClose }: Props) {
           {/* Entry identifiers */}
           <div className="grid grid-cols-[1fr_60px_1fr] gap-3 items-center">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/5 border border-green-500/20">
-              <span className="text-[9px] font-bold text-green-500 bg-green-500/20 px-1.5 py-0.5 rounded">A</span>
+              <span className="text-[9px] font-bold text-green-500 bg-green-500/20 px-1.5 py-0.5 rounded-lg">A</span>
               <span className={cn("font-bold text-xs", methodColors[entryA.request.method] ?? "")}>{entryA.request.method}</span>
               <span className="text-xs text-muted-foreground truncate">{entryA.request.url}</span>
               <span className="text-[9px] text-muted-foreground/50 ml-auto">{aDate}</span>
             </div>
             <div className="text-center text-[9px] text-muted-foreground/30">vs</div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/20">
-              <span className="text-[9px] font-bold text-blue-500 bg-blue-500/20 px-1.5 py-0.5 rounded">B</span>
+              <span className="text-[9px] font-bold text-blue-500 bg-blue-500/20 px-1.5 py-0.5 rounded-lg">B</span>
               <span className={cn("font-bold text-xs", methodColors[entryB.request.method] ?? "")}>{entryB.request.method}</span>
               <span className="text-xs text-muted-foreground truncate">{entryB.request.url}</span>
               <span className="text-[9px] text-muted-foreground/50 ml-auto">{bDate}</span>
@@ -182,7 +182,7 @@ export function BenchmarkCompareView({ entryA, entryB, onClose }: Props) {
           {/* Stats grid - A side */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[9px] font-bold text-green-500 bg-green-500/20 px-1.5 py-0.5 rounded">A</span>
+              <span className="text-[9px] font-bold text-green-500 bg-green-500/20 px-1.5 py-0.5 rounded-lg">A</span>
               <span className="text-[11px] font-medium text-muted-foreground">Run A Stats</span>
               {avgW === "a" && <span className="text-[9px] text-green-500/70">Faster overall</span>}
             </div>
@@ -200,7 +200,7 @@ export function BenchmarkCompareView({ entryA, entryB, onClose }: Props) {
           {/* Stats grid - B side */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[9px] font-bold text-blue-500 bg-blue-500/20 px-1.5 py-0.5 rounded">B</span>
+              <span className="text-[9px] font-bold text-blue-500 bg-blue-500/20 px-1.5 py-0.5 rounded-lg">B</span>
               <span className="text-[11px] font-medium text-muted-foreground">Run B Stats</span>
               {avgW === "b" && <span className="text-[9px] text-green-500/70">Faster overall</span>}
             </div>
@@ -268,10 +268,10 @@ export function BenchmarkCompareView({ entryA, entryB, onClose }: Props) {
                 {chart.bucketsA.map((count, i) => (
                   <div
                     key={`a-${i}`}
-                    className="flex-1 rounded-t-sm bg-green-500/40 transition-colors relative group"
+                    className="flex-1 rounded-t-sm bg-green-500/40 transition-all duration-150 relative group"
                     style={{ height: `${(count / chart.maxCount) * 100}%` }}
                   >
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 hidden group-hover:block text-[8px] text-green-500 whitespace-nowrap bg-secondary px-1 rounded z-10">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 hidden group-hover:block text-[8px] text-green-500 whitespace-nowrap bg-secondary px-1 rounded-lg z-10">
                       A: {count}
                     </div>
                   </div>
@@ -282,10 +282,10 @@ export function BenchmarkCompareView({ entryA, entryB, onClose }: Props) {
                 {chart.bucketsB.map((count, i) => (
                   <div
                     key={`b-${i}`}
-                    className="flex-1 rounded-t-sm bg-blue-500/40 transition-colors relative group"
+                    className="flex-1 rounded-t-sm bg-blue-500/40 transition-all duration-150 relative group"
                     style={{ height: `${(count / chart.maxCount) * 100}%`, marginTop: "auto" }}
                   >
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 hidden group-hover:block text-[8px] text-blue-500 whitespace-nowrap bg-secondary px-1 rounded z-10">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 hidden group-hover:block text-[8px] text-blue-500 whitespace-nowrap bg-secondary px-1 rounded-lg z-10">
                       B: {count}
                     </div>
                   </div>

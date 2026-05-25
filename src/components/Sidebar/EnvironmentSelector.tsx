@@ -3,6 +3,7 @@ import { getEnvironments, createEnvironment, deleteEnvironment, updateEnvironmen
 import type { Environment, KeyValue } from "@/lib/invoke";
 import { useUIStore } from "@/stores/uiStore";
 import { KeyValueEditor } from "@/components/Request/KeyValueEditor";
+import { cn } from "@/lib/utils";
 
 export function EnvironmentSelector() {
   const [environments, setEnvironments] = useState<Environment[]>([]);
@@ -43,7 +44,7 @@ export function EnvironmentSelector() {
         <select
           value={activeEnvironmentId ?? ""}
           onChange={(e) => setActiveEnvironmentId(e.target.value || null)}
-          className="flex-1 bg-background text-foreground text-xs px-2 py-1 rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+          className="flex-1 bg-background text-foreground text-xs px-2 py-1 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150"
         >
           <option value="">No Environment</option>
           {environments.map((env) => (
@@ -54,11 +55,14 @@ export function EnvironmentSelector() {
           onClick={() => {
             if (activeEnv) setEditingId(editingId === activeEnv.id ? null : activeEnv.id);
           }}
-          className="text-xs text-muted-foreground hover:text-foreground px-1"
+          className={cn(
+            "p-1.5 rounded-lg transition-all duration-150",
+            editingId ? "text-primary bg-primary/10 ring-1 ring-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}
           title="Edit environment"
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
         </button>
       </div>
@@ -71,10 +75,10 @@ export function EnvironmentSelector() {
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && create()}
               placeholder="New environment..."
-              className="flex-1 bg-background text-foreground text-xs px-2 py-1 rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+              className="flex-1 bg-background text-foreground text-xs px-2 py-1 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150"
             />
-            <button onClick={create} className="text-xs text-primary hover:underline">Add</button>
-            <button onClick={() => remove(activeEnv.id)} className="text-xs text-destructive hover:underline">Del</button>
+            <button onClick={create} className="px-2 py-1 text-xs font-medium rounded-lg text-primary hover:bg-primary/10 transition-all duration-150">Add</button>
+            <button onClick={() => remove(activeEnv.id)} className="px-2 py-1 text-xs font-medium rounded-lg text-destructive hover:bg-destructive/10 transition-all duration-150">Del</button>
           </div>
           <KeyValueEditor
             pairs={activeEnv.variables}
@@ -92,9 +96,9 @@ export function EnvironmentSelector() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && create()}
             placeholder="New environment..."
-            className="flex-1 bg-background text-foreground text-xs px-2 py-1 rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+            className="flex-1 bg-background text-foreground text-xs px-2 py-1 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150"
           />
-          <button onClick={create} className="text-xs text-primary hover:underline">Add</button>
+          <button onClick={create} className="px-2 py-1 text-xs font-medium rounded-lg text-primary hover:bg-primary/10 transition-all duration-150">Add</button>
         </div>
       )}
     </div>

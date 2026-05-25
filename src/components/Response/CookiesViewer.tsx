@@ -154,15 +154,21 @@ function StoredCookiesPanel({ cookies, loading, onDelete, onClearAll, onRefresh 
         <div className="flex gap-1">
           <button
             onClick={onRefresh}
-            className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 border rounded transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+            title="Refresh cookies"
           >
-            Refresh
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0115.564-3.36M21.007 8.25v-4.992" />
+            </svg>
           </button>
           <button
             onClick={onClearAll}
-            className="text-xs text-destructive hover:text-destructive/80 px-2 py-0.5 border border-destructive/30 rounded transition-colors"
+            className="p-1.5 rounded-lg text-destructive hover:text-destructive/80 hover:bg-destructive/10 transition-all duration-150"
+            title="Clear all cookies"
           >
-            Clear All
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
           </button>
         </div>
       </div>
@@ -175,7 +181,7 @@ function StoredCookiesPanel({ cookies, loading, onDelete, onClearAll, onRefresh 
             </svg>
             {domain}
           </div>
-          <div className="border rounded-md overflow-hidden">
+          <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-muted-foreground bg-muted/50">
@@ -189,7 +195,7 @@ function StoredCookiesPanel({ cookies, loading, onDelete, onClearAll, onRefresh 
               </thead>
               <tbody>
                 {domainCookies.map((cookie) => (
-                  <tr key={cookie.id} className="border-t border-border/40 hover:bg-muted/20 transition-colors">
+                  <tr key={cookie.id} className="border-t border-border/40 hover:bg-muted/20 transition-all duration-150">
                     <td className="px-2 py-1 font-medium text-primary max-w-[140px] truncate" title={cookie.name}>
                       {cookie.name}
                     </td>
@@ -211,21 +217,21 @@ function StoredCookiesPanel({ cookies, loading, onDelete, onClearAll, onRefresh 
                     <td className="px-2 py-1">
                       <div className="flex gap-1">
                         {cookie.secure && (
-                          <span className="text-[10px] bg-green-500/10 text-green-500 rounded px-1" title="Secure">S</span>
+                          <span className="text-[10px] bg-green-500/10 text-green-500 rounded-lg px-1.5" title="Secure">S</span>
                         )}
                         {cookie.http_only && (
-                          <span className="text-[10px] bg-blue-500/10 text-blue-500 rounded px-1" title="HttpOnly">H</span>
+                          <span className="text-[10px] bg-blue-500/10 text-blue-500 rounded-lg px-1.5" title="HttpOnly">H</span>
                         )}
                       </div>
                     </td>
                     <td className="px-2 py-1">
                       <button
                         onClick={() => onDelete(cookie.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-150"
                         title="Delete cookie"
                       >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     </td>

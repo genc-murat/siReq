@@ -78,13 +78,13 @@ export function FormFieldEditor({ fields, onChange }: FormFieldEditorProps) {
           <div
             key={i}
             className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded group hover:bg-secondary/50 transition-colors",
+              "flex items-center gap-1 px-2 py-1 rounded-lg group hover:bg-secondary/50 transition-all duration-150",
               !field.enabled && "opacity-50"
             )}
           >
             {/* Type badge */}
             <span className={cn(
-              "text-[10px] font-medium uppercase px-1 py-0.5 rounded shrink-0",
+              "text-[10px] font-medium uppercase px-1 py-0.5 rounded-lg shrink-0",
               field.field_type === "file"
                 ? "bg-blue-500/20 text-blue-400"
                 : "bg-green-500/20 text-green-400"
@@ -114,7 +114,7 @@ export function FormFieldEditor({ fields, onChange }: FormFieldEditorProps) {
                 />
                 <button
                   onClick={() => handleFilePick(i)}
-                  className="text-[10px] px-2 py-0.5 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 shrink-0"
+                  className="text-[10px] px-2 py-0.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 shrink-0 transition-all duration-150"
                 >
                   Browse
                 </button>
@@ -132,7 +132,7 @@ export function FormFieldEditor({ fields, onChange }: FormFieldEditorProps) {
             <button
               onClick={() => updateField(i, { enabled: !field.enabled })}
               className={cn(
-                "shrink-0 w-5 h-5 flex items-center justify-center rounded text-[10px] transition-colors",
+                "shrink-0 w-5 h-5 flex items-center justify-center rounded-lg text-[10px] transition-all duration-150",
                 field.enabled
                   ? "text-green-500 hover:text-green-400"
                   : "text-muted-foreground hover:text-foreground"
@@ -145,7 +145,7 @@ export function FormFieldEditor({ fields, onChange }: FormFieldEditorProps) {
             {/* Delete */}
             <button
               onClick={() => removeField(i)}
-              className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              className="shrink-0 w-5 h-5 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-150"
               title="Remove"
             >
               ×
@@ -166,13 +166,13 @@ export function FormFieldEditor({ fields, onChange }: FormFieldEditorProps) {
       <div className="flex gap-2 shrink-0">
         <button
           onClick={addText}
-          className="flex-1 text-xs px-3 py-1.5 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+          className="flex-1 text-xs px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-150"
         >
           + Text Field
         </button>
         <button
           onClick={addFile}
-          className="flex-1 text-xs px-3 py-1.5 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+          className="flex-1 text-xs px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-150"
         >
           + File Field
         </button>

@@ -142,6 +142,7 @@ pub fn execute_pre_request(
                 key: k.clone(),
                 value: v.as_str().unwrap_or("").to_string(),
                 enabled: true,
+                is_secret: false,
             })
             .collect();
     }
@@ -284,6 +285,7 @@ pub fn execute_post_response(
                 key: k.clone(),
                 value: v.as_str().unwrap_or("").to_string(),
                 enabled: true,
+                is_secret: false,
             })
             .collect();
     }

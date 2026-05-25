@@ -164,7 +164,7 @@ export function WebSocketPanel() {
             }}
             placeholder="wss://example.com/socket"
             disabled={isConnected || isConnecting}
-            className="flex-1 bg-background text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 font-mono"
+            className="flex-1 bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 font-mono transition-all duration-150"
           />
           <div className="flex items-center gap-1.5 shrink-0">
             <span
@@ -187,7 +187,7 @@ export function WebSocketPanel() {
             onClick={handleConnect}
             disabled={isConnecting || !url.trim()}
             className={cn(
-              "px-4 py-1.5 rounded-md text-sm font-medium transition-colors shrink-0",
+              "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 shrink-0",
               isConnecting
                 ? "bg-muted text-muted-foreground cursor-not-allowed"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -198,14 +198,14 @@ export function WebSocketPanel() {
         ) : (
           <button
             onClick={handleDisconnect}
-            className="px-4 py-1.5 rounded-md text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors shrink-0"
+            className="px-4 py-1.5 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-150 shrink-0"
           >
             Disconnect
           </button>
         )}
         <button
           onClick={clearMessages}
-          className="px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+          className="px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 shrink-0"
           title="Clear log"
         >
           Clear
@@ -217,7 +217,7 @@ export function WebSocketPanel() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-1">
             <svg className="h-8 w-8 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.918-5.919 15.234-5.919 21.152 0M12 21a.75.75 0 100-1.5.75.75 0 000 1.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.918-5.919 15.234-5.919 21.152 0M12 21a.75.75 0 100-1.5.75.75 0 000 1.5z" />
             </svg>
             <span className="text-xs">Connect to a WebSocket to see messages</span>
             <span className="text-[10px] opacity-50">Tip: Try wss://echo.websocket.org</span>
@@ -227,7 +227,7 @@ export function WebSocketPanel() {
             <div
               key={msg.id}
               className={cn(
-                "text-xs rounded-md px-2.5 py-1.5 font-mono leading-relaxed break-all",
+                "text-xs rounded-lg px-2.5 py-1.5 font-mono leading-relaxed break-all",
                 msg.direction === "sent"
                   ? "bg-primary/10 text-primary border border-primary/20"
                   : msg.direction === "received"
@@ -267,13 +267,13 @@ export function WebSocketPanel() {
           onKeyDown={handleKeyDown}
           placeholder={isConnected ? "Type a message and press Enter..." : "Connect to send messages..."}
           disabled={!isConnected}
-          className="flex-1 bg-background text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 font-mono"
+          className="flex-1 bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 font-mono transition-all duration-150"
         />
         <button
           onClick={handleSend}
           disabled={!isConnected || !inputMsg.trim()}
           className={cn(
-            "px-4 py-1.5 rounded-md text-sm font-medium transition-colors shrink-0",
+            "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 shrink-0",
             isConnected && inputMsg.trim()
               ? "bg-primary text-primary-foreground hover:bg-primary/90"
               : "bg-muted text-muted-foreground cursor-not-allowed"

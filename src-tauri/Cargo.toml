@@ -33,3 +33,6 @@ serde_yaml = "0.9"
 tokio-tungstenite = { version = "0.24", features = ["connect"] }
 futures-util = "0.3"
 rquickjs = { version = "0.7", features = ["parallel"] }
+aes-gcm = "0.10"
+rand = "0.8"
+dirs = "5"

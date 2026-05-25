@@ -121,9 +121,9 @@ export function HistoryList() {
       {hasEntries && (
         <div className="px-2 pt-1.5 pb-1 flex flex-col gap-1">
           <div className="flex items-center gap-1">
-            <div className="flex items-center flex-1 bg-background rounded border border-input px-2 py-1">
-              <svg className="h-3 w-3 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <div className="flex items-center flex-1 bg-background rounded-lg border border-input px-2 py-1 focus-within:ring-1 focus-within:ring-ring transition-all duration-150">
+              <svg className="h-3 w-3 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 type="text"
@@ -133,9 +133,9 @@ export function HistoryList() {
                 className="flex-1 bg-transparent text-xs px-1.5 py-0.5 focus:outline-none text-foreground placeholder:text-muted-foreground"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="text-muted-foreground hover:text-foreground">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <button onClick={() => setSearchQuery("")} className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
@@ -143,27 +143,27 @@ export function HistoryList() {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
-                "text-xs px-1.5 py-1 rounded hover:bg-accent transition-colors",
+                "p-1.5 rounded-lg hover:bg-accent transition-all duration-150",
                 showFilters || methodFilter !== "ALL" ? "text-primary" : "text-muted-foreground"
               )}
               title="Filter by method"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
             </button>
           </div>
           {showFilters && (
-            <div className="flex gap-1 flex-wrap">
+            <div className="bg-muted/60 rounded-lg p-0.5 flex gap-0.5 flex-wrap">
               {methodOptions.map((m) => (
                 <button
                   key={m}
                   onClick={() => setMethodFilter(methodFilter === m ? "ALL" : m)}
                   className={cn(
-                    "px-1.5 py-0.5 text-xs rounded transition-colors",
+                    "rounded-md px-2 py-1 text-xs font-medium transition-all duration-150",
                     methodFilter === m
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                   )}
                 >
                   {m}
@@ -177,7 +177,7 @@ export function HistoryList() {
       {/* Clear all button */}
       {hasEntries && (
         <div className="flex justify-end px-2 py-1">
-          <button onClick={clear} className="text-xs text-destructive hover:underline">
+          <button onClick={clear} className="text-xs font-medium px-2 py-1 rounded-lg text-destructive hover:bg-destructive/10 transition-all duration-150">
             Clear all
           </button>
         </div>
@@ -185,20 +185,24 @@ export function HistoryList() {
 
       {/* Empty state */}
       {!hasEntries && (
-        <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-          <svg className="h-8 w-8 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
+          <div className="p-3 rounded-lg bg-muted/30 ring-1 ring-border/40">
+            <svg className="h-6 w-6 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
           <span className="text-xs text-muted-foreground">No requests sent yet</span>
           <span className="text-[10px] text-muted-foreground/60">History will appear here after you send requests</span>
         </div>
       )}
 
       {searchQuery && totalCount === 0 && hasEntries && (
-        <div className="flex flex-col items-center gap-1 px-6 py-6 text-center">
-          <svg className="h-6 w-6 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <div className="flex flex-col items-center gap-3 px-6 py-6 text-center">
+          <div className="p-3 rounded-lg bg-muted/30 ring-1 ring-border/40">
+            <svg className="h-6 w-6 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <span className="text-xs text-muted-foreground">No matching requests</span>
         </div>
       )}
@@ -213,8 +217,8 @@ export function HistoryList() {
               key={entry.id}
               onClick={() => loadEntry(entry)}
               className={cn(
-                "group px-3 py-1.5 cursor-pointer hover:bg-sidebar-accent text-xs border-b border-sidebar-border transition-colors",
-                activeHistoryId === entry.id ? "bg-sidebar-accent" : ""
+                "group px-3 py-1.5 cursor-pointer hover:bg-sidebar-accent text-xs border-b border-sidebar-border transition-all duration-150",
+                activeHistoryId === entry.id ? "bg-sidebar-accent ring-1 ring-primary/10" : ""
               )}
             >
               <div className="flex items-center gap-2">
@@ -232,10 +236,10 @@ export function HistoryList() {
                 </span>
                 <button
                   onClick={(e) => { e.stopPropagation(); remove(entry.id); }}
-                  className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100"
+                  className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-150 shrink-0 opacity-0 group-hover:opacity-100"
                 >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>

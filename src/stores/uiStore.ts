@@ -12,6 +12,8 @@ interface UIState {
   activeHistoryId: string | null;
   activeCollectionId: string | null;
   activeEnvironmentId: string | null;
+  showRunner: boolean;
+  runnerCollectionId: string | null;
   compareResponse: HttpResponse | null;
   setTheme: (theme: "light" | "dark" | "system") => void;
   setSidebarOpen: (open: boolean) => void;
@@ -24,6 +26,7 @@ interface UIState {
   setActiveCollectionId: (id: string | null) => void;
   setActiveEnvironmentId: (id: string | null) => void;
   setCompareResponse: (response: HttpResponse | null) => void;
+  setShowRunner: (show: boolean, collectionId?: string | null) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -46,7 +49,10 @@ export const useUIStore = create<UIState>()(
       setToolMode: (mode: "http" | "websocket") => set({ toolMode: mode }),
   setResponseTab: (tab) => set({ responseTab: tab }),
       compareResponse: null,
-      setCompareResponse: (response) => set({ compareResponse: response, responseTab: response ? "diff" : "body" }),
+      showRunner: false,
+  runnerCollectionId: null,
+  setShowRunner: (show, collectionId) => set({ showRunner: show, runnerCollectionId: collectionId ?? null }),
+  setCompareResponse: (response) => set({ compareResponse: response, responseTab: response ? "diff" : "body" }),
       setActiveHistoryId: (id) => set({ activeHistoryId: id }),
       setActiveCollectionId: (id) => set({ activeCollectionId: id }),
       setActiveEnvironmentId: (id) => set({ activeEnvironmentId: id }),

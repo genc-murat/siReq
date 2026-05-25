@@ -7,32 +7,6 @@ use crate::models::*;
 
 pub struct RequestHandles(pub Mutex<HashMap<String, tokio::task::JoinHandle<()>>>);
 
-fn substitute_vars(input: &str, vars: &HashMap<String, String>) -> String {
-    let mut result = input.to_string();
-    for (key, value) in vars {
-        let pattern = format!("{{{{{}}}}}", key);
-        result = result.replace(&pattern, value);
-    }
-    result
-}
-
-pub fn apply_env(request: &HttpRequest, vars: &HashMap<String, String>) -> HttpRequest {
-    let mut req = request.clone();
-    req.url = substitute_vars(&req.url, vars);
-    req.body = substitute_vars(&req.body, vars);
-    req.headers = req.headers.into_iter().map(|mut h| {
-        h.key = substitute_vars(&h.key, vars);
-        h.value = substitute_vars(&h.value, vars);
-        h
-    }).collect();
-    req.query_params = req.query_params.into_iter().map(|mut p| {
-        p.key = substitute_vars(&p.key, vars);
-        p.value = substitute_vars(&p.value, vars);
-        p
-    }).collect();
-    req
-}
-
 /// Extract the host domain from a URL string.
 pub fn extract_domain(url: &str) -> Option<String> {
     url::Url::parse(url).ok().and_then(|parsed| {

@@ -281,7 +281,7 @@ export function ScriptsTab() {
         <div ref={dropdownRef} className="relative">
           <button
             onClick={() => setTemplatesOpen(!templatesOpen)}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium border rounded-md hover:bg-accent transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium border rounded-lg hover:bg-accent transition-all duration-150"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -300,7 +300,7 @@ export function ScriptsTab() {
             </svg>
           </button>
           {templatesOpen && (
-            <div className="absolute top-full left-0 mt-1 w-72 bg-popover border rounded-md shadow-lg z-50 overflow-hidden">
+            <div className="absolute top-full left-0 mt-1 w-72 bg-popover border rounded-lg shadow-xl z-50 overflow-hidden">
               <div className="text-[10px] font-medium text-muted-foreground px-2.5 py-1.5 border-b bg-muted/30">
                 {activeEditor === "pre"
                   ? "Pre-request Templates"
@@ -311,7 +311,7 @@ export function ScriptsTab() {
                   <button
                     key={i}
                     onClick={() => insertTemplate(t)}
-                    className="w-full text-left px-2.5 py-2 hover:bg-accent transition-colors border-b border-border/30 last:border-0"
+                    className="w-full text-left px-2.5 py-2 hover:bg-accent transition-all duration-150 border-b border-border/30 last:border-0"
                   >
                     <div className="text-xs font-medium">{t.label}</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -329,7 +329,7 @@ export function ScriptsTab() {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
         {activeEditor === "pre" ? (
           <CodeMirrorEditor
             value={request.pre_script}
@@ -350,7 +350,7 @@ export function ScriptsTab() {
       </div>
 
       {/* Help text */}
-      <div className="text-[10px] text-muted-foreground border rounded-md p-2 space-y-1 shrink-0">
+      <div className="text-[10px] text-muted-foreground border rounded-lg p-2 space-y-1 shrink-0">
         <div className="font-medium text-[11px] text-foreground mb-1">Available APIs</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <code className="text-[10px]">console.log(...)</code>
@@ -376,7 +376,7 @@ export function ScriptsTab() {
 
       {/* Script log output */}
       {scriptLogs.length > 0 && (
-        <div className="shrink-0 max-h-32 overflow-auto border rounded-md bg-background">
+        <div className="shrink-0 max-h-32 overflow-auto border rounded-lg bg-background">
           <div className="text-[10px] font-medium text-muted-foreground px-2 py-1 border-b sticky top-0 bg-background">
             Script Output
           </div>
@@ -396,7 +396,7 @@ export function ScriptsTab() {
 
       {/* Modified variables */}
       {modifiedVariables.length > 0 && (
-        <div className="shrink-0 max-h-32 overflow-auto border rounded-md bg-background">
+        <div className="shrink-0 max-h-32 overflow-auto border rounded-lg bg-background">
           <div className="text-[10px] font-medium text-muted-foreground px-2 py-1 border-b sticky top-0 bg-background flex items-center gap-1.5">
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
@@ -406,7 +406,7 @@ export function ScriptsTab() {
           {modifiedVariables.map((v, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 text-[10px] font-mono px-2 py-1 border-b border-border/30 last:border-0 hover:bg-accent/30 transition-colors"
+              className="flex items-center gap-2 text-[10px] font-mono px-2 py-1 border-b border-border/30 last:border-0 hover:bg-accent/30 transition-all duration-150"
             >
               <span className="font-semibold text-foreground shrink-0">{v.key}</span>
               <span className="text-muted-foreground/40 shrink-0">=</span>

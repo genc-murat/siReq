@@ -216,9 +216,9 @@ export function CommandPalette() {
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
         <Dialog.Content
-          className="fixed top-[15%] left-1/2 -translate-x-1/2 w-full max-w-lg z-50 rounded-xl border bg-card shadow-2xl overflow-hidden focus:outline-none"
+          className="fixed top-[15%] left-1/2 -translate-x-1/2 w-full max-w-lg z-50 rounded-xl border bg-popover shadow-xl animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden focus:outline-none"
           onKeyDown={handleKeyDown}
         >
           <div className="flex items-center border-b px-3">
@@ -251,7 +251,7 @@ export function CommandPalette() {
                         setOpen(false);
                       }}
                       className={cn(
-                        "w-full flex items-center gap-2 px-2 py-2 text-sm rounded-md transition-colors text-left",
+                        "w-full flex items-center gap-2 px-2 py-2 text-sm rounded-lg transition-all duration-150 text-left",
                         globalIdx === selectedIndex
                           ? "bg-accent text-accent-foreground"
                           : "text-foreground hover:bg-accent/50"

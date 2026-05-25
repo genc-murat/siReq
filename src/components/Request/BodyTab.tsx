@@ -29,7 +29,7 @@ export function BodyTab() {
             key={bt.value}
             onClick={() => setBodyType(bt.value)}
             className={cn(
-              "px-2 py-0.5 text-xs rounded transition-colors",
+              "px-2 py-0.5 text-xs rounded-lg transition-all duration-150",
               bodyType === bt.value
                 ? "bg-primary text-primary-foreground"
                 : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
@@ -44,7 +44,7 @@ export function BodyTab() {
           <FormFieldEditor fields={formFields} onChange={setFormFields} />
         </div>
       ) : bodyType !== "none" ? (
-        <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+        <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
           <CodeMirrorEditor
             value={body}
             onChange={setBody}

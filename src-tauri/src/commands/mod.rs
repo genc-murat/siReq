@@ -1,9 +1,12 @@
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 use tauri::State;
 use crate::models::*;
 use crate::storage::*;
 use crate::http::*;
 use crate::scripts::*;
+use crate::variables::*;
+use crate::secrets::*;
 use reqwest::Client;
 
 #[tauri::command]
@@ -15,6 +18,10 @@ pub async fn send_request(
     handles: State<'_, RequestHandles>,
     db: State<'_, Db>,
 ) -> Result<HttpResponse, String> {
+    // Load global variables
+    let global_vars = get_global_variables(&db)?;
+
+    // Load environment variables
     let env_vars: HashMap<String, String> = match environment_id {
         Some(ref env_id) => {
             let conn = db.0.lock().map_err(|e| e.to_string())?;
@@ -29,7 +36,7 @@ pub async fn send_request(
         None => HashMap::new()
     };
 
-    // Step 1: Execute pre-request script
+    // Step 1: Execute pre-request script (uses raw env vars, before substitution)
     let (modified_request, pre_script_results) = execute_pre_request(
         &request.pre_script,
         &request,
@@ -37,13 +44,16 @@ pub async fn send_request(
     )?;
 
     // Merge any variables set by the pre-script
-    let mut merged_env = env_vars.clone();
-    for kv in &pre_script_results.modified_variables {
-        merged_env.insert(kv.key.clone(), kv.value.clone());
-    }
+    let script_vars = pre_script_results.modified_variables.clone();
 
-    // Step 2: Apply environment variable substitution
-    let resolved = apply_env(&modified_request, &merged_env);
+    // Step 2: Apply full variable resolution (dynamic -> global -> env -> script)
+    let resolved = apply_variables(
+        &modified_request,
+        &global_vars.variables,
+        &[], // No collection vars for single request
+        &env_vars,
+        &script_vars,
+    );
     let owned_client = (*client).clone();
 
     // Load stored cookies for the request domain
@@ -79,12 +89,15 @@ pub async fn send_request(
         }
     }
 
+    // Build a merged env for the post script (including script-modified vars)
+    let post_script_env: HashMap<String, String> = env_vars.clone();
+
     // Step 3: Execute post-response script
     let post_script_results = execute_post_response(
         &request.post_script,
         &modified_request,
         &response,
-        &merged_env,
+        &post_script_env,
     )?;
 
     // Step 4: Collect all modified variables from pre and post scripts
@@ -361,6 +374,277 @@ pub fn delete_benchmark_history(
 #[tauri::command]
 pub fn clear_benchmark_history(db: State<'_, Db>) -> Result<(), String> {
     clear_all_benchmark_history(&db)
+}
+
+// --- Global variables ---
+
+#[tauri::command]
+pub fn get_global_variables_cmd(
+    db: State<'_, Db>,
+) -> Result<GlobalVariables, String> {
+    get_global_variables(&db)
+}
+
+#[tauri::command]
+pub fn save_global_variables_cmd(
+    global: GlobalVariables,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    save_global_variables(&db, &global)
+}
+
+// --- Secret management ---
+
+#[tauri::command]
+pub fn encrypt_secret_value(
+    plaintext: String,
+) -> Result<String, String> {
+    encrypt_secret(&plaintext)
+}
+
+#[tauri::command]
+pub fn decrypt_secret_value(
+    ciphertext: String,
+) -> Result<String, String> {
+    decrypt_secret(&ciphertext)
+}
+
+// --- Postman collection import/export ---
+
+#[tauri::command]
+pub fn import_postman_collection(
+    spec_content: String,
+    collection_name: Option<String>,
+    db: State<'_, Db>,
+) -> Result<Collection, String> {
+    let collection = crate::postman_parser::parse_postman_collection(
+        &spec_content,
+        collection_name.as_deref(),
+    )?;
+    // Save to database
+    insert_collection(&db, &collection)?;
+    Ok(collection)
+}
+
+#[tauri::command]
+pub fn export_postman_collection(
+    collection_id: String,
+    db: State<'_, Db>,
+) -> Result<String, String> {
+    let collections = get_all_collections(&db)?;
+    let collection = collections.into_iter()
+        .find(|c| c.id == collection_id)
+        .ok_or_else(|| "Collection not found".to_string())?;
+    crate::postman_parser::export_to_postman(&collection)
+}
+
+// --- Collection runner commands ---
+
+#[tauri::command]
+pub async fn run_collection(
+    collection_id: String,
+    environment_id: Option<String>,
+    delay_ms: u64,
+    stop_on_failure: bool,
+    db: State<'_, Db>,
+) -> Result<CollectionRunResult, String> {
+    // Load the collection
+    let collections = get_all_collections(&db)?;
+    let collection = collections.into_iter()
+        .find(|c| c.id == collection_id)
+        .ok_or_else(|| "Collection not found".to_string())?;
+
+    // Load global variables
+    let global_vars = get_global_variables(&db)?;
+
+    // Load collection variables (already on the collection object)
+    let collection_vars = collection.variables.clone();
+
+    // Load environment variables if specified
+    let env_vars: HashMap<String, String> = match environment_id {
+        Some(ref env_id) => {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            let env = get_environment_by_id(&conn, env_id)?;
+            drop(conn);
+            env.map(|e| e.variables.into_iter()
+                .filter(|v| v.enabled && !v.key.is_empty())
+                .map(|v| (v.key, v.value))
+                .collect()
+            ).unwrap_or_default()
+        }
+        None => HashMap::new()
+    };
+
+    let started_at = chrono::Utc::now().to_rfc3339();
+    let start_instant = Instant::now();
+    let mut results: Vec<RunRequestResult> = Vec::new();
+    let mut passed: u32 = 0;
+    let mut failed: u32 = 0;
+
+    for (idx, request) in collection.requests.iter().enumerate() {
+        // Step 1: Execute pre-request script
+        let (modified_request, pre_script_results) = execute_pre_request(
+            &request.pre_script,
+            request,
+            &env_vars,
+        )?;
+
+        // Script variables
+        let script_vars = pre_script_results.modified_variables.clone();
+
+        // Step 2: Apply full variable resolution (dynamic -> global -> collection -> env -> script)
+        let resolved = apply_variables(
+            &modified_request,
+            &global_vars.variables,
+            &collection_vars,
+            &env_vars,
+            &script_vars,
+        );
+
+        let stored_cookies: Vec<StoredCookie> = vec![];
+
+        let request_start = Instant::now();
+
+        // Step 3: Execute the request using a dedicated client
+        let client = Client::builder()
+            .timeout(Duration::from_secs(if resolved.settings.timeout > 0 { resolved.settings.timeout } else { 30 }))
+            .build()
+            .map_err(|e| e.to_string())?;
+
+        let req_result = match execute_request(&client, &resolved, &stored_cookies).await {
+            Ok((response, _new_cookies)) => {
+                let elapsed = response.time_ms;
+
+                // Step 4: Execute post-response script
+                let post_script_results = execute_post_response(
+                    &request.post_script,
+                    &modified_request,
+                    &response,
+                    &env_vars,
+                )?;
+
+                // Step 5: Collect all script results
+                let mut all_logs = pre_script_results.logs.clone();
+                all_logs.extend(post_script_results.logs.clone());
+                let mut all_tests = pre_script_results.tests.clone();
+                all_tests.extend(post_script_results.tests.clone());
+                let mut all_errors = pre_script_results.errors.clone();
+                all_errors.extend(post_script_results.errors.clone());
+
+                if !all_errors.is_empty() {
+                    all_logs.push(ScriptLog {
+                        level: "error".to_string(),
+                        message: all_errors.join("\n"),
+                    });
+                }
+
+                let run_req = RunRequestResult {
+                    request_name: request.name.clone(),
+                    request_method: format!("{:?}", request.method),
+                    request_url: request.url.clone(),
+                    status_code: response.status,
+                    status_text: response.status_text.clone(),
+                    time_ms: elapsed,
+                    size: response.size,
+                    test_results: all_tests,
+                    script_logs: all_logs,
+                    error: None,
+                };
+
+                if response.status >= 200 && response.status < 400 {
+                    passed += 1;
+                } else {
+                    failed += 1;
+                }
+
+                run_req
+            }
+            Err(e) => {
+                let mut all_logs = pre_script_results.logs.clone();
+                let mut all_errors = pre_script_results.errors.clone();
+                all_errors.push(e.clone());
+                if !all_errors.is_empty() {
+                    all_logs.push(ScriptLog {
+                        level: "error".to_string(),
+                        message: all_errors.join("\n"),
+                    });
+                }
+
+                failed += 1;
+
+                RunRequestResult {
+                    request_name: request.name.clone(),
+                    request_method: format!("{:?}", request.method),
+                    request_url: request.url.clone(),
+                    status_code: 0,
+                    status_text: String::new(),
+                    time_ms: request_start.elapsed().as_millis() as u64,
+                    size: 0,
+                    test_results: pre_script_results.tests.clone(),
+                    script_logs: all_logs,
+                    error: Some(e),
+                }
+            }
+        };
+
+        results.push(req_result);
+
+        // Stop on failure if requested
+        if stop_on_failure && failed > 0 {
+            break;
+        }
+
+        // Delay between requests (but not after the last one)
+        if delay_ms > 0 && idx < collection.requests.len() - 1 {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+        }
+    }
+
+    let total_time_ms = start_instant.elapsed().as_millis() as u64;
+    let completed_at = chrono::Utc::now().to_rfc3339();
+
+    let result = CollectionRunResult {
+        id: uuid::Uuid::new_v4().to_string(),
+        collection_id,
+        collection_name: collection.name.clone(),
+        environment_id,
+        started_at,
+        completed_at,
+        delay_ms,
+        stop_on_failure,
+        results,
+        total: (passed + failed),
+        passed,
+        failed,
+        total_time_ms,
+    };
+
+    // Save to run history
+    let _ = save_run_result(&db, &result);
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn get_run_history(
+    limit: i64,
+    offset: i64,
+    db: State<'_, Db>,
+) -> Result<Vec<CollectionRunResult>, String> {
+    get_run_history_list(&db, limit, offset)
+}
+
+#[tauri::command]
+pub fn delete_run_history(
+    id: String,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    delete_run_history_entry(&db, &id)
+}
+
+#[tauri::command]
+pub fn clear_run_history(db: State<'_, Db>) -> Result<(), String> {
+    clear_all_run_history(&db)
 }
 
 // --- Cookie management commands ---

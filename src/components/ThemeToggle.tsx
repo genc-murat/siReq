@@ -26,7 +26,7 @@ export function ThemeToggle() {
     );
 
   return (
-    <button onClick={next} className="text-muted-foreground hover:text-foreground p-1" title={`Theme: ${theme}`}>
+    <button onClick={next} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150" title={`Theme: ${theme}`}>
       {icon}
     </button>
   );

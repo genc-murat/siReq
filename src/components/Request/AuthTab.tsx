@@ -24,7 +24,7 @@ export function AuthTab() {
             key={at.value}
             onClick={() => setAuth({ ...auth, type: at.value })}
             className={cn(
-              "px-2 py-0.5 text-xs rounded transition-colors",
+              "px-2 py-0.5 text-xs rounded-lg transition-all duration-150",
               auth.type === at.value
                 ? "bg-primary text-primary-foreground"
                 : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
@@ -41,14 +41,14 @@ export function AuthTab() {
             value={auth.username}
             onChange={(e) => update("username", e.target.value)}
             placeholder="Username"
-            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
           />
           <input
             type="password"
             value={auth.password}
             onChange={(e) => update("password", e.target.value)}
             placeholder="Password"
-            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
           />
         </div>
       )}
@@ -58,7 +58,7 @@ export function AuthTab() {
           value={auth.token}
           onChange={(e) => update("token", e.target.value)}
           placeholder="Token"
-          className="bg-background text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+          className="bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
         />
       )}
       {auth.type === "api_key" && (
@@ -68,20 +68,20 @@ export function AuthTab() {
             value={auth.api_key_name}
             onChange={(e) => update("api_key_name", e.target.value)}
             placeholder="Key name"
-            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
           />
           <input
             type="text"
             value={auth.api_key}
             onChange={(e) => update("api_key", e.target.value)}
             placeholder="Key value"
-            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+            className="bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
           />
           <div className="flex gap-2">
             <button
               onClick={() => setAuth({ ...auth, api_key_in: "header" })}
               className={cn(
-                "px-2 py-0.5 text-xs rounded",
+                "px-2 py-0.5 text-xs rounded-lg transition-all duration-150",
                 auth.api_key_in === "header" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
               )}
             >
@@ -90,7 +90,7 @@ export function AuthTab() {
             <button
               onClick={() => setAuth({ ...auth, api_key_in: "query" })}
               className={cn(
-                "px-2 py-0.5 text-xs rounded",
+                "px-2 py-0.5 text-xs rounded-lg transition-all duration-150",
                 auth.api_key_in === "query" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
               )}
             >

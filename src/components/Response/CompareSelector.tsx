@@ -56,39 +56,39 @@ export function CompareSelector({ open, onClose }: CompareSelectorProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
-      <div className="fixed inset-0 bg-black/30" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative bg-card border border-border rounded-lg shadow-xl w-[480px] max-h-[400px] flex flex-col z-10"
+        className="relative bg-popover border rounded-xl shadow-xl w-[480px] max-h-[400px] flex flex-col z-10 animate-in fade-in slide-in-from-top-2"
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
-          <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6h18M9 12h6m-7 6h8" />
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0">
+          <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M9 12h6m-7 6h8" />
           </svg>
           <span className="text-sm font-medium">Compare with history</span>
           <div className="flex-1" />
           <button
             onClick={onClose}
-            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         {/* Search */}
-        <div className="px-3 py-1.5 shrink-0">
-          <div className="flex items-center bg-background rounded border border-input px-2 py-1">
-            <svg className="h-3 w-3 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <div className="px-4 py-2 shrink-0">
+          <div className="flex items-center bg-background rounded-lg border border-input px-2.5 py-1.5 focus-within:ring-1 focus-within:ring-ring transition-all duration-150">
+            <svg className="h-3.5 w-3.5 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by URL, method, or status..."
-              className="flex-1 bg-transparent text-xs px-1.5 py-0.5 focus:outline-none text-foreground placeholder:text-muted-foreground"
+              className="flex-1 bg-transparent text-xs px-2 py-0.5 focus:outline-none text-foreground placeholder:text-muted-foreground"
               autoFocus
             />
           </div>
@@ -104,7 +104,7 @@ export function CompareSelector({ open, onClose }: CompareSelectorProps) {
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-1 py-8 text-center">
               <svg className="h-6 w-6 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 6h18M9 12h6m-7 6h8" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6h18M9 12h6m-7 6h8" />
               </svg>
               <span className="text-xs text-muted-foreground">
                 {search ? "No matching entries" : "No history entries yet"}
@@ -119,7 +119,7 @@ export function CompareSelector({ open, onClose }: CompareSelectorProps) {
                     setCompareResponse(entry.response);
                     onClose();
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/40 last:border-0"
+                  className="w-full text-left px-3 py-2 hover:bg-accent transition-all duration-150 border-b border-border/40 last:border-0"
                 >
                   <div className="flex items-center gap-2 text-xs">
                     <span className={cn("font-bold shrink-0", methodColors[entry.request.method] ?? "")}>

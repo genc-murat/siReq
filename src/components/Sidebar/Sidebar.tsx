@@ -6,6 +6,8 @@ import { EnvironmentSelector } from "./EnvironmentSelector";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CurlImport } from "@/components/CurlImport";
 import { OpenApiImport } from "@/components/OpenApiImport";
+import { PostmanImport } from "@/components/PostmanImport";
+import { GlobalVariablesDialog } from "@/components/GlobalVariablesDialog";
 
 const sidebarTabs = [
   { id: "history", label: "History" },
@@ -14,6 +16,7 @@ const sidebarTabs = [
 
 export function Sidebar() {
   const [activeSidebarTab, setActiveSidebarTab] = useState("history");
+  const [globalVarsOpen, setGlobalVarsOpen] = useState(false);
 
   return (
     <div className="h-full flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -40,13 +43,27 @@ export function Sidebar() {
         {activeSidebarTab === "history" && <HistoryList />}
         {activeSidebarTab === "collections" && <CollectionList />}
       </div>
+      <GlobalVariablesDialog open={globalVarsOpen} onClose={() => setGlobalVarsOpen(false)} />
       <div className="p-2 border-t border-sidebar-border flex items-center justify-between shrink-0">
         <div className="flex items-center gap-1">
           <CurlImport />
           <span className="text-muted-foreground/40">|</span>
+          <PostmanImport onImported={() => setActiveSidebarTab("collections")} />
+          <span className="text-muted-foreground/40">|</span>
           <OpenApiImport onImported={() => setActiveSidebarTab("collections")} />
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setGlobalVarsOpen(true)}
+            className="text-xs text-muted-foreground hover:text-foreground hover:bg-accent p-1.5 rounded-lg transition-all duration-150 flex items-center gap-1"
+            title="Global Variables"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );

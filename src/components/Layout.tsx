@@ -60,7 +60,7 @@ export function Layout() {
       <header className="h-10 border-b flex items-center px-3 bg-card shrink-0 gap-1.5">
         <button
           onClick={toggleSidebar}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
           title="Toggle sidebar (Ctrl+B)"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -75,7 +75,7 @@ export function Layout() {
         <button
           onClick={() => setToolMode("http")}
           className={cn(
-            "px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1",
+            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
             toolMode === "http"
               ? "bg-primary/10 text-primary font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -95,7 +95,7 @@ export function Layout() {
             setToolMode("websocket");
           }}
           className={cn(
-            "px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1",
+            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
             toolMode === "websocket"
               ? "bg-primary/10 text-primary font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -110,7 +110,7 @@ export function Layout() {
         <div className="h-4 w-px bg-border" />
         <button
           onClick={handleNew}
-          className="px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center gap-1"
+          className="px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 flex items-center gap-1"
           title="New tab (Ctrl+T)"
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -120,7 +120,7 @@ export function Layout() {
         </button>
         <button
           onClick={handleCopyCurl}
-          className="px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center gap-1"
+          className="px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 flex items-center gap-1"
           title="Copy as cURL"
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -138,7 +138,7 @@ export function Layout() {
             </Panel>
             <Separator
               style={{ width: 4, cursor: "col-resize" }}
-              className="bg-border hover:bg-primary/50 active:bg-primary/70 transition-colors"
+              className="bg-border hover:bg-primary/50 active:bg-primary/70 transition-all duration-150"
             />
           </>
         )}

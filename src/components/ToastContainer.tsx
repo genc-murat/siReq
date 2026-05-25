@@ -20,7 +20,7 @@ export function ToastContainer() {
           key={toast.id}
           onClick={() => removeToast(toast.id)}
           className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium shadow-lg cursor-pointer animate-in fade-in slide-in-from-bottom-2",
+            "px-4 py-2 rounded-lg text-sm font-medium shadow-xl cursor-pointer animate-in fade-in slide-in-from-bottom-2",
             typeStyles[toast.type]
           )}
         >

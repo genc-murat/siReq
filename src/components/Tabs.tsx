@@ -66,7 +66,7 @@ export function Tabs({ tabs, activeTab, onChange, className, trailing, size = "s
             onClick={() => !tab.disabled && onChange(tab.id)}
             disabled={tab.disabled}
             className={cn(
-              "relative z-10 flex items-center gap-1.5 px-2.5 h-full rounded-md font-medium transition-colors duration-150 shrink-0",
+              "relative z-10 flex items-center gap-1.5 px-2.5 h-full rounded-md font-medium transition-all duration-150 shrink-0",
               activeTab === tab.id
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",

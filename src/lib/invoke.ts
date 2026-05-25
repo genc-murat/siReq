@@ -8,6 +8,7 @@ export interface KeyValue {
   key: string;
   value: string;
   enabled: boolean;
+  is_secret?: boolean;
 }
 
 export interface FormField {
@@ -99,6 +100,7 @@ export interface Collection {
   requests: HttpRequest[];
   created_at: string;
   updated_at: string;
+  variables?: KeyValue[];
 }
 
 export interface StoredCookie {
@@ -129,6 +131,35 @@ export interface BenchmarkResult {
   total_bytes: number;
 }
 
+export interface RunRequestResult {
+  request_name: string;
+  request_method: string;
+  request_url: string;
+  status_code: number;
+  status_text: string;
+  time_ms: number;
+  size: number;
+  test_results: TestResult[];
+  script_logs: ScriptLog[];
+  error: string | null;
+}
+
+export interface CollectionRunResult {
+  id: string;
+  collection_id: string;
+  collection_name: string;
+  environment_id: string | null;
+  started_at: string;
+  completed_at: string;
+  delay_ms: number;
+  stop_on_failure: boolean;
+  results: RunRequestResult[];
+  total: number;
+  passed: number;
+  failed: number;
+  total_time_ms: number;
+}
+
 export interface BenchmarkHistoryEntry {
   id: string;
   request: HttpRequest;
@@ -136,20 +167,11 @@ export interface BenchmarkHistoryEntry {
   created_at: string;
 }
 
-export interface BenchmarkResult {
-  iterations: number;
-  times_ms: number[];
-  min_ms: number;
-  max_ms: number;
-  avg_ms: number;
-  median_ms: number;
-  p95_ms: number;
-  p99_ms: number;
-  success_count: number;
-  failure_count: number;
-  statuses: number[];
-  errors: string[];
-  total_bytes: number;
+export interface GlobalVariables {
+  id: string;
+  variables: KeyValue[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Environment {
@@ -188,8 +210,42 @@ export async function importCurl(curlCommand: string): Promise<HttpRequest> {
   return invoke("import_curl", { curlCommand });
 }
 
+export async function runCollection(
+  collectionId: string,
+  environmentId?: string | null,
+  delayMs?: number,
+  stopOnFailure?: boolean
+): Promise<CollectionRunResult> {
+  return invoke("run_collection", {
+    collectionId,
+    environmentId: environmentId ?? null,
+    delayMs: delayMs ?? 0,
+    stopOnFailure: stopOnFailure ?? false,
+  });
+}
+
+export async function getRunHistory(limit?: number, offset?: number): Promise<CollectionRunResult[]> {
+  return invoke("get_run_history", { limit: limit ?? 50, offset: offset ?? 0 });
+}
+
+export async function deleteRunHistory(id: string): Promise<void> {
+  return invoke("delete_run_history", { id });
+}
+
+export async function clearRunHistory(): Promise<void> {
+  return invoke("clear_run_history");
+}
+
 export async function importOpenApi(specContent: string, collectionName: string): Promise<Collection> {
   return invoke("import_openapi", { specContent, collectionName });
+}
+
+export async function importPostmanCollection(specContent: string, collectionName?: string): Promise<Collection> {
+  return invoke("import_postman_collection", { specContent, collectionName: collectionName ?? null });
+}
+
+export async function exportPostmanCollection(collectionId: string): Promise<string> {
+  return invoke("export_postman_collection", { collectionId });
 }
 
 export async function getHistory(limit?: number, offset?: number): Promise<HistoryEntry[]> {
@@ -246,6 +302,24 @@ export async function deleteCookie(id: string): Promise<void> {
 
 export async function clearCookies(): Promise<void> {
   return invoke("clear_cookies");
+}
+
+// --- Global variables & secrets ---
+
+export async function getGlobalVariables(): Promise<GlobalVariables> {
+  return invoke("get_global_variables_cmd");
+}
+
+export async function saveGlobalVariables(global: GlobalVariables): Promise<void> {
+  return invoke("save_global_variables_cmd", { global });
+}
+
+export async function encryptSecretValue(plaintext: string): Promise<string> {
+  return invoke("encrypt_secret_value", { plaintext });
+}
+
+export async function decryptSecretValue(ciphertext: string): Promise<string> {
+  return invoke("decrypt_secret_value", { ciphertext });
 }
 
 // --- WebSocket commands ---

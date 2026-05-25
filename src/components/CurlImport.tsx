@@ -41,13 +41,13 @@ export function CurlImport() {
         value={curl}
         onChange={(e) => setCurl(e.target.value)}
         placeholder="Paste cURL command here..."
-        className="w-full bg-background text-foreground text-xs px-2 py-1 rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring resize-none h-20"
+        className="w-full bg-background text-foreground text-xs px-2 py-1 rounded-lg border border-input focus:outline-none focus-within:ring-1 focus-within:ring-ring transition-all duration-150 resize-none h-20"
         autoFocus
       />
-      {error && <div className="text-xs text-destructive">{error}</div>}
+      {error && <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-2 py-1">{error}</div>}
       <div className="flex gap-1">
-        <button onClick={handleImport} className="text-xs text-primary hover:underline">Import</button>
-        <button onClick={() => { setOpen(false); setCurl(""); setError(null); }} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+        <button onClick={handleImport} className="text-xs font-medium px-2 py-1 rounded-lg text-primary hover:bg-primary/10 transition-all duration-150">Import</button>
+        <button onClick={() => { setOpen(false); setCurl(""); setError(null); }} className="text-xs font-medium px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150">Cancel</button>
       </div>
     </div>
   );

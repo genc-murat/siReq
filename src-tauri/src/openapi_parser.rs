@@ -81,6 +81,7 @@ pub fn parse_openapi(spec_content: &str, collection_name: &str) -> Result<Collec
         requests,
         created_at: now.clone(),
         updated_at: now,
+        variables: vec![],
     })
 }
 
@@ -208,6 +209,7 @@ fn parse_operation(
                     key: p_name.to_string(),
                     value: get_example_value(param, spec),
                     enabled: true,
+                    is_secret: false,
                 });
             }
             "query" => {
@@ -215,6 +217,7 @@ fn parse_operation(
                     key: p_name.to_string(),
                     value: get_example_value(param, spec),
                     enabled: true,
+                    is_secret: false,
                 });
             }
             "path" => {}
@@ -264,6 +267,7 @@ fn parse_operation(
                 key: "Content-Type".to_string(),
                 value: content_type,
                 enabled: true,
+                is_secret: false,
             });
         }
     }

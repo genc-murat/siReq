@@ -19,7 +19,7 @@ function formatMs(ms: number): string {
 
 function statCard(label: string, value: string, color?: string) {
   return (
-    <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/30 min-w-[80px]">
+    <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/30 min-w-[80px] transition-all duration-150">
       <span className={cn("text-lg font-bold tabular-nums", color)}>{value}</span>
       <span className="text-[10px] text-muted-foreground mt-0.5">{label}</span>
     </div>
@@ -57,8 +57,8 @@ function HistoryListItem({ entry, onSelect, onDelete, onToggleCompare, active, c
     <div
       onClick={onSelect}
       className={cn(
-        "group flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-accent/50 cursor-pointer transition-colors text-xs border-b border-border/20 last:border-0",
-        active && "bg-accent/30 border-l-2 border-l-primary",
+        "group flex items-center gap-1.5 px-2.5 py-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-all duration-150 text-xs border-b border-border/20 last:border-0",
+        active && "bg-accent/30 ring-1 ring-primary/20",
         compareSelected && "bg-primary/10"
       )}
     >
@@ -66,9 +66,9 @@ function HistoryListItem({ entry, onSelect, onDelete, onToggleCompare, active, c
       <button
         onClick={(e) => { e.stopPropagation(); onToggleCompare(); }}
         className={cn(
-          "shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors",
+          "shrink-0 w-4 h-4 rounded-lg border flex items-center justify-center transition-all duration-150",
           compareSelected
-            ? "bg-primary border-primary text-primary-foreground"
+            ? "bg-primary border-primary text-primary-foreground shadow-sm"
             : "border-muted-foreground/30 hover:border-muted-foreground/60"
         )}
       >
@@ -96,10 +96,10 @@ function HistoryListItem({ entry, onSelect, onDelete, onToggleCompare, active, c
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="text-muted-foreground/40 hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-1 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-150"
       >
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
@@ -165,7 +165,7 @@ export function BenchmarkResults() {
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         <div className="flex flex-col items-center gap-3">
           <svg className="h-10 w-10 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.321 6.176c1.044-.363 2.136-.549 3.29-.549 5.531 0 8.39 5.262 7.202 9.813m-9.178 3.847c-1.043.363-2.136.549-3.29.549-5.531 0-8.39-5.262-7.202-9.813m1.987-3.456a10.393 10.393 0 00-1.525 1.724m2.296-3.146a10.404 10.404 0 00-1.524 1.724m-4.498 1.48l.1.1m-1.309 1.248l-1.069.894m1.069-.894l1.068.894m0 0l1.068-.894M16.5 13.5a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.321 6.176c1.044-.363 2.136-.549 3.29-.549 5.531 0 8.39 5.262 7.202 9.813m-9.178 3.847c-1.043.363-2.136.549-3.29.549-5.531 0-8.39-5.262-7.202-9.813m1.987-3.456a10.393 10.393 0 00-1.525 1.724m2.296-3.146a10.404 10.404 0 00-1.524 1.724m-4.498 1.48l.1.1m-1.309 1.248l-1.069.894m1.069-.894l1.068.894m0 0l1.068-.894M16.5 13.5a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
           </svg>
           <p>No benchmark results</p>
         </div>
@@ -194,20 +194,22 @@ export function BenchmarkResults() {
       {/* Main stats panel */}
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-4 min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-2">
-          <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.321 6.176c1.044-.363 2.136-.549 3.29-.549 5.531 0 8.39 5.262 7.202 9.813m-9.178 3.847c-1.043.363-2.136.549-3.29.549-5.531 0-8.39-5.262-7.202-9.813m1.987-3.456a10.393 10.393 0 00-1.525 1.724m2.296-3.146a10.404 10.404 0 00-1.524 1.724m-4.498 1.48l.1.1m-1.309 1.248l-1.069.894m1.069-.894l1.068.894m0 0l1.068-.894M16.5 13.5a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-          </svg>
+      <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.321 6.176c1.044-.363 2.136-.549 3.29-.549 5.531 0 8.39 5.262 7.202 9.813m-9.178 3.847c-1.043.363-2.136.549-3.29.549-5.531 0-8.39-5.262-7.202-9.813m1.987-3.456a10.393 10.393 0 00-1.525 1.724m2.296-3.146a10.404 10.404 0 00-1.524 1.724m-4.498 1.48l.1.1m-1.309 1.248l-1.069.894m1.069-.894l1.068.894m0 0l1.068-.894M16.5 13.5a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+            </svg>
+          </div>
           <span className="text-sm font-semibold">Benchmark Results</span>
           <button
             onClick={() => setShowHistory(!showHistory)}
             className={cn(
-              "ml-auto text-[10px] flex items-center gap-1 px-2 py-1 rounded transition-colors",
-              showHistory ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              "ml-auto text-[10px] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-150",
+              showHistory ? "bg-primary/10 text-primary ring-1 ring-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}
           >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             History ({benchmarkHistory.length})
           </button>
@@ -225,7 +227,7 @@ export function BenchmarkResults() {
         {/* P99 + success/failure + total bytes */}
         <div className="grid grid-cols-4 gap-2">
           {statCard("P99", formatMs(r.p99_ms), "text-red-400")}
-          <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/30 min-w-[80px]">
+          <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/30 min-w-[80px] transition-all duration-150">
             <div className="flex items-center gap-1.5">
               <span className="text-lg font-bold tabular-nums text-green-500">{r.success_count}</span>
               {r.failure_count > 0 && (
@@ -240,7 +242,7 @@ export function BenchmarkResults() {
             </span>
           </div>
           {statCard("Total", formatSize(r.total_bytes))}
-          <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/30 min-w-[80px]">
+      <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/30 min-w-[80px] transition-all duration-150">
             <span className="text-lg font-bold tabular-nums">
               {r.success_count > 0 && r.iterations > 0
                 ? `${((r.success_count / r.iterations) * 100).toFixed(1)}%`
@@ -282,10 +284,10 @@ export function BenchmarkResults() {
         {r.errors.length > 0 && (
           <div>
             <div className="text-[11px] font-medium text-red-500 mb-1.5">Errors ({r.errors.length})</div>
-            <div className="flex flex-col gap-1 max-h-[100px] overflow-auto">
+        <div className="flex flex-col gap-1 max-h-[100px] overflow-auto">
               {r.errors.map((err, i) => (
-                <div key={i} className="text-[10px] text-red-400/80 bg-red-500/5 rounded px-2 py-1 break-all">
-                  #{i + 1}: {err}
+                <div key={i} className="text-[10px] text-red-400/80 bg-red-500/5 rounded-lg px-2.5 py-1.5 break-all border border-red-500/10">
+                  <span className="font-medium">#{i + 1}:</span> {err}
                 </div>
               ))}
             </div>
@@ -295,14 +297,14 @@ export function BenchmarkResults() {
         {/* Timing Distribution Bar Chart */}
         <div>
           <div className="text-[11px] font-medium text-muted-foreground mb-1.5">Timing Distribution</div>
-          <div className="flex items-end gap-[2px] h-20">
+      <div className="flex items-end gap-[2px] h-20">
             {buckets.map((count, i) => (
               <div
                 key={i}
-                className="flex-1 rounded-t-sm bg-primary/40 hover:bg-primary/60 transition-colors relative group"
+                className="flex-1 rounded-t-sm bg-primary/40 hover:bg-primary/60 transition-all duration-150 relative group"
                 style={{ height: `${(count / maxBucketCount) * 100}%` }}
               >
-                <div className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block text-[9px] text-muted-foreground whitespace-nowrap bg-secondary px-1 rounded">
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block text-[9px] text-muted-foreground whitespace-nowrap bg-secondary px-1.5 py-0.5 rounded-lg shadow-sm">
                   {count} req
                 </div>
               </div>
@@ -316,13 +318,13 @@ export function BenchmarkResults() {
 
         {/* Individual Results (collapsible) */}
         <details className="group">
-          <summary className="text-[11px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1">
+          <summary className="text-[11px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-all duration-150 list-none flex items-center gap-1">
             <svg className="h-3 w-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
             Individual Results
           </summary>
-          <div className="mt-1.5 max-h-[200px] overflow-auto border rounded-md">
+      <div className="mt-1.5 max-h-[200px] overflow-auto border rounded-lg">
             <table className="w-full text-[10px]">
               <thead>
                 <tr className="bg-secondary/30 text-muted-foreground">
@@ -355,18 +357,18 @@ export function BenchmarkResults() {
       {/* History Sidebar */}
       {showHistory && (
         <div className="w-64 shrink-0 border-l bg-card flex flex-col">
-          <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b shrink-0">
             <span className="text-[11px] font-medium text-muted-foreground">Benchmark History</span>
             <div className="flex items-center gap-1">
               {compareIds.length === 2 && compareEntries[0] && compareEntries[1] && (
                 <button
                   onClick={handleCompareOpen}
-                  className="text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors mr-1"
+                  className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-all duration-150"
+                  title="Compare selected"
                 >
-                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6h18M9 12h6m-7 6h8" />
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M9 12h6m-7 6h8" />
                   </svg>
-                  Compare
                 </button>
               )}
               {benchmarkHistory.length > 0 && (
@@ -378,9 +380,12 @@ export function BenchmarkResults() {
                     loadBenchmarkHistory();
                     addToast("Benchmark history cleared", "info");
                   }}
-                  className="text-[10px] text-destructive/60 hover:text-destructive"
+                  className="p-1.5 rounded-lg text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-all duration-150"
+                  title="Clear history"
                 >
-                  Clear
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -393,7 +398,7 @@ export function BenchmarkResults() {
             ) : benchmarkHistory.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
                 <svg className="h-6 w-6 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.321 6.176c1.044-.363 2.136-.549 3.29-.549 5.531 0 8.39 5.262 7.202 9.813m-9.178 3.847c-1.043.363-2.136.549-3.29.549-5.531 0-8.39-5.262-7.202-9.813" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.321 6.176c1.044-.363 2.136-.549 3.29-.549 5.531 0 8.39 5.262 7.202 9.813m-9.178 3.847c-1.043.363-2.136.549-3.29.549-5.531 0-8.39-5.262-7.202-9.813" />
                 </svg>
                 <span className="text-[11px] text-muted-foreground">No benchmark history</span>
                 <span className="text-[9px] text-muted-foreground/50">Run a benchmark to see results here</span>

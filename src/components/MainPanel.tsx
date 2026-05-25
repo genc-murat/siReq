@@ -3,6 +3,7 @@ import { RequestBuilder } from "@/components/Request/RequestBuilder";
 import { ResponseViewer } from "@/components/Response/ResponseViewer";
 import { BenchmarkResults } from "@/components/Response/BenchmarkResults";
 import { WebSocketPanel } from "@/components/WebSocketPanel";
+import { RunnerPanel } from "@/components/RunnerPanel";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -12,6 +13,15 @@ export function MainPanel() {
   const benchmarkResult = useRequestStore((s) => s.benchmarkResult);
   const error = useRequestStore((s) => s.error);
   const toolMode = useUIStore((s) => s.toolMode);
+  const showRunner = useUIStore((s) => s.showRunner);
+
+  if (showRunner) {
+    return (
+      <div className="h-full flex flex-col">
+        <RunnerPanel />
+      </div>
+    );
+  }
 
   if (toolMode === "websocket") {
     return (
@@ -29,7 +39,7 @@ export function MainPanel() {
         </Panel>
         <Separator
           style={{ width: 4, cursor: "col-resize" }}
-          className="bg-border hover:bg-primary/50 active:bg-primary/70 transition-colors"
+          className="bg-border hover:bg-primary/50 active:bg-primary/70 transition-all duration-150"
         />
         <Panel minSize="20%">
           <div className="h-full flex flex-col">
@@ -45,7 +55,7 @@ export function MainPanel() {
                   </div>
                   <button
                     onClick={() => navigator.clipboard.writeText(error)}
-                    className="shrink-0 text-destructive/60 hover:text-destructive transition-colors p-0.5"
+                    className="shrink-0 text-destructive/60 hover:text-destructive transition-all duration-150 p-0.5"
                     title="Copy error"
                   >
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
