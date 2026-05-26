@@ -727,6 +727,7 @@ export async function grpcCallUnary(
   serviceName: string,
   methodName: string,
   inputJson: string,
+  environmentId?: string | null,
 ): Promise<GrpcResponse> {
   return safeInvoke("grpc_call_unary", {
     address,
@@ -735,6 +736,7 @@ export async function grpcCallUnary(
     serviceName,
     methodName,
     inputJson,
+    environmentId: environmentId ?? null,
   });
 }
 
@@ -745,6 +747,7 @@ export async function grpcCallClientStreaming(
   serviceName: string,
   methodName: string,
   inputJsons: string[],
+  environmentId?: string | null,
 ): Promise<GrpcResponse> {
   return safeInvoke("grpc_call_client_streaming", {
     address,
@@ -753,6 +756,7 @@ export async function grpcCallClientStreaming(
     serviceName,
     methodName,
     inputJsons,
+    environmentId: environmentId ?? null,
   });
 }
 
@@ -764,6 +768,7 @@ export async function grpcCallBidiStreaming(
   methodName: string,
   inputJsons: string[],
   maxMessages?: number,
+  environmentId?: string | null,
 ): Promise<GrpcResponse[]> {
   return safeInvoke("grpc_call_bidi_streaming", {
     address,
@@ -773,6 +778,7 @@ export async function grpcCallBidiStreaming(
     methodName,
     inputJsons,
     maxMessages: maxMessages ?? 100,
+    environmentId: environmentId ?? null,
   });
 }
 
@@ -784,6 +790,7 @@ export async function grpcCallServerStreaming(
   methodName: string,
   inputJson: string,
   maxMessages?: number,
+  environmentId?: string | null,
 ): Promise<GrpcResponse[]> {
   return safeInvoke("grpc_call_server_streaming", {
     address,
@@ -793,7 +800,37 @@ export async function grpcCallServerStreaming(
     methodName,
     inputJson,
     maxMessages: maxMessages ?? 100,
+    environmentId: environmentId ?? null,
   });
+}
+
+// ─── gRPC History Types ────────────────────────────────────────────────────────
+
+export interface GrpcHistoryEntry {
+  id: string;
+  address: string;
+  tls: boolean;
+  service_name: string;
+  method_name: string;
+  method_kind: string;
+  proto_content: string | null;
+  input_json: string | null;
+  input_jsons: string[];
+  responses: GrpcResponse[];
+  error: string | null;
+  created_at: string;
+}
+
+export async function getGrpcHistory(limit?: number, offset?: number): Promise<GrpcHistoryEntry[]> {
+  return safeInvoke("get_grpc_history", { limit: limit ?? 50, offset: offset ?? 0 });
+}
+
+export async function deleteGrpcHistory(id: string): Promise<void> {
+  return safeInvoke("delete_grpc_history", { id });
+}
+
+export async function clearGrpcHistory(): Promise<void> {
+  return safeInvoke("clear_grpc_history");
 }
 
 // ─── gRPC Reflection API Functions ─────────────────────────────────────────

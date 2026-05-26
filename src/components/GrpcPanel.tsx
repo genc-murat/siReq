@@ -7,13 +7,19 @@ import {
   grpcCallBidiStreaming,
   grpcReflectListServices,
   grpcReflectGetProto,
+  getGrpcHistory,
+  deleteGrpcHistory,
+  clearGrpcHistory,
   type GrpcDescriptorSet,
   type GrpcServiceInfo,
   type GrpcMethodInfo,
   type GrpcFieldInfo,
   type GrpcResponse,
+  type GrpcHistoryEntry,
 } from "@/lib/invoke";
 import { ProtoFormBuilder, buildDefaultValues } from "./GrpcProtoForm";
+import { useUIStore } from "@/stores/uiStore";
+import { EnvironmentSelector } from "./Sidebar/EnvironmentSelector";
 
 // ─── Proto Editor Tab ───────────────────────────────────────────────────────
 
@@ -144,10 +150,66 @@ function ServiceTree({
   onSelectMethod: (svc: string, method: string) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter services and methods based on search query
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return services;
+    const q = searchQuery.toLowerCase();
+    return services
+      .map((svc) => ({
+        ...svc,
+        methods: svc.methods.filter(
+          (m) =>
+            m.name.toLowerCase().includes(q) ||
+            m.full_name.toLowerCase().includes(q) ||
+            m.input_type.toLowerCase().includes(q) ||
+            m.output_type.toLowerCase().includes(q)
+        ),
+      }))
+      .filter((svc) => svc.methods.length > 0 || svc.name.toLowerCase().includes(q) || svc.full_name.toLowerCase().includes(q));
+  }, [services, searchQuery]);
 
   return (
     <div className="flex flex-col gap-0.5 py-1">
-      {services.map((svc) => (
+      {/* Search bar */}
+      <div className="px-3 py-1.5 border-b border-border/40">
+        <div className="relative">
+          <svg
+            className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter methods…"
+            className="w-full bg-accent/40 text-[11px] text-foreground placeholder:text-muted-foreground/30 pl-7 pr-2 py-1.5 rounded border border-border/40 focus:outline-none focus:border-primary/50 focus:bg-accent/60 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/30 hover:text-foreground/60 transition-colors"
+            >
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {searchQuery && (
+          <div className="text-[10px] text-muted-foreground/50 mt-1">
+            {filtered.reduce((s, svc) => s + svc.methods.length, 0)} method{filtered.reduce((s, svc) => s + svc.methods.length, 0) !== 1 ? "s" : ""} found
+          </div>
+        )}
+      </div>
+
+      {filtered.map((svc) => (
         <div key={svc.full_name}>
           <button
             onClick={() => setExpanded((p) => ({ ...p, [svc.full_name]: !p[svc.full_name] }))}
@@ -161,6 +223,7 @@ function ServiceTree({
               <path d="M6 4l8 6-8 6V4z" />
             </svg>
             <span className="text-xs font-medium text-foreground truncate">{svc.name}</span>
+            <span className="text-[10px] text-muted-foreground/40 ml-auto tabular-nums">{svc.methods.length}</span>
           </button>
           {expanded[svc.full_name] && (
             <div className="ml-3 border-l border-border/60">
@@ -185,9 +248,9 @@ function ServiceTree({
           )}
         </div>
       ))}
-      {services.length === 0 && (
+      {filtered.length === 0 && (
         <div className="px-3 py-4 text-[11px] text-muted-foreground text-center italic">
-          Parse a .proto file to see services
+          {searchQuery ? "No matching methods found" : "Parse a .proto file to see services"}
         </div>
       )}
     </div>
@@ -424,9 +487,300 @@ function MethodDetail({
   );
 }
 
+// ─── Response Schema Tree ────────────────────────────────────────────────────
+
+/** Color-coded scalar value display */
+function ScalarValue({ value, type }: { value: unknown; type: string }) {
+  if (value === null || value === undefined) {
+    return <span className="text-muted-foreground/40 italic text-[11px]">null</span>;
+  }
+  if (typeof value === "string") {
+    return <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span>;
+  }
+  if (typeof value === "number") {
+    return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
+  }
+  if (typeof value === "boolean") {
+    return <span className="text-purple-600 dark:text-purple-400">{value ? "true" : "false"}</span>;
+  }
+  return <span className="text-foreground/60">{String(value)}</span>;
+}
+
+/** Type badge for a field */
+function TypeBadge({ field }: { field: GrpcFieldInfo }) {
+  const colorMap: Record<string, string> = {
+    string: "bg-emerald-500/10 text-emerald-600",
+    int32: "bg-blue-500/10 text-blue-600",
+    int64: "bg-blue-500/10 text-blue-600",
+    uint32: "bg-blue-500/10 text-blue-600",
+    uint64: "bg-blue-500/10 text-blue-600",
+    sint32: "bg-blue-500/10 text-blue-600",
+    sint64: "bg-blue-500/10 text-blue-600",
+    fixed32: "bg-blue-500/10 text-blue-600",
+    fixed64: "bg-blue-500/10 text-blue-600",
+    sfixed32: "bg-blue-500/10 text-blue-600",
+    sfixed64: "bg-blue-500/10 text-blue-600",
+    double: "bg-cyan-500/10 text-cyan-600",
+    float: "bg-cyan-500/10 text-cyan-600",
+    bool: "bg-purple-500/10 text-purple-600",
+    bytes: "bg-orange-500/10 text-orange-600",
+  };
+  const color = colorMap[field.field_type] || (field.sub_fields.length > 0 || field.enum_values.length > 0
+    ? "bg-violet-500/10 text-violet-600"
+    : "bg-muted text-muted-foreground");
+
+  return (
+    <span className={`text-[9px] font-mono px-1 py-0.5 rounded ${color}`}>
+      {field.field_type}
+      {field.is_map ? "{k,v}" : field.label === "repeated" ? "[]" : ""}
+    </span>
+  );
+}
+
+/** Recursive schema tree node for a single field + its value */
+function GrpcSchemaTreeNode({
+  field,
+  value,
+  depth = 0,
+  defaultOpen = false,
+}: {
+  field: GrpcFieldInfo;
+  value: unknown;
+  depth?: number;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(depth < 2 || defaultOpen);
+
+  const isExpandable = field.sub_fields.length > 0;
+  const isEnum = field.enum_values.length > 0;
+  const isRepeated = field.label === "repeated";
+  const isMap = field.is_map;
+
+  const renderValue = () => {
+    // Repeated field — show array
+    if (isRepeated && Array.isArray(value)) {
+      if (value.length === 0) {
+        return <span className="text-muted-foreground/40 text-[11px] italic">[]</span>;
+      }
+      return (
+        <div className="space-y-0.5">
+          {value.map((item, idx) => (
+            <div key={idx} className="flex gap-2">
+              <span className="text-[10px] text-muted-foreground/40 font-mono shrink-0 w-5 text-right">[{idx}]</span>
+              {isExpandable && typeof item === "object" && item !== null ? (
+                <div className="flex-1">
+                  {field.sub_fields.map((sf) => (
+                    <GrpcSchemaTreeNode
+                      key={sf.name}
+                      field={sf}
+                      value={(item as Record<string, unknown>)[sf.name]}
+                      depth={depth + 1}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <ScalarValue value={item} type={field.field_type} />
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Map field
+    if (isMap && typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0) {
+        return <span className="text-muted-foreground/40 text-[11px] italic">{}</span>;
+      }
+      return (
+        <div className="space-y-0.5">
+          {entries.map(([k, v]) => (
+            <div key={k} className="flex gap-1.5 pl-4">
+              <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400">"{k}"</span>
+              <span className="text-muted-foreground/30">→</span>
+              <ScalarValue value={v} type={field.field_type} />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Expandable message type
+    if (isExpandable && typeof value === "object" && value !== null && !Array.isArray(value)) {
+      return (
+        <div className="pl-2 border-l border-border/40 ml-0.5 mt-0.5 space-y-0.5">
+          {field.sub_fields.map((sf) => (
+            <GrpcSchemaTreeNode
+              key={sf.name}
+              field={sf}
+              value={(value as Record<string, unknown>)[sf.name]}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // Null value for an expandable type
+    if (isExpandable) {
+      return <span className="text-muted-foreground/40 text-[11px] italic">null</span>;
+    }
+
+    // Enum — show value + available enum options
+    if (isEnum) {
+      return (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <ScalarValue value={value} type={field.field_type} />
+          {field.enum_values.length > 0 && (
+            <span className="text-[9px] text-muted-foreground/40" title={field.enum_values.join(", ")}>
+              ({field.enum_values.join(" | ")})
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    // Scalar
+    return <ScalarValue value={value} type={field.field_type} />;
+  };
+
+  return (
+    <div>
+      <div
+        className="flex items-start gap-1.5 py-0.5 px-1 rounded hover:bg-accent/30 transition-colors group cursor-default"
+        onClick={isExpandable ? () => setOpen(!open) : undefined}
+      >
+        {/* Expand/collapse chevron for message types */}
+        {isExpandable ? (
+          <svg
+            className={`h-3 w-3 mt-0.5 shrink-0 text-muted-foreground/40 transition-transform ${open ? "rotate-90" : ""}`}
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path d="M6 4l8 6-8 6V4z" />
+          </svg>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+
+        {/* Field name */}
+        <span className="text-[12px] font-mono font-medium text-foreground/90 shrink-0">
+          {field.name}
+        </span>
+
+        {/* Type badge */}
+        <TypeBadge field={field} />
+
+        {/* Label badge (repeated/optional) */}
+        {field.label === "repeated" && (
+          <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 font-mono uppercase tracking-wider">
+            repeated
+          </span>
+        )}
+        {field.label === "optional" && !isMap && (
+          <span className="text-[8px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono uppercase tracking-wider">
+            optional
+          </span>
+        )}
+        {field.is_map && (
+          <span className="text-[8px] px-1 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-mono uppercase tracking-wider">
+            map
+          </span>
+        )}
+
+        {/* Value — shown inline only for non-expandable */}
+        {!isExpandable && <span className="flex-1 min-w-0 text-[11px] font-mono leading-snug break-all">{renderValue()}</span>}
+      </div>
+
+      {/* Children — shown when expanded */}
+      {isExpandable && open && (
+        <div className="ml-1">
+          {renderValue()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Wraps schema tree: parses JSON body, renders fields */
+function ResponseSchemaTreeView({
+  fields,
+  body,
+}: {
+  fields: GrpcFieldInfo[];
+  body: string;
+}) {
+  const parsed = useMemo(() => {
+    try {
+      return JSON.parse(body);
+    } catch {
+      return null;
+    }
+  }, [body]);
+
+  // No body
+  if (!body || body.trim() === "") {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <span className="text-[11px] text-muted-foreground/40 italic">(empty response body)</span>
+      </div>
+    );
+  }
+
+  // Not valid JSON — can't render tree
+  if (parsed === null) {
+    return (
+      <div className="flex-1 p-3">
+        <span className="text-[11px] text-muted-foreground/60">Response is not valid JSON — switch to Raw view</span>
+      </div>
+    );
+  }
+
+  // No fields schema available
+  if (!fields || fields.length === 0) {
+    return (
+      <div className="flex-1 p-3 overflow-y-auto">
+        <GrpcSchemaTreeNode
+          field={{
+            name: "(root)",
+            field_type: "message",
+            label: "",
+            is_map: false,
+            sub_fields: [],
+            enum_values: [],
+          }}
+          value={parsed}
+          defaultOpen={true}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      {fields.map((f) => (
+        <GrpcSchemaTreeNode
+          key={f.name}
+          field={f}
+          value={(parsed as Record<string, unknown>)[f.name]}
+          defaultOpen={true}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Response Panel ─────────────────────────────────────────────────────────
 
-function ResponseView({ response }: { response: GrpcResponse }) {
+function ResponseView({
+  response,
+  outputFields,
+}: {
+  response: GrpcResponse;
+  outputFields: GrpcFieldInfo[];
+}) {
+  const [viewMode, setViewMode] = useState<"raw" | "tree">("tree");
   const headers = response.headers ?? [];
   const statusCode = parseInt(response.status_code);
   const isError = statusCode !== 0 || (response.error !== null && response.error !== "");
@@ -446,6 +800,34 @@ function ResponseView({ response }: { response: GrpcResponse }) {
         {response.status_message && (
           <span className="text-[11px] text-muted-foreground/60 truncate">{response.status_message}</span>
         )}
+        {/* View mode toggle */}
+        <div className="ml-auto flex items-center gap-0.5 bg-muted/50 rounded p-0.5">
+          <button
+            onClick={() => setViewMode("tree")}
+            className={`text-[9px] px-1.5 py-0.5 rounded transition-all font-medium ${
+              viewMode === "tree"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground/50 hover:text-foreground/70"
+            }`}
+            title="Schema tree view"
+          >
+            <svg className="h-3 w-3 inline-block mr-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+            </svg>
+            Tree
+          </button>
+          <button
+            onClick={() => setViewMode("raw")}
+            className={`text-[9px] px-1.5 py-0.5 rounded transition-all font-medium ${
+              viewMode === "raw"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground/50 hover:text-foreground/70"
+            }`}
+            title="Raw JSON text"
+          >
+            {"{ }"} Raw
+          </button>
+        </div>
       </div>
 
       {headers.length > 0 && (
@@ -464,14 +846,18 @@ function ResponseView({ response }: { response: GrpcResponse }) {
         </details>
       )}
 
-      <div className="flex-1 min-h-0">
-        <textarea
-          readOnly
-          value={response.body}
-          className="w-full h-full resize-none bg-transparent text-[13px] font-mono leading-relaxed p-3 text-foreground focus:outline-none"
-          spellCheck={false}
-        />
-      </div>
+      {viewMode === "tree" ? (
+        <ResponseSchemaTreeView fields={outputFields} body={response.body} />
+      ) : (
+        <div className="flex-1 min-h-0">
+          <textarea
+            readOnly
+            value={response.body}
+            className="w-full h-full resize-none bg-transparent text-[13px] font-mono leading-relaxed p-3 text-foreground focus:outline-none"
+            spellCheck={false}
+          />
+        </div>
+      )}
 
       {response.error && (
         <div className="shrink-0 px-3 py-2 bg-destructive/10 border-t border-destructive/20">
@@ -485,7 +871,15 @@ function ResponseView({ response }: { response: GrpcResponse }) {
 
 // ─── Streaming Messages View ────────────────────────────────────────────────
 
-function StreamingMessages({ messages }: { messages: GrpcResponse[] }) {
+function StreamingMessages({
+  messages,
+  outputFields,
+}: {
+  messages: GrpcResponse[];
+  outputFields: GrpcFieldInfo[];
+}) {
+  const [viewMode, setViewMode] = useState<"raw" | "tree">("tree");
+
   if (messages.length === 0) return null;
 
   return (
@@ -493,6 +887,34 @@ function StreamingMessages({ messages }: { messages: GrpcResponse[] }) {
       <div className="shrink-0 px-3 py-2 border-b flex items-center gap-2">
         <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Stream Messages</span>
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono">{messages.length}</span>
+        {/* View mode toggle */}
+        <div className="ml-auto flex items-center gap-0.5 bg-muted/50 rounded p-0.5">
+          <button
+            onClick={() => setViewMode("tree")}
+            className={`text-[9px] px-1.5 py-0.5 rounded transition-all font-medium ${
+              viewMode === "tree"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground/50 hover:text-foreground/70"
+            }`}
+            title="Schema tree view"
+          >
+            <svg className="h-3 w-3 inline-block mr-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+            </svg>
+            Tree
+          </button>
+          <button
+            onClick={() => setViewMode("raw")}
+            className={`text-[9px] px-1.5 py-0.5 rounded transition-all font-medium ${
+              viewMode === "raw"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground/50 hover:text-foreground/70"
+            }`}
+            title="Raw JSON text"
+          >
+            {"{ }"} Raw
+          </button>
+        </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         {messages.map((msg, i) => (
@@ -503,7 +925,11 @@ function StreamingMessages({ messages }: { messages: GrpcResponse[] }) {
               <span className="text-muted-foreground/50">{msg.size} bytes</span>
             </summary>
             <div className="px-3 pb-2">
-              <pre className="text-[12px] font-mono text-foreground/80 whitespace-pre-wrap leading-relaxed">{msg.body}</pre>
+              {viewMode === "tree" ? (
+                <ResponseSchemaTreeView fields={outputFields} body={msg.body} />
+              ) : (
+                <pre className="text-[12px] font-mono text-foreground/80 whitespace-pre-wrap leading-relaxed">{msg.body}</pre>
+              )}
             </div>
           </details>
         ))}
@@ -538,6 +964,11 @@ function ConnectionBar({
       <input
         value={address}
         onChange={(e) => onAddressChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && address.trim() && !disabled) {
+            onDiscover();
+          }
+        }}
         placeholder="localhost:50051"
         disabled={disabled}
         className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
@@ -546,7 +977,7 @@ function ConnectionBar({
         onClick={onDiscover}
         disabled={discovering || !address.trim()}
         className="text-[10px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-1"
-        title="Discover services via gRPC reflection"
+        title="Discover services via gRPC reflection (or press Enter)"
       >
         {discovering ? (
           <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -618,6 +1049,228 @@ function DiscoveredServicesList({
   );
 }
 
+// ─── gRPC History Panel ────────────────────────────────────────────────────
+
+function GrpcHistoryPanel({
+  onRestore,
+}: {
+  onRestore: (entry: GrpcHistoryEntry) => void;
+}) {
+  const [entries, setEntries] = useState<GrpcHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [detailEntry, setDetailEntry] = useState<GrpcHistoryEntry | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const list = await getGrpcHistory(50, 0);
+      setEntries(list);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteGrpcHistory(id);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleClear = useCallback(async () => {
+    try {
+      await clearGrpcHistory();
+      setEntries([]);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Detail view
+  if (detailEntry) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20">
+          <button
+            onClick={() => setDetailEntry(null)}
+            className="text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
+          >
+            ← Back
+          </button>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex-1">History Detail</span>
+          <button
+            onClick={() => { onRestore(detailEntry); setDetailEntry(null); }}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-all font-medium"
+          >
+            Restore
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 text-[11px]">
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+              detailEntry.method_kind === "Unary" ? "bg-emerald-500/15 text-emerald-600" :
+              detailEntry.method_kind === "ServerStreaming" ? "bg-amber-500/15 text-amber-600" :
+              detailEntry.method_kind === "ClientStreaming" ? "bg-blue-500/15 text-blue-600" :
+              "bg-purple-500/15 text-purple-600"
+            }`}>
+              {detailEntry.method_kind}
+            </span>
+            <span className="font-mono text-foreground/80">{detailEntry.method_name}</span>
+          </div>
+          <div className="text-muted-foreground/60">
+            {detailEntry.tls ? "https://" : "http://"}{detailEntry.address}
+          </div>
+          <div className="text-muted-foreground/40">
+            {new Date(detailEntry.created_at).toLocaleString()}
+          </div>
+
+          {detailEntry.input_json && (
+            <>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mt-3">Input</div>
+              <pre className="text-[11px] font-mono text-foreground/80 whitespace-pre-wrap bg-muted/30 rounded p-2 max-h-40 overflow-y-auto">
+                {detailEntry.input_json}
+              </pre>
+            </>
+          )}
+
+          {detailEntry.input_jsons.length > 0 && (
+            <>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mt-3">Inputs ({detailEntry.input_jsons.length})</div>
+              {detailEntry.input_jsons.map((json, i) => (
+                <pre key={i} className="text-[11px] font-mono text-foreground/80 whitespace-pre-wrap bg-muted/30 rounded p-2 max-h-24 overflow-y-auto">
+                  [{i + 1}] {json}
+                </pre>
+              ))}
+            </>
+          )}
+
+          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mt-3">Response</div>
+          {detailEntry.error ? (
+            <div className="text-[11px] font-mono text-destructive bg-destructive/10 rounded p-2">
+              {detailEntry.error}
+            </div>
+          ) : (
+            detailEntry.responses.map((r, i) => (
+              <div key={i} className="border border-border/40 rounded overflow-hidden">
+                <div className="flex items-center gap-2 px-2 py-1 bg-muted/20 text-[10px] text-muted-foreground">
+                  <span className="font-mono">{r.status_code}</span>
+                  <span>·</span>
+                  <span>{r.time_ms}ms</span>
+                  <span>·</span>
+                  <span>{r.size} bytes</span>
+                </div>
+                <pre className="text-[11px] font-mono text-foreground/80 whitespace-pre-wrap p-2 max-h-48 overflow-y-auto">
+                  {r.body || "(empty)"}
+                </pre>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b bg-muted/20">
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          History
+        </span>
+        {entries.length > 0 && (
+          <button
+            onClick={handleClear}
+            className="text-[9px] text-muted-foreground/50 hover:text-destructive transition-colors"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="px-3 py-4 text-[11px] text-muted-foreground text-center italic">Loading...</div>
+        ) : entries.length === 0 ? (
+          <div className="px-3 py-4 text-[11px] text-muted-foreground text-center italic">
+            No gRPC calls yet
+          </div>
+        ) : (
+          entries.map((entry) => {
+            const isError = entry.error !== null || entry.responses.some(r => r.error);
+            const timeAgo = formatTimeAgo(entry.created_at);
+            return (
+              <div
+                key={entry.id}
+                onClick={() => setDetailEntry(entry)}
+                className="group px-3 py-2 hover:bg-accent/30 transition-colors cursor-pointer border-b border-border/20"
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className={`text-[9px] font-mono px-1 py-0.5 rounded ${
+                    entry.method_kind === "Unary" ? "bg-emerald-500/15 text-emerald-600" :
+                    entry.method_kind === "ServerStreaming" ? "bg-amber-500/15 text-amber-600" :
+                    entry.method_kind === "ClientStreaming" ? "bg-blue-500/15 text-blue-600" :
+                    "bg-purple-500/15 text-purple-600"
+                  }`}>
+                    {entry.method_kind}
+                  </span>
+                  <span className="text-xs font-mono text-foreground/80 truncate flex-1">{entry.method_name}</span>
+                  <span className={`text-[10px] font-mono ${isError ? "text-destructive/70" : "text-emerald-600/70"}`}>
+                    {isError ? "✕" : "✓"}
+                  </span>
+                  <button
+                    onClick={(e) => handleDelete(entry.id, e)}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground/30 hover:text-destructive transition-all text-[10px]"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
+                  <span className="truncate max-w-[140px]">{entry.address}</span>
+                  <span>·</span>
+                  <span>{timeAgo}</span>
+                  {entry.responses.length > 0 && !isError && (
+                    <>
+                      <span>·</span>
+                      <span>{entry.responses[0].time_ms}ms</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+      <div className="shrink-0 px-3 py-1.5 border-t flex items-center">
+        <button
+          onClick={load}
+          disabled={loading}
+          className="text-[9px] text-muted-foreground/40 hover:text-foreground transition-colors disabled:opacity-30"
+        >
+          ↻ Refresh
+        </button>
+        {entries.length > 0 && (
+          <span className="ml-auto text-[9px] text-muted-foreground/30">{entries.length} entry{entries.length !== 1 ? "s" : ""}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatTimeAgo(isoStr: string): string {
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(isoStr).toLocaleDateString();
+}
+
 // ─── Main GrpcPanel ─────────────────────────────────────────────────────────
 
 export function GrpcPanel() {
@@ -639,6 +1292,11 @@ export function GrpcPanel() {
 
   // Method selection
   const [activeMethod, setActiveMethod] = useState<{ svc: string; method: string; info: GrpcMethodInfo } | null>(null);
+
+  // Environment & History state
+  const activeEnvironmentId = useUIStore((s) => s.activeEnvironmentId);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showEnvSelector, setShowEnvSelector] = useState(false);
 
   // Response state
   const [responses, setResponses] = useState<GrpcResponse[]>([]);
@@ -730,6 +1388,7 @@ export function GrpcPanel() {
           activeMethod.method,
           inputJsonOrArray as string[],
           100,
+          activeEnvironmentId,
         );
         setStreamingMessages(msgs);
         setShowStreaming(true);
@@ -754,6 +1413,7 @@ export function GrpcPanel() {
           activeMethod.method,
           inputJsonOrArray as string,
           100,
+          activeEnvironmentId,
         );
         setStreamingMessages(msgs);
         setShowStreaming(true);
@@ -777,6 +1437,7 @@ export function GrpcPanel() {
           activeMethod.svc,
           activeMethod.method,
           inputJsonOrArray as string[],
+          activeEnvironmentId,
         );
         setResponses([resp]);
       } catch (e) {
@@ -799,6 +1460,7 @@ export function GrpcPanel() {
           activeMethod.svc,
           activeMethod.method,
           inputJsonOrArray as string,
+          activeEnvironmentId,
         );
         setResponses([resp]);
       } catch (e) {
@@ -829,8 +1491,54 @@ export function GrpcPanel() {
           </svg>
           <span className="text-xs font-semibold text-foreground">gRPC</span>
         </div>
-        {descriptor && (
-          <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
+        <button
+          onClick={() => setShowEnvSelector((p) => !p)}
+          className={`text-[10px] flex items-center gap-1 px-2 py-1 rounded transition-all font-medium ${
+            activeEnvironmentId
+              ? "bg-primary/15 text-primary"
+              : "text-muted-foreground/60 hover:text-foreground hover:bg-accent/50"
+          }`}
+          title={activeEnvironmentId ? "Environment active — click to switch" : "No environment selected — click to set"}
+        >
+          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+          </svg>
+          Env
+        </button>
+        <button
+          onClick={() => setShowHistory((p) => !p)}
+          className={`text-[10px] flex items-center gap-1 px-2 py-1 rounded transition-all font-medium ${
+            showHistory
+              ? "bg-primary/15 text-primary"
+              : "text-muted-foreground/60 hover:text-foreground hover:bg-accent/50"
+          }`}
+          title={`${showHistory ? "Close" : "Show"} gRPC request history`}
+        >
+          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          History
+        </button>
+      </div>
+
+      {/* Environment selector popover */}
+      {showEnvSelector && (
+        <div className="shrink-0 px-3 py-2 border-b bg-muted/20">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Environment</span>
+            <button
+              onClick={() => setShowEnvSelector(false)}
+              className="text-[9px] px-1.5 py-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent/50 transition-all"
+            >
+              ✕ Close
+            </button>
+          </div>
+          <EnvironmentSelector />
+        </div>
+      )}
+
+      <ConnectionBar
             {descriptor.services.length} service{descriptor.services.length !== 1 ? "s" : ""} ·{" "}
             {descriptor.services.reduce((s, svc) => s + svc.methods.length, 0)} methods
             {descriptor.from_cache && (
@@ -873,9 +1581,17 @@ export function GrpcPanel() {
       )}
 
       <div className="flex-1 flex min-h-0">
-        {/* Left panel: Proto editor, Service tree, or Discovered services */}
+        {/* Left panel: Proto editor, Service tree, Discovered services, or History */}
         <div className="w-72 shrink-0 flex flex-col border-r min-h-0">
-          {descriptor ? (
+          {showHistory ? (
+            <GrpcHistoryPanel
+              onRestore={(entry) => {
+                setAddress(entry.address);
+                setTls(entry.tls);
+                setShowHistory(false);
+              }}
+            />
+          ) : descriptor ? (
             <>
               <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b bg-muted/20">
                 <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Services</span>
@@ -952,9 +1668,9 @@ export function GrpcPanel() {
 
         {/* Right panel: Response */}
         {showStreaming && streamingMessages.length > 0 ? (
-          <StreamingMessages messages={streamingMessages} />
+          <StreamingMessages messages={streamingMessages} outputFields={activeMethod?.info.output_fields ?? []} />
         ) : responses.length > 0 ? (
-          <ResponseView response={responses[0]} />
+          <ResponseView response={responses[0]} outputFields={activeMethod?.info.output_fields ?? []} />
         ) : null}
       </div>
     </div>

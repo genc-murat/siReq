@@ -90,6 +90,24 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             updated_at TEXT NOT NULL
         );"
     )?;
+
+    // Initialize grpc_history table
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS grpc_history (
+            id TEXT PRIMARY KEY,
+            address TEXT NOT NULL,
+            tls INTEGER NOT NULL DEFAULT 0,
+            service_name TEXT NOT NULL,
+            method_name TEXT NOT NULL,
+            method_kind TEXT NOT NULL,
+            proto_content TEXT,
+            input_json TEXT,
+            input_jsons TEXT NOT NULL DEFAULT '[]',
+            responses TEXT NOT NULL DEFAULT '[]',
+            error TEXT,
+            created_at TEXT NOT NULL
+        );"
+    )?;
     Ok(())
 }
 
@@ -781,6 +799,78 @@ pub fn delete_run_history_entry(db: &State<Db>, id: &str) -> Result<(), String> 
 pub fn clear_all_run_history(db: &State<Db>) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM run_history", []).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ─── gRPC History ────────────────────────────────────────────────────────────
+
+pub fn save_grpc_history_entry(db: &State<Db>, entry: &GrpcHistoryEntry) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let responses_json = serde_json::to_string(&entry.responses).map_err(|e| e.to_string())?;
+    let input_jsons_json = serde_json::to_string(&entry.input_jsons).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO grpc_history (id, address, tls, service_name, method_name, method_kind, proto_content, input_json, input_jsons, responses, error, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        params![
+            entry.id,
+            entry.address,
+            entry.tls as i32,
+            entry.service_name,
+            entry.method_name,
+            entry.method_kind,
+            entry.proto_content,
+            entry.input_json,
+            input_jsons_json,
+            responses_json,
+            entry.error,
+            entry.created_at,
+        ],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_grpc_history_list(db: &State<Db>, limit: i64, offset: i64) -> Result<Vec<GrpcHistoryEntry>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, address, tls, service_name, method_name, method_kind, proto_content, input_json, input_jsons, responses, error, created_at FROM grpc_history ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt.query_map(params![limit, offset], |row| {
+        let id: String = row.get(0)?;
+        let address: String = row.get(1)?;
+        let tls_int: i32 = row.get(2)?;
+        let service_name: String = row.get(3)?;
+        let method_name: String = row.get(4)?;
+        let method_kind: String = row.get(5)?;
+        let proto_content: Option<String> = row.get(6)?;
+        let input_json: Option<String> = row.get(7)?;
+        let input_jsons_json: String = row.get(8)?;
+        let responses_json: String = row.get(9)?;
+        let error: Option<String> = row.get(10)?;
+        let created_at: String = row.get(11)?;
+        Ok((id, address, tls_int, service_name, method_name, method_kind, proto_content, input_json, input_jsons_json, responses_json, error, created_at))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .filter_map(|(id, address, tls_int, service_name, method_name, method_kind, proto_content, input_json, input_jsons_json, responses_json, error, created_at)| {
+        let tls = tls_int != 0;
+        let input_jsons: Vec<String> = serde_json::from_str(&input_jsons_json).unwrap_or_default();
+        let responses: Vec<GrpcResponse> = serde_json::from_str(&responses_json).unwrap_or_default();
+        Some(GrpcHistoryEntry {
+            id, address, tls, service_name, method_name, method_kind,
+            proto_content, input_json, input_jsons, responses, error, created_at,
+        })
+    })
+    .collect();
+    Ok(entries)
+}
+
+pub fn delete_grpc_history_entry(db: &State<Db>, id: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM grpc_history WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn clear_all_grpc_history(db: &State<Db>) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM grpc_history", []).map_err(|e| e.to_string())?;
     Ok(())
 }
 

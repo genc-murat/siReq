@@ -962,6 +962,41 @@ pub fn grpc_parse_proto(
     grpc::parse_proto(&content, &state)
 }
 
+/// Resolve `{{$dynamic}}` and `{{variable}}` patterns in a gRPC input string.
+fn resolve_grpc_input(input: &str, db: &State<'_, Db>, environment_id: &Option<String>) -> Result<String, String> {
+    // First resolve dynamic variables ({{$timestamp}}, {{$uuid}}, etc.)
+    let mut resolved = crate::variables::resolve_dynamic_vars(input);
+
+    // Load global variables
+    let global_vars = crate::storage::get_global_variables(db)?;
+
+    // Load environment variables if specified
+    let env_vars: HashMap<String, String> = match environment_id {
+        Some(ref env_id) => {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            let env = crate::storage::get_environment_by_id(&conn, env_id)?;
+            drop(conn);
+            env.map(|e| e.variables.into_iter()
+                .filter(|v| v.enabled && !v.key.is_empty())
+                .map(|v| (v.key, v.value))
+                .collect()
+            ).unwrap_or_default()
+        }
+        None => HashMap::new()
+    };
+
+    // Build variable map (global → env)
+    let map = crate::variables::build_variable_map(&global_vars.variables, &[], &env_vars, &[]);
+
+    // Substitute {{key}} patterns
+    for (key, value) in &map {
+        let pattern = format!("{{{{{}}}}}", key);
+        resolved = resolved.replace(&pattern, value);
+    }
+
+    Ok(resolved)
+}
+
 #[tauri::command]
 pub async fn grpc_call_unary(
     address: String,
@@ -970,10 +1005,36 @@ pub async fn grpc_call_unary(
     service_name: String,
     method_name: String,
     input_json: String,
+    environment_id: Option<String>,
     state: State<'_, GrpcState>,
+    db: State<'_, Db>,
 ) -> Result<GrpcResponse, String> {
+    let resolved_input = resolve_grpc_input(&input_json, &db, &environment_id)?;
     let pool = grpc::get_pool(&state, &proto_id)?;
-    grpc::call_unary(&address, tls, &pool, &service_name, &method_name, &input_json).await
+    let result = grpc::call_unary(&address, tls, &pool, &service_name, &method_name, &resolved_input).await;
+    // Save to history
+    let entry = GrpcHistoryEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        address: address.clone(),
+        tls,
+        service_name: service_name.clone(),
+        method_name: method_name.clone(),
+        method_kind: "Unary".to_string(),
+        proto_content: None,
+        input_json: Some(input_json.clone()),
+        input_jsons: vec![],
+        responses: match &result {
+            Ok(r) => vec![r.clone()],
+            Err(_) => vec![],
+        },
+        error: match &result {
+            Ok(_) => None,
+            Err(e) => Some(e.clone()),
+        },
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = save_grpc_history_entry(&db, &entry);
+    result
 }
 
 #[tauri::command]
@@ -984,10 +1045,39 @@ pub async fn grpc_call_client_streaming(
     service_name: String,
     method_name: String,
     input_jsons: Vec<String>,
+    environment_id: Option<String>,
     state: State<'_, GrpcState>,
+    db: State<'_, Db>,
 ) -> Result<GrpcResponse, String> {
     let pool = grpc::get_pool(&state, &proto_id)?;
-    grpc::call_client_streaming(&address, tls, &pool, &service_name, &method_name, input_jsons).await
+    // Save original inputs before resolution (for history)
+    let original_inputs = input_jsons.clone();
+    let resolved_inputs: Result<Vec<String>, String> = input_jsons.iter().map(|j| resolve_grpc_input(j, &db, &environment_id)).collect();
+    let resolved_inputs = resolved_inputs?;
+    let result = grpc::call_client_streaming(&address, tls, &pool, &service_name, &method_name, resolved_inputs).await;
+    // Save to history (store original unresolved inputs)
+    let entry = GrpcHistoryEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        address: address.clone(),
+        tls,
+        service_name: service_name.clone(),
+        method_name: method_name.clone(),
+        method_kind: "ClientStreaming".to_string(),
+        proto_content: None,
+        input_json: None,
+        input_jsons: original_inputs,
+        responses: match &result {
+            Ok(r) => vec![r.clone()],
+            Err(_) => vec![],
+        },
+        error: match &result {
+            Ok(_) => None,
+            Err(e) => Some(e.clone()),
+        },
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = save_grpc_history_entry(&db, &entry);
+    result
 }
 
 #[tauri::command]
@@ -999,10 +1089,39 @@ pub async fn grpc_call_bidi_streaming(
     method_name: String,
     input_jsons: Vec<String>,
     max_messages: usize,
+    environment_id: Option<String>,
     state: State<'_, GrpcState>,
+    db: State<'_, Db>,
 ) -> Result<Vec<GrpcResponse>, String> {
     let pool = grpc::get_pool(&state, &proto_id)?;
-    grpc::call_bidi_streaming(&address, tls, &pool, &service_name, &method_name, input_jsons, max_messages).await
+    // Save original inputs before resolution (for history)
+    let original_inputs = input_jsons.clone();
+    let resolved_inputs: Result<Vec<String>, String> = input_jsons.iter().map(|j| resolve_grpc_input(j, &db, &environment_id)).collect();
+    let resolved_inputs = resolved_inputs?;
+    let result = grpc::call_bidi_streaming(&address, tls, &pool, &service_name, &method_name, resolved_inputs, max_messages).await;
+    // Save to history (store original unresolved inputs)
+    let entry = GrpcHistoryEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        address: address.clone(),
+        tls,
+        service_name: service_name.clone(),
+        method_name: method_name.clone(),
+        method_kind: "BidiStreaming".to_string(),
+        proto_content: None,
+        input_json: None,
+        input_jsons: original_inputs,
+        responses: match &result {
+            Ok(responses) => responses.clone(),
+            Err(_) => vec![],
+        },
+        error: match &result {
+            Ok(_) => None,
+            Err(e) => Some(e.clone()),
+        },
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = save_grpc_history_entry(&db, &entry);
+    result
 }
 
 #[tauri::command]
@@ -1014,10 +1133,60 @@ pub async fn grpc_call_server_streaming(
     method_name: String,
     input_json: String,
     max_messages: usize,
+    environment_id: Option<String>,
     state: State<'_, GrpcState>,
+    db: State<'_, Db>,
 ) -> Result<Vec<GrpcResponse>, String> {
+    let resolved_input = resolve_grpc_input(&input_json, &db, &environment_id)?;
     let pool = grpc::get_pool(&state, &proto_id)?;
-    grpc::call_server_streaming(&address, tls, &pool, &service_name, &method_name, &input_json, max_messages).await
+    let result = grpc::call_server_streaming(&address, tls, &pool, &service_name, &method_name, &resolved_input, max_messages).await;
+    // Save to history
+    let entry = GrpcHistoryEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        address: address.clone(),
+        tls,
+        service_name: service_name.clone(),
+        method_name: method_name.clone(),
+        method_kind: "ServerStreaming".to_string(),
+        proto_content: None,
+        input_json: Some(input_json.clone()),
+        input_jsons: vec![],
+        responses: match &result {
+            Ok(responses) => responses.clone(),
+            Err(_) => vec![],
+        },
+        error: match &result {
+            Ok(_) => None,
+            Err(e) => Some(e.clone()),
+        },
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = save_grpc_history_entry(&db, &entry);
+    result
+}
+
+// ─── gRPC History commands ──────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_grpc_history(
+    limit: i64,
+    offset: i64,
+    db: State<'_, Db>,
+) -> Result<Vec<GrpcHistoryEntry>, String> {
+    get_grpc_history_list(&db, limit, offset)
+}
+
+#[tauri::command]
+pub fn delete_grpc_history(
+    id: String,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    delete_grpc_history_entry(&db, &id)
+}
+
+#[tauri::command]
+pub fn clear_grpc_history(db: State<'_, Db>) -> Result<(), String> {
+    clear_all_grpc_history(&db)
 }
 
 // ─── gRPC Reflection commands ─────────────────────────────────────────────

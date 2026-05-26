@@ -511,3 +511,20 @@ pub struct GrpcResponse {
     pub error: Option<String>,
 }
 
+/// A saved entry in gRPC request history.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrpcHistoryEntry {
+    pub id: String,
+    pub address: String,
+    pub tls: bool,
+    pub service_name: String,
+    pub method_name: String,
+    pub method_kind: String, // "Unary", "ServerStreaming", "ClientStreaming", "BidiStreaming"
+    pub proto_content: Option<String>,
+    pub input_json: Option<String>,       // single input (unary, server-streaming)
+    pub input_jsons: Vec<String>,          // multiple inputs (client-streaming, bidi)
+    pub responses: Vec<GrpcResponse>,
+    pub error: Option<String>,
+    pub created_at: String,
+}
+
