@@ -1264,9 +1264,10 @@ mod tests {
 
     fn parse_test_proto() -> DescriptorPool {
         let tmp_dir = std::env::temp_dir();
-        let tmp_path = tmp_dir.join("sireq_test.proto");
+        let file_name = format!("sireq_test_{}.proto", uuid::Uuid::new_v4());
+        let tmp_path = tmp_dir.join(&file_name);
         std::fs::write(&tmp_path, TEST_PROTO).unwrap();
-        let fd_set = compile(["sireq_test.proto"], [tmp_dir.to_str().unwrap()]).unwrap();
+        let fd_set = compile([file_name.as_str()], [tmp_dir.to_str().unwrap()]).unwrap();
         let _ = std::fs::remove_file(&tmp_path);
         DescriptorPool::from_file_descriptor_set(fd_set).unwrap()
     }
@@ -1575,6 +1576,176 @@ mod tests {
         // Second message should be stream2
         assert!(results[1].body.contains("stream2"), "Second message should be stream2: {}", results[1].body);
         assert!(results[1].body.contains("2"), "Second message number should be 2");
+    }
+
+    // ─── Edge case tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_build_grpc_frame_large_data() {
+        // Build a frame with ~100KB of data
+        let large_data = vec![b'x'; 100_000];
+        let frame = build_grpc_frame(&large_data);
+
+        // 1 byte compression flag + 4 byte length + 100,000 bytes = 100,005
+        assert_eq!(frame.len(), 100_005);
+        assert_eq!(frame[0], 0u8); // uncompressed
+
+        // Verify length prefix
+        let len = u32::from_be_bytes([frame[1], frame[2], frame[3], frame[4]]);
+        assert_eq!(len, 100_000);
+
+        // Round-trip: parse and verify data
+        let (decoded, remaining) = parse_grpc_frame(&frame).unwrap();
+        assert_eq!(decoded.len(), 100_000);
+        assert_eq!(decoded, large_data);
+        assert!(remaining.is_empty());
+    }
+
+    #[test]
+    fn test_decode_message_to_json_empty() {
+        // decode_message_to_json with empty bytes should return empty string
+        let pool = parse_test_proto();
+        let msg_desc = pool.get_message_by_name("testgrpc.EchoMessage").unwrap();
+        let result = decode_message_to_json(b"", &msg_desc).unwrap();
+        assert!(result.is_empty(), "Empty bytes should produce empty string");
+    }
+
+    #[tokio::test]
+    async fn test_unary_empty_message() {
+        // Send empty JSON input to Unary — should work with default field values
+        let addr = start_test_server().await;
+        let address = format!("127.0.0.1:{}", addr.port());
+        let pool = parse_test_proto();
+
+        let result = call_unary(
+            &address,
+            false,
+            &pool,
+            "testgrpc.TestService",
+            "Unary",
+            r#"{}"#,
+        ).await.expect("Unary call with empty message should succeed");
+
+        assert_eq!(result.status_code, "0", "gRPC status should be 0");
+        assert!(result.error.is_none(), "No error expected");
+        assert!(!result.body.is_empty(), "Response body should not be empty");
+        assert!(result.body.contains("hello back"), "Body should contain echo response");
+        assert!(result.body.contains("42"), "Body should contain default number 42");
+    }
+
+    #[tokio::test]
+    async fn test_unary_large_payload() {
+        // Send a request with a very large items array
+        let addr = start_test_server().await;
+        let address = format!("127.0.0.1:{}", addr.port());
+        let pool = parse_test_proto();
+
+        // Build JSON with 1000 items
+        let items: Vec<String> = (0..1000).map(|i| format!("item_{}", i)).collect();
+        let items_json = serde_json::to_string(&items).unwrap();
+        let input = format!(r#"{{"text":"large","number":42,"items":{}}}"#, items_json);
+
+        assert!(input.len() > 8_000, "Input should be large (was {} bytes)", input.len());
+
+        let result = call_unary(
+            &address,
+            false,
+            &pool,
+            "testgrpc.TestService",
+            "Unary",
+            &input,
+        ).await.expect("Unary call with large payload should succeed");
+
+        // Server always returns fixed echo, so just verify it didn't error
+        assert_eq!(result.status_code, "0", "gRPC status should be 0");
+        assert!(result.error.is_none(), "No error expected");
+        assert!(!result.body.is_empty(), "Response should not be empty");
+    }
+
+    #[tokio::test]
+    async fn test_bidi_large_text() {
+        // Test bidirectional streaming with large text payload — verifies round-trip
+        let addr = start_test_server().await;
+        let address = format!("127.0.0.1:{}", addr.port());
+        let pool = parse_test_proto();
+
+        // Create a 10KB text string
+        let large_text = "A".repeat(10_000);
+        let input_json = format!(r#"{{"text":"{}","number":5}}"#, large_text);
+
+        let results = call_bidi_streaming(
+            &address,
+            false,
+            &pool,
+            "testgrpc.TestService",
+            "BidiStreaming",
+            vec![input_json],
+            10,
+        ).await.expect("Bidi streaming with large text should succeed");
+
+        assert_eq!(results.len(), 1, "Should receive 1 echo message");
+        assert_eq!(results[0].status_code, "0", "gRPC status should be 0");
+        assert!(results[0].error.is_none(), "No error expected");
+
+        // Verify the echo contains the large text (server prepends "echo: ")
+        assert!(results[0].body.contains(&large_text),
+            "Response should contain the original large text");
+        assert!(results[0].body.contains("echo: A"),
+            "Response should have echo prefix");
+        assert!(results[0].body.contains("10"),
+            "Number should be doubled to 10");
+        assert!(results[0].size > 10_000,
+            "Response size should be > 10KB, was {}", results[0].size);
+    }
+
+    #[tokio::test]
+    async fn test_server_streaming_max_messages_limit() {
+        // Verify max_messages limits the number of streaming responses
+        let addr = start_test_server().await;
+        let address = format!("127.0.0.1:{}", addr.port());
+        let pool = parse_test_proto();
+
+        // Server sends 2 messages (stream1, stream2), but we only want 1
+        let results = call_server_streaming(
+            &address,
+            false,
+            &pool,
+            "testgrpc.TestService",
+            "ServerStreaming",
+            r#"{"text":"limit_test","number":0}"#,
+            1, // max_messages = 1 — should stop after first message
+        ).await.expect("Streaming call should succeed");
+
+        // Should have received only 1 message (limited by max_messages)
+        assert_eq!(results.len(), 1, "Should receive only 1 message (limited by max_messages=1)");
+
+        // That one message should be stream1 (the first one)
+        assert!(results[0].body.contains("stream1"),
+            "First message should be stream1: {}", results[0].body);
+        assert_eq!(results[0].status_code, "0", "gRPC status should be 0");
+        assert!(results[0].error.is_none(), "No error expected");
+    }
+
+    #[tokio::test]
+    async fn test_connection_refused() {
+        // Attempt connection to a port where nothing is listening
+        let pool = parse_test_proto();
+
+        let result = call_unary(
+            "127.0.0.1:1",  // port 1 — nothing listens here
+            false,
+            &pool,
+            "testgrpc.TestService",
+            "Unary",
+            r#"{}"#,
+        ).await;
+
+        // Must fail with a connection error (not a proto/gRPC error)
+        assert!(result.is_err(), "Connection to port 1 should fail");
+        let err = result.unwrap_err();
+        // Should mention connection failure
+        assert!(err.contains("connect") || err.contains("Failed") || err.contains("refused") || err.contains("timed out"),
+            "Error should describe connection failure: {}", err);
     }
 }
 
