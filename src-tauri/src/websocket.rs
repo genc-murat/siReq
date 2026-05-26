@@ -96,7 +96,7 @@ async fn connect_and_listen(
         tokio::select! {
             // Outgoing message from frontend via channel
             Some(msg) = rx.recv() => {
-                if write.send(Message::Text(msg.clone().into())).await.is_err() {
+                if write.send(Message::Text(msg.clone())).await.is_err() {
                     break;
                 }
                 let _ = app.emit("ws-message", WsMessageEvent {

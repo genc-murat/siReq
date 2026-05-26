@@ -849,14 +849,14 @@ pub fn get_grpc_history_list(db: &State<Db>, limit: i64, offset: i64) -> Result<
         Ok((id, address, tls_int, service_name, method_name, method_kind, proto_content, input_json, input_jsons_json, responses_json, error, created_at))
     }).map_err(|e| e.to_string())?
     .filter_map(|r| r.ok())
-    .filter_map(|(id, address, tls_int, service_name, method_name, method_kind, proto_content, input_json, input_jsons_json, responses_json, error, created_at)| {
+    .map(|(id, address, tls_int, service_name, method_name, method_kind, proto_content, input_json, input_jsons_json, responses_json, error, created_at)| {
         let tls = tls_int != 0;
         let input_jsons: Vec<String> = serde_json::from_str(&input_jsons_json).unwrap_or_default();
         let responses: Vec<GrpcResponse> = serde_json::from_str(&responses_json).unwrap_or_default();
-        Some(GrpcHistoryEntry {
+        GrpcHistoryEntry {
             id, address, tls, service_name, method_name, method_kind,
             proto_content, input_json, input_jsons, responses, error, created_at,
-        })
+        }
     })
     .collect();
     Ok(entries)

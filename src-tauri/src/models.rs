@@ -152,6 +152,7 @@ pub struct HttpResponse {
 /// A node in the collection tree — either a folder or a request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum CollectionItem {
     #[serde(rename = "folder")]
     Folder(CollectionFolder),
@@ -308,7 +309,7 @@ pub fn find_item_by_id<'a>(items: &'a [CollectionItem], id: &str) -> Option<&'a 
 }
 
 /// Find an item by ID in the tree (mutable, recursive).
-pub fn find_item_by_id_mut<'a>(items: &'a mut Vec<CollectionItem>, id: &str) -> Option<&'a mut CollectionItem> {
+pub fn find_item_by_id_mut<'a>(items: &'a mut [CollectionItem], id: &str) -> Option<&'a mut CollectionItem> {
     for item in items.iter_mut() {
         if item.id() == id {
             return Some(item);

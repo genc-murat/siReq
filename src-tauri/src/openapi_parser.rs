@@ -109,7 +109,7 @@ fn build_base_url_v3(spec: &Value) -> String {
         if let Some(first) = servers.first() {
             if let Some(url) = first.get("url").and_then(|u| u.as_str()) {
                 let cleaned = url
-                    .split(|c| c == '{' || c == '}')
+                    .split(['{', '}'])
                     .enumerate()
                     .filter_map(|(i, part)| if i % 2 == 0 { Some(part) } else { None })
                     .collect::<Vec<_>>()
@@ -146,6 +146,7 @@ fn parse_security_schemes_v3(spec: &Value) -> HashMap<String, Value> {
     schemes
 }
 
+#[allow(clippy::too_many_arguments)]
 fn parse_operation(
     operation: &Value,
     method_str: &str,
@@ -263,15 +264,15 @@ fn parse_operation(
     };
 
     // Add Content-Type header if there's a body and one isn't already set
-    if final_body_type != BodyType::none && !content_type.is_empty() {
-        if !headers.iter().any(|h| h.key.to_lowercase() == "content-type") {
-            headers.push(KeyValue {
-                key: "Content-Type".to_string(),
-                value: content_type,
-                enabled: true,
-                is_secret: false,
-            });
-        }
+    if final_body_type != BodyType::none && !content_type.is_empty()
+        && !headers.iter().any(|h| h.key.to_lowercase() == "content-type")
+    {
+        headers.push(KeyValue {
+            key: "Content-Type".to_string(),
+            value: content_type,
+            enabled: true,
+            is_secret: false,
+        });
     }
 
     Some(HttpRequest {

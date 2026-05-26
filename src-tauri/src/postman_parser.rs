@@ -468,7 +468,7 @@ fn urlencoding(input: &str) -> String {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
                 result.push(byte as char);
             }
-            b' ' => result.push_str("+"),
+            b' ' => result.push('+'),
             _ => {
                 result.push_str(&format!("%{:02X}", byte));
             }
@@ -492,7 +492,7 @@ pub fn export_to_postman(collection: &Collection) -> Result<String, String> {
     ));
 
     let items: Vec<Value> = collection.items.iter()
-        .map(|item| collection_item_to_postman(item))
+        .map(collection_item_to_postman)
         .collect();
 
     let mut root = serde_json::Map::new();
@@ -510,7 +510,7 @@ fn collection_item_to_postman(item: &CollectionItem) -> Value {
             let mut folder = serde_json::Map::new();
             folder.insert("name".to_string(), Value::String(f.name.clone()));
             let children: Vec<Value> = f.items.iter()
-                .map(|child| collection_item_to_postman(child))
+                .map(collection_item_to_postman)
                 .collect();
             folder.insert("item".to_string(), Value::Array(children));
             Value::Object(folder)

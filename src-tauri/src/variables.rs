@@ -60,16 +60,10 @@ fn replace_random_int_range(text: &str) -> String {
     let pattern_start = "{{$randomInt ";
     let pattern_end = "}}";
 
-    loop {
-        let start = match result.find(pattern_start) {
-            Some(pos) => pos,
-            None => break,
-        };
-
+    while let Some(start) = result.find(pattern_start) {
         let after_start = &result[start + pattern_start.len()..];
-        let end = match after_start.find(pattern_end) {
-            Some(pos) => pos,
-            None => break,
+        let Some(end) = after_start.find(pattern_end) else {
+            break;
         };
 
         let range_str = &after_start[..end];
@@ -101,20 +95,14 @@ fn replace_random_string_length(text: &str) -> String {
     let pattern_start = "{{$randomString ";
     let pattern_end = "}}";
 
-    loop {
-        let start = match result.find(pattern_start) {
-            Some(pos) => pos,
-            None => break,
-        };
-
+    while let Some(start) = result.find(pattern_start) {
         let after_start = &result[start + pattern_start.len()..];
-        let end = match after_start.find(pattern_end) {
-            Some(pos) => pos,
-            None => break,
+        let Some(end) = after_start.find(pattern_end) else {
+            break;
         };
 
         let len_str = &after_start[..end].trim();
-        let length = len_str.parse::<usize>().unwrap_or(8).max(1).min(256);
+        let length = len_str.parse::<usize>().unwrap_or(8).clamp(1, 256);
         let value = random_string(length);
 
         let full_pattern = format!("{}{}{}", pattern_start, len_str, pattern_end);
@@ -257,7 +245,7 @@ mod tests {
         let result = resolve_dynamic_vars("num={{$randomInt}}");
         assert!(result.starts_with("num="));
         let val: i32 = result[4..].parse().unwrap();
-        assert!(val >= 0 && val <= 1000);
+        assert!((0..=1000).contains(&val));
     }
 
     #[test]
@@ -266,7 +254,7 @@ mod tests {
         let result = resolve_dynamic_vars("num={{$randomInt 10,20}}");
         assert!(result.starts_with("num="));
         let val: i32 = result[4..].parse().unwrap();
-        assert!(val >= 10 && val <= 20);
+        assert!((10..=20).contains(&val));
     }
 
     #[test]

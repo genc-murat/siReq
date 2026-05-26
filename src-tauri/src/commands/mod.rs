@@ -998,6 +998,7 @@ fn resolve_grpc_input(input: &str, db: &State<'_, Db>, environment_id: &Option<S
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn grpc_call_unary(
     address: String,
     tls: bool,
@@ -1038,6 +1039,7 @@ pub async fn grpc_call_unary(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn grpc_call_client_streaming(
     address: String,
     tls: bool,
@@ -1081,6 +1083,7 @@ pub async fn grpc_call_client_streaming(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn grpc_call_bidi_streaming(
     address: String,
     tls: bool,
@@ -1125,6 +1128,7 @@ pub async fn grpc_call_bidi_streaming(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn grpc_call_server_streaming(
     address: String,
     tls: bool,

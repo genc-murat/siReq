@@ -36,7 +36,7 @@ fn load_or_generate_key() -> Result<[u8; 32], String> {
     let mut key = [0u8; 32];
     OsRng.fill_bytes(&mut key);
 
-    fs::write(&key_path, &key).map_err(|e| format!("Failed to write key file: {}", e))?;
+    fs::write(&key_path, key).map_err(|e| format!("Failed to write key file: {}", e))?;
 
     Ok(key)
 }

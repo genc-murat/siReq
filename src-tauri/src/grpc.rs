@@ -40,7 +40,7 @@ pub fn parse_proto(content: &str, state: &GrpcState) -> Result<GrpcDescriptorSet
         std::fs::write(&tmp_path, content)
             .map_err(|e| format!("Failed to write temp proto file: {}", e))?;
 
-        let fd_set = compile(&[&file_name], &[tmp_dir.to_str().unwrap()])
+        let fd_set = compile([file_name.as_str()], [tmp_dir.to_str().unwrap()])
             .map_err(|e| format!("Proto compilation failed: {}", e))?;
 
         let _ = std::fs::remove_file(&tmp_path);
@@ -363,7 +363,7 @@ pub async fn call_bidi_streaming(
 
     let (grpc_status, grpc_message) = extract_grpc_status(&req_headers);
 
-    if grpc_status != "0" && grpc_status != "" {
+    if grpc_status != "0" && !grpc_status.is_empty() {
         return Ok(vec![GrpcResponse {
             status_code: grpc_status.clone(),
             status_message: grpc_message.clone(),
@@ -475,7 +475,7 @@ pub async fn call_client_streaming(
     let (grpc_status, grpc_message) = extract_grpc_status(&resp_headers);
 
     // Decode single response body
-    let response_json = if grpc_status == "0" || grpc_status == "" {
+    let response_json = if grpc_status == "0" || grpc_status.is_empty() {
         if response_body.len() >= 5 {
             match parse_grpc_frame(&response_body) {
                 Ok((msg_bytes, _rest)) => {
@@ -498,8 +498,7 @@ pub async fn call_client_streaming(
         headers: resp_headers,
         body: response_json,
         size: response_body.len() as u64,
-        time_ms: elapsed,
-        error: if grpc_status != "0" && grpc_status != "" {
+        time_ms: elapsed,            error: if grpc_status != "0" && !grpc_status.is_empty() {
             Some(format!("gRPC error {}: {}", grpc_status, grpc_message))
         } else {
             None
@@ -539,7 +538,7 @@ pub async fn call_unary(
     let (grpc_status, grpc_message) = extract_grpc_status(&resp_headers);
 
     // Decode response body
-    let response_json = if grpc_status == "0" || grpc_status == "" {
+    let response_json = if grpc_status == "0" || grpc_status.is_empty() {
         if response_body.len() >= 5 {
             match parse_grpc_frame(&response_body) {
                 Ok((msg_bytes, _rest)) => {
@@ -562,8 +561,7 @@ pub async fn call_unary(
         headers: resp_headers,
         body: response_json,
         size: response_body.len() as u64,
-        time_ms: elapsed,
-        error: if grpc_status != "0" && grpc_status != "" {
+        time_ms: elapsed,            error: if grpc_status != "0" && !grpc_status.is_empty() {
             Some(format!("gRPC error {}: {}", grpc_status, grpc_message))
         } else {
             None
@@ -745,7 +743,7 @@ fn get_reflection_pool() -> Result<&'static DescriptorPool, String> {
         let tmp_path = tmp_dir.join("sireq_reflection.proto");
         std::fs::write(&tmp_path, REFLECTION_PROTO)
             .map_err(|e| format!("Failed to write reflection proto: {}", e))?;
-        let result = compile(&["sireq_reflection.proto"], &[tmp_dir.to_str().unwrap()])
+        let result = compile(["sireq_reflection.proto"], [tmp_dir.to_str().unwrap()])
             .map_err(|e| format!("Failed to compile reflection proto: {}", e));
         let _ = std::fs::remove_file(&tmp_path);
         let fd_set = result?;
@@ -797,7 +795,7 @@ async fn send_reflection_request(
     let _elapsed = start.elapsed().as_millis() as u64;
 
     let (grpc_status, grpc_message) = extract_grpc_status(&headers);
-    if grpc_status != "0" && grpc_status != "" {
+    if grpc_status != "0" && !grpc_status.is_empty() {
         return Err(format!("Reflection server returned error: {} ({})", grpc_status, grpc_message));
     }
 
@@ -835,7 +833,6 @@ pub async fn reflect_list_services(
     let names: Vec<String> = services.iter()
         .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(|n| n.to_string()))
         .collect();
-
     if names.is_empty() && !services.is_empty() {
         return Err(format!("Reflection returned services but could not parse names: {}", response));
     }
@@ -1131,13 +1128,13 @@ mod tests {
                                 Ok(Frame::trailers(trailers)),
                             ]));
 
-                            return Ok::<_, hyper::Error>(
+                            Ok::<_, hyper::Error>(
                                 http::Response::builder()
                                     .status(200)
                                     .header("content-type", "application/grpc")
                                     .body(body)
                                     .unwrap()
-                            );
+                            )
                         } else if method_name == "BidiStreaming" {
                             // Bidirectional streaming: echo each client message back as a server response
                             let (_, body) = req.into_parts();
@@ -1177,17 +1174,17 @@ mod tests {
                             response_frames.push(Ok(Frame::trailers(trailers)));
 
                             let body = StreamBody::new(stream::iter(response_frames));
-                            return Ok::<_, hyper::Error>(
+                            Ok::<_, hyper::Error>(
                                 http::Response::builder()
                                     .status(200)
                                     .header("content-type", "application/grpc")
                                     .body(body)
                                     .unwrap()
-                            );
+                            )
                         } else if method_name == "ErrorUnary" {
                             // Return error via initial response headers (standard gRPC error pattern)
                             let empty: Vec<Result<Frame<Bytes>, hyper::Error>> = vec![];
-                            return Ok::<_, hyper::Error>(
+                            Ok::<_, hyper::Error>(
                                 http::Response::builder()
                                     .status(200)
                                     .header("content-type", "application/grpc")
@@ -1195,7 +1192,7 @@ mod tests {
                                     .header("grpc-message", "Intentional test error")
                                     .body(StreamBody::new(stream::iter(empty)))
                                     .unwrap()
-                            );
+                            )
                         } else if method_name == "ServerStreaming" {
                             // Send multiple response frames + trailers
                             let msg1 = encode_proto_from_json(
@@ -1269,7 +1266,7 @@ mod tests {
         let tmp_dir = std::env::temp_dir();
         let tmp_path = tmp_dir.join("sireq_test.proto");
         std::fs::write(&tmp_path, TEST_PROTO).unwrap();
-        let fd_set = compile(&["sireq_test.proto"], &[tmp_dir.to_str().unwrap()]).unwrap();
+        let fd_set = compile(["sireq_test.proto"], [tmp_dir.to_str().unwrap()]).unwrap();
         let _ = std::fs::remove_file(&tmp_path);
         DescriptorPool::from_file_descriptor_set(fd_set).unwrap()
     }
@@ -1334,7 +1331,6 @@ mod tests {
     async fn start_reflection_test_server() -> SocketAddr {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-
         // Pre-compile reflection proto for the test server
         let ref_pool = Arc::new(get_reflection_pool().unwrap().clone());
 
@@ -1345,7 +1341,8 @@ mod tests {
                     Err(_) => break,
                 };
                 let io = TokioIo::new(stream);
-                let pool = ref_pool.clone();                let service = hyper::service::service_fn(
+                let pool = ref_pool.clone();
+            let service = hyper::service::service_fn(
                     move |req: http::Request<hyper::body::Incoming>| {
                         let pool = pool.clone();
                         async move {
