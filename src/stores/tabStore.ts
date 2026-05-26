@@ -8,12 +8,6 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
-function tabName(request: HttpRequest): string {
-  if (request.name) return request.name;
-  if (request.url) return `${request.method} ${request.url}`;
-  return "New Request";
-}
-
 export interface TabData {
   id: string;
   request: HttpRequest;
@@ -37,20 +31,7 @@ interface TabState {
   updateActiveTab: () => void;
 }
 
-function createDefaultTab(): TabData {
-  const reqState = useRequestStore.getState();
-  return {
-    id: generateId(),
-    request: { ...reqState.request, id: generateId() },
-    response: null,
-    loading: false,
-    error: null,
-    uiState: {
-      activeTab: "params",
-      responseTab: "body",
-    },
-  };
-}
+
 
 export const useTabStore = create<TabState>()(
   persist(
@@ -96,7 +77,7 @@ export const useTabStore = create<TabState>()(
       },
 
       closeTab: (id: string) => {
-        const { tabs, activeTabId, syncCurrentToTab, setActiveTab } = get();
+        const { tabs, activeTabId, syncCurrentToTab } = get();
         if (tabs.length <= 1) return; // Don't close the last tab
 
         syncCurrentToTab();
@@ -205,7 +186,9 @@ export const useTabStore = create<TabState>()(
         });
       },
 
-
+      updateActiveTab: () => {
+        get().syncCurrentToTab();
+      },
     }),
     {
       name: "sireq-tabs",

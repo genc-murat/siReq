@@ -127,7 +127,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     }
   },
 
-  runBenchmark: async (count: number, environmentId?: string | null) => {
+  runBenchmark: async (count: number, _environmentId?: string | null) => {
     const { request } = get();
     set({ benchmarkLoading: true, error: null, benchmarkResult: null });
     try {

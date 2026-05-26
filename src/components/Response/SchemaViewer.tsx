@@ -1,6 +1,5 @@
 import { useRequestStore } from "@/stores/requestStore";
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 
@@ -192,7 +191,7 @@ export function SchemaViewer() {
   }
 
   // Invalid state
-  const { errors, grouped, errorCount } = result;
+  const { grouped, errorCount } = result;
 
   return (
     <div className="h-full flex flex-col">

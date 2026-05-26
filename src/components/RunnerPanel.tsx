@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useRunnerStore } from "@/stores/runnerStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useToastStore } from "@/stores/toastStore";
 import { cn } from "@/lib/utils";
 
 function statusColor(status: number): string {
@@ -39,7 +38,6 @@ export function RunnerPanel() {
 
   const setShowRunner = useUIStore((s) => s.setShowRunner);
   const activeEnvironmentId = useUIStore((s) => s.activeEnvironmentId);
-  const addToast = useToastStore((s) => s.addToast);
 
   const handleRun = () => {
     if (!collectionId) return;
@@ -274,7 +272,6 @@ function RunHistorySection() {
   const deleteRunHistoryItem = useRunnerStore((s) => s.deleteRunHistoryItem);
   const clearAllRunHistory = useRunnerStore((s) => s.clearAllRunHistory);
   const loadRunHistory = useRunnerStore((s) => s.loadRunHistory);
-  const addToast = useToastStore((s) => s.addToast);
 
   useEffect(() => {
     loadRunHistory();

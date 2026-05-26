@@ -23,7 +23,7 @@ function detectLanguage(body: string, contentType: string): SupportedLanguage {
   return "text";
 }
 
-function LargeBodyViewer({ body, language, size, findOpen, onFindClose }: {
+function LargeBodyViewer({ body, language: _language, size, findOpen, onFindClose }: {
   body: string;
   language: SupportedLanguage;
   size: number;
@@ -191,7 +191,6 @@ export function BodyViewer() {
 
   // Determine which view modes to show
   const showPreview = isBinary && previewType !== "none";
-  const showRaw = isBinary || true;
 
   const viewModes: { value: ViewMode; label: string }[] = [
     ...(showPreview ? [{ value: "preview" as const, label: "Preview" }] : []),

@@ -1,5 +1,4 @@
 import { useIntelligenceStore } from "@/stores/intelligenceStore";
-import { PerformanceChart } from "./PerformanceChart";
 import { StatusDistributionChart } from "./StatusDistributionChart";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { useMemo } from "react";

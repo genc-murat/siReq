@@ -74,7 +74,6 @@ function DiffHunk({ change, isLeft, view }: { change: Change; isLeft: boolean; v
 
   const isAdded = change.added;
   const isRemoved = change.removed;
-  const isUnchanged = !isAdded && !isRemoved;
 
   const bgClass = isAdded
     ? "bg-green-500/10 border-l-2 border-green-500"

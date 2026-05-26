@@ -73,7 +73,20 @@ function buildActions(close: () => void): Action[] {
       category: "View",
       action: () => {
         const { theme, setTheme } = useUIStore.getState();
-        const themes: ("light" | "dark" | "system")[] = ["light", "dark", "system"];
+        const themes: ("light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord")[] = [
+          "light",
+          "dark",
+          "nordic",
+          "sunset",
+          "midnight",
+          "monochrome",
+          "terminal",
+          "true-dark",
+          "matrix",
+          "solarized",
+          "nord",
+          "system"
+        ];
         const idx = themes.indexOf(theme);
         setTheme(themes[(idx + 1) % themes.length]);
         close();
@@ -241,7 +254,7 @@ export function CommandPalette() {
                 <div className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   {category}
                 </div>
-                {items.map((item, idx) => {
+                {items.map((item) => {
                   const globalIdx = filtered.indexOf(item);
                   return (
                     <button

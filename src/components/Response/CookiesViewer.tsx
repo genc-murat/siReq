@@ -2,14 +2,11 @@ import { useRequestStore } from "@/stores/requestStore";
 import { useEffect, useState, useCallback } from "react";
 import { getCookies, deleteCookie, clearCookies } from "@/lib/invoke";
 import type { StoredCookie } from "@/lib/invoke";
-import { cn } from "@/lib/utils";
 import { Tabs } from "@/components/Tabs";
-import type { Tab } from "@/components/Tabs";
 
 type CookieTab = "response" | "stored";
 
 export function CookiesViewer() {
-  const response = useRequestStore((s) => s.response);
   const [tab, setTab] = useState<CookieTab>("response");
   const [stored, setStored] = useState<StoredCookie[]>([]);
   const [loading, setLoading] = useState(false);

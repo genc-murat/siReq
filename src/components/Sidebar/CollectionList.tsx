@@ -422,7 +422,6 @@ export function CollectionList() {
               newCols.splice(toIdx, 0, moved);
               setCollections(newCols);
               // Persist new order by updating updated_at for each collection
-              const now = new Date().toISOString();
               Promise.all(newCols.map((c, i) =>
                 updateCollection({ ...c, updated_at: new Date(Date.now() - i).toISOString() })
               )).then(() => addToast("Collections reordered", "success"));
