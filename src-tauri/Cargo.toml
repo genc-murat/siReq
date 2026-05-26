@@ -30,7 +30,7 @@ url = "2"
 nom = "7"
 base64 = "0.22"
 serde_yaml = "0.9"
-tokio-tungstenite = { version = "0.24", features = ["connect"] }
+tokio-tungstenite = { version = "0.24", features = ["connect", "native-tls"] }
 futures-util = "0.3"
 rquickjs = { version = "0.7", features = ["parallel"] }
 http = "1"
