@@ -4,6 +4,7 @@ import { wsConnect, wsSend, wsDisconnect } from "@/lib/invoke";
 import type { WsMessageEvent } from "@/lib/invoke";
 import { useWebSocketStore } from "@/stores/websocketStore";
 import { useToastStore } from "@/stores/toastStore";
+import { useUIStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 
 export function WebSocketPanel() {
@@ -18,6 +19,7 @@ export function WebSocketPanel() {
   const clearMessages = useWebSocketStore((s) => s.clearMessages);
   const reset = useWebSocketStore((s) => s.reset);
   const addToast = useToastStore((s) => s.addToast);
+  const activeEnvironmentId = useUIStore((s) => s.activeEnvironmentId);
 
   const [inputMsg, setInputMsg] = useState("");
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -84,7 +86,7 @@ export function WebSocketPanel() {
     try {
       clearMessages();
       setStatus("connecting");
-      const id = await wsConnect(url.trim());
+      const id = await wsConnect(url.trim(), activeEnvironmentId);
       setConnectionId(id);
       addMessage({
         connection_id: id,
@@ -127,7 +129,7 @@ export function WebSocketPanel() {
     if (!text || !connectionId) return;
 
     try {
-      await wsSend(connectionId, text);
+      await wsSend(connectionId, text, activeEnvironmentId);
       setInputMsg("");
     } catch (e: unknown) {
       const errMsg = e instanceof Error ? e.message : String(e);

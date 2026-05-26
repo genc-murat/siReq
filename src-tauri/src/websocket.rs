@@ -4,6 +4,7 @@ use futures_util::{SinkExt, StreamExt};
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
+use crate::storage::Db;
 
 /// A handle to an active WebSocket connection.
 pub struct WsConnection {
@@ -26,7 +27,6 @@ pub struct WsMessageEvent {
 /// First resolves dynamic variables (`{{$timestamp}}`, `{{$uuid}}`, etc.),
 /// then applies global and environment variable substitution (`{{key}}` patterns).
 /// Priority (highest wins): env_vars > global_vars
-#[allow(dead_code)]
 pub fn resolve_ws_variables(
     input: &str,
     global_vars: &[crate::models::KeyValue],
@@ -47,14 +47,46 @@ pub fn resolve_ws_variables(
     result
 }
 
-/// Connect to a WebSocket URL and start listening for messages.
+/// Load variables from the database and resolve them in the given input string.
+fn resolve_with_db(
+    input: &str,
+    db: &State<'_, Db>,
+    environment_id: &Option<String>,
+) -> Result<String, String> {
+    // Load global variables
+    let global_vars = crate::storage::get_global_variables(db)?;
+
+    // Load environment variables if specified
+    let env_vars: HashMap<String, String> = match environment_id {
+        Some(ref env_id) => {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            let env = crate::storage::get_environment_by_id(&conn, env_id)?;
+            drop(conn);
+            env.map(|e| e.variables.into_iter()
+                .filter(|v| v.enabled && !v.key.is_empty())
+                .map(|v| (v.key, v.value))
+                .collect()
+            ).unwrap_or_default()
+        }
+        None => HashMap::new()
+    };
+
+    Ok(resolve_ws_variables(input, &global_vars.variables, &env_vars))
+}
+
+/// Connect to a WebSocket URL (with variable resolution) and start listening for messages.
 /// Returns a connection ID that can be used to send/disconnect.
 #[tauri::command]
 pub async fn ws_connect(
     url: String,
+    environment_id: Option<String>,
     app: AppHandle,
     state: State<'_, WsState>,
+    db: State<'_, Db>,
 ) -> Result<String, String> {
+    // Resolve variables in the URL before connecting
+    let resolved_url = resolve_with_db(&url, &db, &environment_id)?;
+
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
     let id = uuid::Uuid::new_v4().to_string();
 
@@ -76,7 +108,7 @@ pub async fn ws_connect(
     }));
 
     tauri::async_runtime::spawn(async move {
-        let result = connect_and_listen(&url, &id_clone, &mut rx, &app_clone).await;
+        let result = connect_and_listen(&resolved_url, &id_clone, &mut rx, &app_clone).await;
 
         // Clean up the connection entry from the state map
         if let Ok(mut map) = state_clone.lock() {
@@ -175,19 +207,24 @@ async fn connect_and_listen(
     Ok(())
 }
 
-/// Send a text message on an active WebSocket connection.
+/// Send a text message on an active WebSocket connection (with variable resolution).
 #[tauri::command]
 pub async fn ws_send(
     connection_id: String,
     message: String,
+    environment_id: Option<String>,
     state: State<'_, WsState>,
+    db: State<'_, Db>,
 ) -> Result<(), String> {
+    // Resolve variables in the message before sending
+    let resolved_msg = resolve_with_db(&message, &db, &environment_id)?;
+
     let map = state.0.lock().map_err(|e| e.to_string())?;
     let conn = map
         .get(&connection_id)
         .ok_or_else(|| "No active WebSocket connection with that ID".to_string())?;
     conn.sender
-        .send(message)
+        .send(resolved_msg)
         .map_err(|_| "Failed to send message (connection may be closed)".to_string())
 }
 
