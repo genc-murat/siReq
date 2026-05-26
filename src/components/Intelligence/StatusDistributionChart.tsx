@@ -57,7 +57,8 @@ export function StatusDistributionChart({ status200, status400, status500, statu
                 borderRadius: "8px",
                 fontSize: "11px",
               }}
-              formatter={(value: number | string | boolean) => [`${value} requests`, undefined]}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={(value: any) => [`${value} requests`, undefined]}
             />
           </PieChart>
         </ResponsiveContainer>
