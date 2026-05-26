@@ -50,6 +50,7 @@
   - [Import / Export](#import--export)
   - [gRPC Client](#grpc-client)
   - [WebSocket Client](#websocket-client)
+  - [Smart Mock Server](#smart-mock-server)
   - [Benchmark Tool](#benchmark-tool)
   - [Collection Runner](#collection-runner)
   - [API Intelligence](#api-intelligence)
@@ -101,6 +102,18 @@
 
 - **gRPC**: Parse `.proto` files, server reflection, unary/server-streaming/client-streaming/bidirectional streaming calls, TLS support
 - **WebSocket**: Connect to `ws://`/`wss://` endpoints, send/receive messages, real-time log, environment variable resolution
+
+### Smart Mock Server
+
+- **Multi-Server Orchestrator** — Spin up up to 5 local mock servers concurrently on custom TCP ports
+- **OpenAPI & Collection Import** — Automatically map OpenAPI v2/v3 spec files or existing HTTP collections into fully-featured mock servers with endpoints, paths, methods, and mock scenarios in seconds
+- **Dynamic Scenarios** — Add multiple conditional scenarios per endpoint, configuring custom status codes, headers, and response bodies
+- **Request Matching Rules** — Route to specific scenarios based on headers, query parameters, full request body, or complex JSONPath matching
+- **Response Templating** — Procedurally generate mock data with inline `{{faker.uuid}}`, `{{faker.name}}`, `{{faker.email}}`, `{{faker.integer(min,max)}}` variables, or dynamically echo request path, queries, headers, and body elements (via JSONPath)
+- **CORS & Global Headers** — Configure CORS parameters (origins, methods, credentials, allowed headers) and global response headers per server
+- **Real-Time Logs & Statistics** — Inspect live logs in a streaming console, view transaction details, warning banners for broken templates, and live metrics (Req/Err count, avg latency)
+- **Latency Profiles** — Simulate real-world network latency using fixed delays, random ranges, or normal distribution profiles
+
 
 ### Benchmarking & Intelligence
 
@@ -384,6 +397,20 @@ Real-time communication testing:
 - **Environment variables** — Variable resolution in WebSocket URL and sent messages
 - **Tauri events** — Uses Tauri event system for real-time WebSocket communication
 
+### Smart Mock Server
+
+siReq integrates a local-first **Smart Mock Server** that lets you simulate mock API endpoints directly on your local machine using an Axum-powered HTTP server in Rust:
+
+- **Automatic Mocking** — Instantly import an OpenAPI JSON/YAML specification or an existing siReq collection, and automatically generate endpoints, methods, and default response payloads
+- **Lifecycle Control** — Spin servers up/down instantly with custom TCP ports (up to 5 concurrent running servers) with direct socket bind error reporting
+- **Rule-Based Routing** — Create advanced condition groups. Incoming HTTP requests are matched against custom header, query param, body, or JSONPath filters, and routed to the corresponding response scenario
+- **Dynamic Faker Engine** — Response templates support placeholder resolution to inject synthetic data:
+  - `{{faker.uuid}}` / `{{faker.name}}` / `{{faker.email}}` / `{{faker.date}}` / `{{faker.integer(min,max)}}`
+  - Dynamic request variables: `{{request.path}}`, `{{request.query.param}}`, `{{request.headers.header}}`, and `{{request.body.jsonPath}}` to mirror request data back in the response
+- **Latency Emulation** — Add latency profiles to endpoints: fixed latency (e.g. `300ms`), random delay ranges (`100ms - 500ms`), or normal distribution delays (`mean: 300ms, std_dev: 50ms`) to stress-test your application
+- **CORS Configurator** — Set custom CORS settings per-server, enabling seamless cross-origin request testing for local frontend dev scripts
+- **Live Logs Console** — Inspect logs in real time. Filter logs by search queries, click any item to see full request/response payloads, and track aggregate counts and latencies directly in the side console
+
 ### Benchmark Tool
 
 Performance testing for your APIs:
@@ -491,6 +518,9 @@ Designed for productivity:
 | **prost / prost-reflect** | Protocol Buffers serialization |
 | **protox** | Protobuf file parser |
 | **tokio-tungstenite** | WebSocket client |
+| **axum** | High-performance catch-all HTTP server for mock routing |
+| **rand_distr** | Normal distribution generation for latency emulation |
+| **jsonpath-rust** | JSONPath request matching and faker resolution |
 | **rquickjs** | JavaScript scripting engine (QuickJS) |
 | **aes-gcm** | AES-256-GCM encryption for secrets |
 
@@ -542,18 +572,45 @@ siReq/
 │   │   ├── Intelligence/   # API Intelligence dashboard
 │   │   ├── GrpcPanel.tsx / Grpc*.tsx  # gRPC client
 │   │   ├── WebSocketPanel.tsx         # WebSocket client
+│   │   ├── MockServer/                # Smart Mock Server components
+│   │   │   ├── MockPanel.tsx          # 3-column mock server dashboard orchestrator
+│   │   │   ├── MockConfigList.tsx     # Server instances listing, start/stop, duplicate, delete
+│   │   │   ├── MockEndpointEditor.tsx # Endpoint path, method selector, and CORS settings
+│   │   │   ├── MockScenarioEditor.tsx # Conditional response scenario details
+│   │   │   ├── MockMatcherEditor.tsx  # Matching rules (headers, query, JSONPath)
+│   │   │   ├── MockLatencyEditor.tsx  # Latency profiles configurator
+│   │   │   ├── MockCorsEditor.tsx     # CORS headers controller
+│   │   │   ├── MockLogViewer.tsx      # Real-time console logs and metrics dashboards
+│   │   │   ├── MockLogDetail.tsx      # Log inspection details popup
+│   │   │   ├── MockStatusBadge.tsx    # Glow status online/offline visual indicators
+│   │   │   └── MockImportDialog.tsx   # OpenAPI JSON/YAML & collection mapper dialog
 │   │   ├── RunnerPanel.tsx            # Collection runner
 │   │   ├── ThemeProvider.tsx / ThemeToggle.tsx  # Theme system
 │   │   └── ...                        # Other components
 │   ├── stores/             # Zustand state stores
+│   │   ├── mockStore.ts    # Smart Mock Server Zustand state store
+│   │   └── ...
 │   ├── lib/                # Utilities and Tauri invoke wrappers
 │   ├── hooks/              # Custom React hooks
 │   └── styles/             # Global CSS (Tailwind)
 ├── src-tauri/              # Rust backend
+├── src-tauri/              # Rust backend
 │   ├── src/
 │   │   ├── main.rs         # Desktop entry point
 │   │   ├── lib.rs          # Tauri app setup (commands, plugins, state)
-│   │   ├── commands/       # Tauri commands (HTTP, collections, env, runner, etc.)
+│   │   ├── commands/       # Tauri commands (HTTP, collections, env, mock server, etc.)
+│   │   │   ├── mock_server.rs # Smart Mock Server commands
+│   │   │   └── ...
+│   │   ├── mock_server/    # Smart Mock Server module
+│   │   │   ├── mod.rs      # Submodule exports
+│   │   │   ├── models.rs   # Config, Scenarios, Rules, Log, and Stats structs
+│   │   │   ├── storage.rs  # SQLite CRUD database functions
+│   │   │   ├── latency.rs  # fixed, range, and normal distribution delay simulators
+│   │   │   ├── faker.rs    # faker snippet resolvers & request variables echo mapping
+│   │   │   ├── openapi.rs  # OpenAPI to mock server converter logic
+│   │   │   ├── collection_import.rs # Existing Collection to mock server mapper
+│   │   │   ├── router.rs   # axum catch-all route engine with preflights & matchers
+│   │   │   └── manager.rs  # thread managers, concurrent limiters, and socket builders
 │   │   ├── http.rs         # HTTP request execution
 │   │   ├── grpc.rs         # gRPC client
 │   │   ├── websocket.rs    # WebSocket client
