@@ -73,7 +73,7 @@
 |---------|---------|
 | **Methods** | GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, TRACE |
 | **Body types** | None, JSON, XML, Text, Form Data (multipart), Form URL-encoded |
-| **Auth** | None, Basic, Bearer Token, API Key (header or query param) |
+| **Auth** | None, Basic, Bearer Token, API Key, and Enterprise OAuth 2.0 / OIDC Client |
 | **Request settings** | Timeout, follow redirects, SSL verification, proxy support |
 | **Response viewer** | Pretty-print, raw, preview (images/PDF); syntax highlighting; find-in-page; headers, cookies, diff view, JSON schema viewer |
 | **Tabs** | Multi-request tab interface with duplicate and rename |
@@ -294,6 +294,14 @@ siReq supports the full HTTP method set: **GET**, **POST**, **PUT**, **PATCH**, 
   - **Basic Auth** — Username and password
   - **Bearer Token** — Token-based authorization
   - **API Key** — Pass as header or query parameter
+  - **OAuth 2.0 & OIDC Client** — Enterprise-grade client-side OAuth flow engine with support for:
+    - **Client Credentials** flow (direct token endpoint requests)
+    - **Authorization Code** flow
+    - **Authorization Code with PKCE** (Proof Key for Code Exchange) flow
+    - **S256 PKCE Generator** using browser-native WebCrypto APIs
+    - **CORS-Free Backend Routing** via the native Rust `reqwest` engine to prevent browser blockages
+    - **Interactive Callback Auto-Parser** for pasting and extracting auth code parameter URLs
+    - **Token HUD Panel** with expiration countdowns, secure masking, copying, and clearing/revocation
 - **Settings** — Timeout (1–600s), follow redirects, SSL verification toggle, proxy configuration (URL + optional authentication)
 - **Cancel** — Cancel an in-flight request at any time
 - **Copy as cURL** — Generate a cURL command from the current request
@@ -639,7 +647,9 @@ siReq/
 │   ├── App.tsx             # Root component
 │   ├── main.tsx            # Entry point
 │   ├── components/         # UI components
-│   │   ├── Request/        # Request builder (URL, headers, body, auth, scripts, schema)
+│   │   ├── Request/        # Request builder (URL, headers, body, auth, scripts, schema, OAuth 2.0)
+│   │   │   ├── OauthPanel.tsx # Enterprise OAuth 2.0 config & token HUD
+│   │   │   └── ...
 │   │   ├── Response/       # Response viewer (body, headers, cookies, diff, schema)
 │   │   ├── Sidebar/        # Sidebar (history, collections, environment)
 │   │   ├── Intelligence/   # API Intelligence dashboard
@@ -667,6 +677,7 @@ siReq/
 │   ├── stores/             # Zustand state stores
 │   │   ├── mockStore.ts    # Smart Mock Server Zustand state store
 │   │   ├── flowStore.ts    # Visual Flow Editor Zustand state store
+│   │   ├── oauthStore.ts   # Enterprise OAuth 2.0 & OIDC Zustand store
 │   │   └── ...
 │   ├── lib/                # Utilities and Tauri invoke wrappers
 │   ├── hooks/              # Custom React hooks
