@@ -481,7 +481,10 @@ pub async fn run_collection(
     let mut passed: u32 = 0;
     let mut failed: u32 = 0;
 
-    for (idx, request) in collection.requests.iter().enumerate() {
+    let flat_requests = flatten_collection_items(&collection.items);
+    let total = flat_requests.len();
+
+    for (idx, request) in flat_requests.iter().enumerate() {
         // Step 1: Execute pre-request script
         let (modified_request, pre_script_results) = execute_pre_request(
             &request.pre_script,
@@ -595,7 +598,7 @@ pub async fn run_collection(
         }
 
         // Delay between requests (but not after the last one)
-        if delay_ms > 0 && idx < collection.requests.len() - 1 {
+        if delay_ms > 0 && idx < total - 1 {
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
         }
     }
@@ -645,6 +648,83 @@ pub fn delete_run_history(
 #[tauri::command]
 pub fn clear_run_history(db: State<'_, Db>) -> Result<(), String> {
     clear_all_run_history(&db)
+}
+
+// ─── Tree manipulation commands ────────────────────────────────────────
+
+#[tauri::command]
+pub fn create_collection_folder(
+    collection_id: String,
+    parent_folder_id: Option<String>,
+    name: String,
+    db: State<'_, Db>,
+) -> Result<Collection, String> {
+    add_collection_folder(&db, &collection_id, parent_folder_id.as_deref(), &name)
+}
+
+#[tauri::command]
+pub fn add_request_to_collection(
+    collection_id: String,
+    parent_folder_id: Option<String>,
+    request: HttpRequest,
+    position: Option<usize>,
+    db: State<'_, Db>,
+) -> Result<Collection, String> {
+    add_collection_request(&db, &collection_id, parent_folder_id.as_deref(), request, position)
+}
+
+#[tauri::command]
+pub fn delete_collection_item(
+    collection_id: String,
+    item_id: String,
+    db: State<'_, Db>,
+) -> Result<Collection, String> {
+    delete_collection_item_by_id(&db, &collection_id, &item_id)
+}
+
+#[tauri::command]
+pub fn move_collection_item(
+    collection_id: String,
+    item_id: String,
+    target_folder_id: Option<String>,
+    target_index: usize,
+    db: State<'_, Db>,
+) -> Result<Collection, String> {
+    move_collection_item_in_tree(&db, &collection_id, &item_id, target_folder_id.as_deref(), target_index)
+}
+
+// ─── Template commands ──────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_templates(db: State<'_, Db>) -> Result<Vec<RequestTemplate>, String> {
+    get_all_templates(&db)
+}
+
+#[tauri::command]
+pub fn create_template(
+    name: String,
+    description: String,
+    request: HttpRequest,
+    scope: String,
+    db: State<'_, Db>,
+) -> Result<RequestTemplate, String> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let template = RequestTemplate {
+        id: uuid::Uuid::new_v4().to_string(),
+        name,
+        description,
+        request,
+        scope,
+        created_at: now.clone(),
+        updated_at: now,
+    };
+    create_new_template(&db, &template)?;
+    Ok(template)
+}
+
+#[tauri::command]
+pub fn delete_template(id: String, db: State<'_, Db>) -> Result<(), String> {
+    delete_existing_template(&db, &id)
 }
 
 // --- Cookie management commands ---

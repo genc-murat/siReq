@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Deserializer};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
@@ -119,6 +120,9 @@ pub struct HttpRequest {
     pub pre_script: String,
     #[serde(default)]
     pub post_script: String,
+    /// Request examples (variants of this request with different params/responses)
+    #[serde(default)]
+    pub examples: Vec<RequestExample>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,6 +143,179 @@ pub struct HttpResponse {
     pub modified_variables: Vec<KeyValue>,
 }
 
+// ─── Collection Tree Types ──────────────────────────────────────────
+
+/// A node in the collection tree — either a folder or a request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum CollectionItem {
+    #[serde(rename = "folder")]
+    Folder(CollectionFolder),
+    #[serde(rename = "request")]
+    Request(HttpRequest),
+}
+
+#[allow(dead_code)]
+impl CollectionItem {
+    pub fn id(&self) -> &str {
+        match self {
+            CollectionItem::Folder(f) => &f.id,
+            CollectionItem::Request(r) => &r.id,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            CollectionItem::Folder(f) => &f.name,
+            CollectionItem::Request(r) => &r.name,
+        }
+    }
+
+    pub fn name_mut(&mut self) -> &mut String {
+        match self {
+            CollectionItem::Folder(f) => &mut f.name,
+            CollectionItem::Request(r) => &mut r.name,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionFolder {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub items: Vec<CollectionItem>,
+    #[serde(default)]
+    pub auth: Option<AuthConfig>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// A saved snapshot/variant of a request (similar to Postman examples).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestExample {
+    pub id: String,
+    pub name: String,
+    pub request: HttpRequest,
+    #[serde(default)]
+    pub response: Option<HttpResponse>,
+    pub created_at: String,
+}
+
+/// A reusable request template (global or collection-scoped).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestTemplate {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub request: HttpRequest,
+    /// "global" or "collection:<collection_id>"
+    pub scope: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Custom deserializer for Collection items — supports both the new
+/// Vec<CollectionItem> format (tagged) and the legacy Vec<HttpRequest> format.
+pub fn deserialize_collection_items<'de, D>(d: D) -> Result<Vec<CollectionItem>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let v = Value::deserialize(d)?;
+
+    // Try new tagged format first
+    if let Ok(items) = serde_json::from_value::<Vec<CollectionItem>>(v.clone()) {
+        return Ok(items);
+    }
+
+    // Fall back to legacy flat Vec<HttpRequest>
+    if let Ok(requests) = serde_json::from_value::<Vec<HttpRequest>>(v) {
+        return Ok(requests.into_iter().map(CollectionItem::Request).collect());
+    }
+
+    Ok(Vec::new())
+}
+
+// ─── Updated Collection ────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Collection {
+    pub id: String,
+    pub name: String,
+    /// Tree of folders and requests. Serialized as "requests" for DB backward compat.
+    #[serde(rename = "requests", default, deserialize_with = "deserialize_collection_items")]
+    pub items: Vec<CollectionItem>,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(default)]
+    pub variables: Vec<KeyValue>,
+    #[serde(default)]
+    pub auth: Option<AuthConfig>,
+    #[serde(default)]
+    pub description: String,
+}
+
+/// Flatten a collection's tree into a flat list of HttpRequest references.
+pub fn flatten_collection_items(items: &[CollectionItem]) -> Vec<&HttpRequest> {
+    let mut result = Vec::new();
+    for item in items {
+        match item {
+            CollectionItem::Request(req) => result.push(req),
+            CollectionItem::Folder(f) => result.extend(flatten_collection_items(&f.items)),
+        }
+    }
+    result
+}
+
+/// Find an item by ID in the tree (recursive).
+#[allow(dead_code)]
+pub fn find_item_by_id<'a>(items: &'a [CollectionItem], id: &str) -> Option<&'a CollectionItem> {
+    for item in items {
+        if item.id() == id {
+            return Some(item);
+        }
+        if let CollectionItem::Folder(f) = item {
+            if let found @ Some(_) = find_item_by_id(&f.items, id) {
+                return found;
+            }
+        }
+    }
+    None
+}
+
+/// Find an item by ID in the tree (mutable, recursive).
+pub fn find_item_by_id_mut<'a>(items: &'a mut Vec<CollectionItem>, id: &str) -> Option<&'a mut CollectionItem> {
+    for item in items.iter_mut() {
+        if item.id() == id {
+            return Some(item);
+        }
+        if let CollectionItem::Folder(f) = item {
+            if let found @ Some(_) = find_item_by_id_mut(&mut f.items, id) {
+                return found;
+            }
+        }
+    }
+    None
+}
+
+/// Remove an item by ID from the tree, returning it if found.
+pub fn remove_item_by_id(items: &mut Vec<CollectionItem>, id: &str) -> Option<CollectionItem> {
+    if let Some(pos) = items.iter().position(|item| item.id() == id) {
+        return Some(items.remove(pos));
+    }
+    for item in items.iter_mut() {
+        if let CollectionItem::Folder(f) = item {
+            if let found @ Some(_) = remove_item_by_id(&mut f.items, id) {
+                return found;
+            }
+        }
+    }
+    None
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub id: String,
@@ -147,16 +324,7 @@ pub struct HistoryEntry {
     pub created_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Collection {
-    pub id: String,
-    pub name: String,
-    pub requests: Vec<HttpRequest>,
-    pub created_at: String,
-    pub updated_at: String,
-    #[serde(default)]
-    pub variables: Vec<KeyValue>,
-}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalVariables {

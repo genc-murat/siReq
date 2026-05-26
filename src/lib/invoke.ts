@@ -80,7 +80,85 @@ export interface HttpRequest {
   settings: RequestSettings;
   pre_script: string;
   post_script: string;
-  json_schema: string;
+  json_schema?: string;
+  examples?: RequestExample[];
+}
+
+// ─── Collection Tree Types ──────────────────────────────────────────────────
+
+export type CollectionItem = CollectionFolder | CollectionRequest;
+
+export interface CollectionFolder {
+  type: "folder";
+  id: string;
+  name: string;
+  description: string;
+  items: CollectionItem[];
+  auth?: AuthConfig | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CollectionRequest {
+  type: "request";
+  id: string;
+  name: string;
+  method: HttpMethod;
+  url: string;
+  headers: KeyValue[];
+  query_params: KeyValue[];
+  body_type: BodyType;
+  body: string;
+  form_fields: FormField[];
+  auth: AuthConfig;
+  settings: RequestSettings;
+  pre_script: string;
+  post_script: string;
+  json_schema?: string;
+  examples?: RequestExample[];
+}
+
+export interface RequestExample {
+  id: string;
+  name: string;
+  request: HttpRequest;
+  response?: HttpResponse | null;
+  created_at: string;
+}
+
+export interface RequestTemplate {
+  id: string;
+  name: string;
+  description: string;
+  request: HttpRequest;
+  scope: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Flatten collection items to count total requests (recursive). */
+export function countCollectionRequests(items: CollectionItem[]): number {
+  let count = 0;
+  for (const item of items) {
+    if (item.type === "request") {
+      count++;
+    } else {
+      count += countCollectionRequests(item.items);
+    }
+  }
+  return count;
+}
+
+/** Get item by ID from a collection tree (recursive). */
+export function findCollectionItem(items: CollectionItem[], id: string): CollectionItem | null {
+  for (const item of items) {
+    if (item.id === id) return item;
+    if (item.type === "folder") {
+      const found = findCollectionItem(item.items, id);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 export interface HttpResponse {
@@ -107,10 +185,12 @@ export interface HistoryEntry {
 export interface Collection {
   id: string;
   name: string;
-  requests: HttpRequest[];
+  requests: CollectionItem[];
   created_at: string;
   updated_at: string;
   variables?: KeyValue[];
+  auth?: AuthConfig | null;
+  description?: string;
 }
 
 export interface StoredCookie {
@@ -443,6 +523,79 @@ export interface WsMessageEvent {
   direction: "sent" | "received" | "system";
   data: string;
   is_binary: boolean;
+}
+
+// ─── Collection Tree Operations ──────────────────────────────────────────────
+
+export async function createCollectionFolder(
+  collectionId: string,
+  name: string,
+  parentFolderId?: string | null
+): Promise<Collection> {
+  return safeInvoke("create_collection_folder", {
+    collectionId,
+    name,
+    parentFolderId: parentFolderId ?? null,
+  });
+}
+
+export async function addRequestToCollection(
+  collectionId: string,
+  request: HttpRequest,
+  parentFolderId?: string | null,
+  position?: number | null
+): Promise<Collection> {
+  return safeInvoke("add_request_to_collection", {
+    collectionId,
+    request,
+    parentFolderId: parentFolderId ?? null,
+    position: position ?? null,
+  });
+}
+
+export async function deleteCollectionItem(
+  collectionId: string,
+  itemId: string
+): Promise<Collection> {
+  return safeInvoke("delete_collection_item", { collectionId, itemId });
+}
+
+export async function moveCollectionItem(
+  collectionId: string,
+  itemId: string,
+  targetFolderId?: string | null,
+  targetIndex?: number
+): Promise<Collection> {
+  return safeInvoke("move_collection_item", {
+    collectionId,
+    itemId,
+    targetFolderId: targetFolderId ?? null,
+    targetIndex: targetIndex ?? 0,
+  });
+}
+
+// ─── Template commands ───────────────────────────────────────────────────────
+
+export async function getTemplates(): Promise<RequestTemplate[]> {
+  return safeInvoke("get_templates");
+}
+
+export async function createTemplate(
+  name: string,
+  description: string,
+  request: HttpRequest,
+  scope?: string
+): Promise<RequestTemplate> {
+  return safeInvoke("create_template", {
+    name,
+    description,
+    request,
+    scope: scope ?? "global",
+  });
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  return safeInvoke("delete_template", { id });
 }
 
 // ─── API Intelligence commands ───────────────────────────────────────────────

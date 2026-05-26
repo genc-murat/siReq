@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { importPostmanCollection } from "@/lib/invoke";
+import { importPostmanCollection, countCollectionRequests } from "@/lib/invoke";
 import { useToastStore } from "@/stores/toastStore";
 
 interface PostmanImportProps {
@@ -46,7 +46,7 @@ export function PostmanImport({ onImported }: PostmanImportProps) {
       setSpecContent("");
       setCollectionName("");
       addToast(
-        `Imported "${collection.name}" with ${collection.requests.length} requests`,
+        `Imported "${collection.name}" with ${countCollectionRequests(collection.requests)} requests`,
         "success"
       );
       onImported?.();
@@ -143,8 +143,7 @@ export function PostmanImport({ onImported }: PostmanImportProps) {
 
           {/* Info box */}
           <div className="bg-muted/50 text-muted-foreground text-[11px] px-3 py-2 rounded-lg border border-border leading-relaxed">
-            Supports Postman Collection v2.0 and v2.1 format. Folders are flattened into request names (e.g. "Folder / Request").
-            Pre-request scripts and test scripts are imported. Auth types: Basic, Bearer, API Key.
+            Supports Postman Collection v2.0 and v2.1 format. Folder hierarchy is preserved. Pre-request scripts and test scripts are imported. Auth types: Basic, Bearer, API Key.
           </div>
 
           {/* Error */}

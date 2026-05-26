@@ -78,10 +78,12 @@ pub fn parse_openapi(spec_content: &str, collection_name: &str) -> Result<Collec
     Ok(Collection {
         id: Uuid::new_v4().to_string(),
         name: collection_name.to_string(),
-        requests,
+        items: requests.into_iter().map(CollectionItem::Request).collect(),
         created_at: now.clone(),
         updated_at: now,
         variables: vec![],
+        auth: None,
+        description: String::new(),
     })
 }
 
@@ -291,6 +293,7 @@ fn parse_operation(
         },
         pre_script: String::new(),
         post_script: String::new(),
+        examples: vec![],
     })
 }
 

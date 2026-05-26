@@ -59,6 +59,15 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS templates (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            request TEXT NOT NULL,
+            scope TEXT DEFAULT 'global',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS api_intelligence (
             id TEXT PRIMARY KEY,
             endpoint_key TEXT NOT NULL,
@@ -144,8 +153,21 @@ pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
     }).map_err(|e| e.to_string())?
     .filter_map(|r| r.ok())
     .map(|(id, name, req_json, created_at, updated_at)| {
-        let requests: Vec<HttpRequest> = serde_json::from_str(&req_json).unwrap_or_default();
-        Collection { id, name, requests, created_at, updated_at, variables: vec![] }
+        // Try new format (Vec<CollectionItem>) first, fall back to legacy Vec<HttpRequest>
+        let items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
+            serde_json::from_str::<Vec<HttpRequest>>(&req_json)
+                .unwrap_or_default()
+                .into_iter()
+                .map(CollectionItem::Request)
+                .collect()
+        });
+        Collection {
+            id, name, items,
+            created_at, updated_at,
+            variables: vec![],
+            auth: None,
+            description: String::new(),
+        }
     })
     .collect();
     Ok(collections)
@@ -153,10 +175,10 @@ pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
 
 pub fn insert_collection(db: &State<Db>, collection: &Collection) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let requests_json = serde_json::to_string(&collection.requests).map_err(|e| e.to_string())?;
+    let items_json = serde_json::to_string(&collection.items).map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO collections (id, name, requests, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![collection.id, collection.name, requests_json, collection.created_at, collection.updated_at],
+        params![collection.id, collection.name, items_json, collection.created_at, collection.updated_at],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -165,29 +187,344 @@ pub fn create_new_collection(db: &State<Db>, name: &str) -> Result<Collection, S
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
-    let requests_json = serde_json::to_string(&Vec::<HttpRequest>::new()).map_err(|e| e.to_string())?;
+    let items_json = serde_json::to_string(&Vec::<CollectionItem>::new()).map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO collections (id, name, requests, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, name, requests_json, now, now],
+        params![id, name, items_json, now, now],
     ).map_err(|e| e.to_string())?;
     Ok(Collection {
         id,
         name: name.to_string(),
-        requests: vec![],
+        items: vec![],
         created_at: now.clone(),
         updated_at: now,
         variables: vec![],
+        auth: None,
+        description: String::new(),
     })
 }
 
 pub fn update_existing_collection(db: &State<Db>, collection: &Collection) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
-    let requests_json = serde_json::to_string(&collection.requests).map_err(|e| e.to_string())?;
+    let items_json = serde_json::to_string(&collection.items).map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE collections SET name = ?1, requests = ?2, updated_at = ?3 WHERE id = ?4",
-        params![collection.name, requests_json, now, collection.id],
+        params![collection.name, items_json, now, collection.id],
     ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ─── Tree manipulation functions ───────────────────────────────────────
+
+/// Add a folder to a collection (optionally inside a parent folder).
+pub fn add_collection_folder(
+    db: &State<Db>,
+    collection_id: &str,
+    parent_folder_id: Option<&str>,
+    name: &str,
+) -> Result<Collection, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut stmt = conn.prepare(
+        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let row = stmt.query_row(params![collection_id], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let requests_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        let _updated_at: String = row.get(4)?;
+        Ok((id, name, requests_json, created_at, _updated_at))
+    }).map_err(|e| e.to_string())?;
+
+    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
+
+    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
+        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
+            .unwrap_or_default()
+            .into_iter()
+            .map(CollectionItem::Request)
+            .collect()
+    });
+
+    let folder = CollectionItem::Folder(CollectionFolder {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: name.to_string(),
+        description: String::new(),
+        items: vec![],
+        auth: None,
+        created_at: now.clone(),
+        updated_at: now.clone(),
+    });
+
+    match parent_folder_id {
+        Some(pid) => {
+            if let Some(CollectionItem::Folder(f)) = find_item_by_id_mut(&mut items, pid) {
+                f.items.push(folder);
+                f.updated_at = now.clone();
+            } else {
+                return Err("Parent folder not found".to_string());
+            }
+        }
+        None => items.push(folder),
+    }
+
+    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
+        params![items_json, now, collection_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(Collection {
+        id: c_id,
+        name: c_name,
+        items,
+        created_at: c_created_at,
+        updated_at: now,
+        variables: vec![],
+        auth: None,
+        description: String::new(),
+    })
+}
+
+/// Add a request item to a collection (optionally inside a parent folder).
+pub fn add_collection_request(
+    db: &State<Db>,
+    collection_id: &str,
+    parent_folder_id: Option<&str>,
+    request: HttpRequest,
+    position: Option<usize>,
+) -> Result<Collection, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut stmt = conn.prepare(
+        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let row = stmt.query_row(params![collection_id], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let requests_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        let updated_at: String = row.get(4)?;
+        Ok((id, name, requests_json, created_at, updated_at))
+    }).map_err(|e| e.to_string())?;
+    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
+
+    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
+        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
+            .unwrap_or_default()
+            .into_iter()
+            .map(CollectionItem::Request)
+            .collect()
+    });
+
+    let new_item = CollectionItem::Request(request);
+
+    match parent_folder_id {
+        Some(pid) => {
+            if let Some(CollectionItem::Folder(f)) = find_item_by_id_mut(&mut items, pid) {
+                if let Some(pos) = position {
+                    f.items.insert(pos, new_item);
+                } else {
+                    f.items.push(new_item);
+                }
+                f.updated_at = now.clone();
+            } else {
+                return Err("Parent folder not found".to_string());
+            }
+        }
+        None => {
+            if let Some(pos) = position {
+                items.insert(pos, new_item);
+            } else {
+                items.push(new_item);
+            }
+        }
+    }
+
+    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
+        params![items_json, now, collection_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(Collection {
+        id: c_id,
+        name: c_name,
+        items,
+        created_at: c_created_at,
+        updated_at: now,
+        variables: vec![],
+        auth: None,
+        description: String::new(),
+    })
+}
+
+/// Delete an item (folder or request) by ID from a collection.
+pub fn delete_collection_item_by_id(
+    db: &State<Db>,
+    collection_id: &str,
+    item_id: &str,
+) -> Result<Collection, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut stmt = conn.prepare(
+        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let row = stmt.query_row(params![collection_id], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let requests_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        let updated_at: String = row.get(4)?;
+        Ok((id, name, requests_json, created_at, updated_at))
+    }).map_err(|e| e.to_string())?;
+    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
+
+    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
+        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
+            .unwrap_or_default()
+            .into_iter()
+            .map(CollectionItem::Request)
+            .collect()
+    });
+
+    if remove_item_by_id(&mut items, item_id).is_none() {
+        return Err("Item not found".to_string());
+    }
+
+    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
+        params![items_json, now, collection_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(Collection {
+        id: c_id,
+        name: c_name,
+        items,
+        created_at: c_created_at,
+        updated_at: now,
+        variables: vec![],
+        auth: None,
+        description: String::new(),
+    })
+}
+
+/// Move an item to a different parent folder / position within a collection.
+pub fn move_collection_item_in_tree(
+    db: &State<Db>,
+    collection_id: &str,
+    item_id: &str,
+    target_folder_id: Option<&str>,
+    target_index: usize,
+) -> Result<Collection, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut stmt = conn.prepare(
+        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let row = stmt.query_row(params![collection_id], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let requests_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        let updated_at: String = row.get(4)?;
+        Ok((id, name, requests_json, created_at, updated_at))
+    }).map_err(|e| e.to_string())?;
+    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
+
+    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
+        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
+            .unwrap_or_default()
+            .into_iter()
+            .map(CollectionItem::Request)
+            .collect()
+    });
+
+    // Remove the item from its current position
+    let removed = remove_item_by_id(&mut items, item_id)
+        .ok_or_else(|| "Item not found".to_string())?;
+
+    // Insert at the new position
+    match target_folder_id {
+        Some(tfid) => {
+            if let Some(CollectionItem::Folder(f)) = find_item_by_id_mut(&mut items, tfid) {
+                let idx = target_index.min(f.items.len());
+                f.items.insert(idx, removed);
+                f.updated_at = now.clone();
+            } else {
+                return Err("Target folder not found".to_string());
+            }
+        }
+        None => {
+            let idx = target_index.min(items.len());
+            items.insert(idx, removed);
+        }
+    }
+
+    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
+        params![items_json, now, collection_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(Collection {
+        id: c_id,
+        name: c_name,
+        items,
+        created_at: c_created_at,
+        updated_at: now,
+        variables: vec![],
+        auth: None,
+        description: String::new(),
+    })
+}
+
+// ─── Templates ──────────────────────────────────────────────────────────
+
+pub fn get_all_templates(db: &State<Db>) -> Result<Vec<RequestTemplate>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, name, description, request, scope, created_at, updated_at FROM templates ORDER BY name ASC"
+    ).map_err(|e| e.to_string())?;
+    let templates = stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let description: String = row.get(2)?;
+        let request_json: String = row.get(3)?;
+        let scope: String = row.get(4)?;
+        let created_at: String = row.get(5)?;
+        let updated_at: String = row.get(6)?;
+        Ok((id, name, description, request_json, scope, created_at, updated_at))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .filter_map(|(id, name, description, req_json, scope, created_at, updated_at)| {
+        let request: HttpRequest = serde_json::from_str(&req_json).ok()?;
+        Some(RequestTemplate { id, name, description, request, scope, created_at, updated_at })
+    })
+    .collect();
+    Ok(templates)
+}
+
+pub fn create_new_template(db: &State<Db>, template: &RequestTemplate) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let request_json = serde_json::to_string(&template.request).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO templates (id, name, description, request, scope, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![template.id, template.name, template.description, request_json, template.scope, template.created_at, template.updated_at],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn delete_existing_template(db: &State<Db>, id: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM templates WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
     Ok(())
 }
 

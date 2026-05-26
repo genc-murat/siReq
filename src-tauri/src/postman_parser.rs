@@ -3,6 +3,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 /// Parse a Postman Collection v2.1 JSON string into a siReq Collection.
+/// Preserves folder hierarchy as CollectionFolder tree nodes.
 pub fn parse_postman_collection(input: &str, collection_name: Option<&str>) -> Result<Collection, String> {
     let root: Value = serde_json::from_str(input)
         .map_err(|e| format!("Invalid JSON: {}", e))?;
@@ -20,8 +21,6 @@ pub fn parse_postman_collection(input: &str, collection_name: Option<&str>) -> R
         .and_then(|i| i.as_array())
         .ok_or_else(|| "Not a valid Postman collection: missing 'item' array".to_string())?;
 
-    let mut requests: Vec<HttpRequest> = Vec::new();
-
     // Get collection-level auth and variables
     let collection_auth = root.get("auth");
     let collection_vars: Vec<(String, String)> = root.get("variable")
@@ -38,63 +37,67 @@ pub fn parse_postman_collection(input: &str, collection_name: Option<&str>) -> R
         })
         .unwrap_or_default();
 
-    for item in items {
-        flatten_postman_items(item, "", &collection_auth, &collection_vars, &mut requests);
-    }
+    // Parse items preserving folder hierarchy
+    let tree_items: Vec<CollectionItem> = items.iter()
+        .filter_map(|item| parse_postman_item(item, &collection_auth, &collection_vars))
+        .collect();
 
     let now = chrono::Utc::now().to_rfc3339();
     Ok(Collection {
         id: Uuid::new_v4().to_string(),
         name,
-        requests,
+        items: tree_items,
         created_at: now.clone(),
         updated_at: now,
         variables: vec![],
+        auth: None,
+        description: String::new(),
     })
 }
 
-/// Recursively flatten Postman items (handling folders) into HttpRequest objects.
-fn flatten_postman_items(
+/// Recursively parse a Postman item into a CollectionItem (preserving folder hierarchy).
+fn parse_postman_item(
     item: &Value,
-    folder_prefix: &str,
     collection_auth: &Option<&Value>,
     collection_vars: &[(String, String)],
-    requests: &mut Vec<HttpRequest>,
-) {
+) -> Option<CollectionItem> {
     let name = item.get("name").and_then(|n| n.as_str()).unwrap_or("Unnamed");
 
     // Check if this is a folder (has nested "item" array) or a request
     if let Some(sub_items) = item.get("item").and_then(|i| i.as_array()) {
-        // It's a folder — recurse
-        let new_prefix = if folder_prefix.is_empty() {
-            name.to_string()
-        } else {
-            format!("{} / {}", folder_prefix, name)
-        };
+        // It's a folder — recurse into children
+        let now = chrono::Utc::now().to_rfc3339();
         let folder_auth = item.get("auth").or(*collection_auth);
-        for sub in sub_items {
-            flatten_postman_items(sub, &new_prefix, &folder_auth, collection_vars, requests);
-        }
+        let children: Vec<CollectionItem> = sub_items.iter()
+            .filter_map(|sub| parse_postman_item(sub, &folder_auth, collection_vars))
+            .collect();
+
+        Some(CollectionItem::Folder(CollectionFolder {
+            id: Uuid::new_v4().to_string(),
+            name: name.to_string(),
+            description: String::new(),
+            items: children,
+            auth: folder_auth.and_then(|v| {
+                // Only parse if it's a different auth from the parent
+                let parsed = parse_postman_auth(Some(v));
+                if parsed.auth_type != AuthType::none { Some(parsed) } else { None }
+            }),
+            created_at: now.clone(),
+            updated_at: now,
+        }))
     } else {
         // It's a request
         let request = item.get("request");
-        let prefixed_name = if folder_prefix.is_empty() {
-            name.to_string()
-        } else {
-            format!("{} / {}", folder_prefix, name)
-        };
-        // Extract events from the parent item
         let (pre_script, post_script) = parse_postman_events(item);
-        if let Some(req) = parse_postman_request(
+        let req = parse_postman_request(
             request,
-            &prefixed_name,
+            name,
             item.get("auth").or(*collection_auth),
             collection_vars,
             &pre_script,
             &post_script,
-        ) {
-            requests.push(req);
-        }
+        )?;
+        Some(CollectionItem::Request(req))
     }
 }
 
@@ -195,6 +198,7 @@ fn parse_postman_request(
         },
         pre_script,
         post_script,
+        examples: vec![],
     })
 }
 
@@ -486,8 +490,8 @@ pub fn export_to_postman(collection: &Collection) -> Result<String, String> {
         "https://schema.getpostman.com/json/collection/v2.1.0/collection.json".to_string()
     ));
 
-    let items: Vec<Value> = collection.requests.iter()
-        .map(|req| request_to_postman_item(req))
+    let items: Vec<Value> = collection.items.iter()
+        .map(|item| collection_item_to_postman(item))
         .collect();
 
     let mut root = serde_json::Map::new();
@@ -496,6 +500,22 @@ pub fn export_to_postman(collection: &Collection) -> Result<String, String> {
 
     serde_json::to_string_pretty(&Value::Object(root))
         .map_err(|e| format!("Failed to serialize collection: {}", e))
+}
+
+/// Convert a CollectionItem (folder or request) to a Postman item/folder object.
+fn collection_item_to_postman(item: &CollectionItem) -> Value {
+    match item {
+        CollectionItem::Folder(f) => {
+            let mut folder = serde_json::Map::new();
+            folder.insert("name".to_string(), Value::String(f.name.clone()));
+            let children: Vec<Value> = f.items.iter()
+                .map(|child| collection_item_to_postman(child))
+                .collect();
+            folder.insert("item".to_string(), Value::Array(children));
+            Value::Object(folder)
+        }
+        CollectionItem::Request(req) => request_to_postman_item(req),
+    }
 }
 
 /// Convert a single HttpRequest to a Postman item object.

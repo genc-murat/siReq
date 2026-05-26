@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { importOpenApi } from "@/lib/invoke";
+import { importOpenApi, countCollectionRequests } from "@/lib/invoke";
 import { useToastStore } from "@/stores/toastStore";
 
 interface OpenApiImportProps {
@@ -48,7 +48,7 @@ export function OpenApiImport({ onImported }: OpenApiImportProps) {
       setSpecContent("");
       setCollectionName("");
       addToast(
-        `Imported ${collection.name} with ${collection.requests.length} endpoints`,
+        `Imported ${collection.name} with ${countCollectionRequests(collection.requests)} endpoints`,
         "success"
       );
       onImported?.();
