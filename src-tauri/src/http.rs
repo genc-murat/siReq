@@ -342,3 +342,418 @@ pub fn cancel_request(handles: &RequestHandles, request_id: &str) -> Result<(), 
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use crate::variables::apply_variables;
+    use std::collections::HashMap;
+
+    /// Start a raw TCP server that captures the first HTTP request it receives.
+    /// Returns `(port, Arc<Mutex<String>>)` where the String is the raw HTTP request text.
+    async fn start_capture_server() -> (u16, Arc<Mutex<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let captured: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+        let cap = captured.clone();
+
+        tokio::spawn(async move {
+            // Accept one connection
+            if let Ok((mut stream, _)) = listener.accept().await {
+                let mut buf = vec![0u8; 16384];
+                match stream.read(&mut buf).await {
+                    Ok(n) if n > 0 => {
+                        let raw = String::from_utf8_lossy(&buf[..n]).to_string();
+                        // Drop the lock before the .await to avoid holding a non-Send MutexGuard across await
+                        {
+                            let mut guard = cap.lock().unwrap();
+                            *guard = raw;
+                        }
+                        // Send minimal valid HTTP response
+                        let _ = stream.write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: text/plain\r\n\r\nOK"
+                        ).await;
+                    }
+                    _ => {}
+                }
+            }
+        });
+
+        (port, captured)
+    }
+
+    /// Helper: minimal HttpRequest for integration tests.
+    fn test_request(
+        url: &str,
+        method: HttpMethod,
+        headers: Vec<(&str, &str)>,
+        query_params: Vec<(&str, &str)>,
+        body: &str,
+        body_type: BodyType,
+    ) -> HttpRequest {
+        HttpRequest {
+            id: "int-test".into(),
+            name: String::new(),
+            method,
+            url: url.into(),
+            headers: headers.into_iter().map(|(k, v)| KeyValue {
+                key: k.into(),
+                value: v.into(),
+                enabled: true,
+                is_secret: false,
+            }).collect(),
+            query_params: query_params.into_iter().map(|(k, v)| KeyValue {
+                key: k.into(),
+                value: v.into(),
+                enabled: true,
+                is_secret: false,
+            }).collect(),
+            body_type,
+            body: body.into(),
+            form_fields: vec![],
+            auth: AuthConfig {
+                auth_type: AuthType::none,
+                username: String::new(),
+                password: String::new(),
+                token: String::new(),
+                api_key: String::new(),
+                api_key_name: String::new(),
+                api_key_in: String::new(),
+            },
+            settings: RequestSettings {
+                timeout: 5,
+                follow_redirects: false,
+                ssl_verify: false,
+                proxy: None,
+            },
+            pre_script: String::new(),
+            post_script: String::new(),
+            examples: vec![],
+            extractions: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_integration_variable_resolution_url() {
+        // {{host}} and {{port}} in URL should be resolved before sending
+        let (port, captured) = start_capture_server().await;
+        let addr = format!("127.0.0.1:{}", port);
+
+        let request = test_request(
+            "http://{{addr}}/api/users",
+            HttpMethod::GET,
+            vec![],
+            vec![],
+            "",
+            BodyType::none,
+        );
+
+        let env_vars: HashMap<String, String> = [
+            ("addr".into(), addr.clone()),
+        ].into();
+
+        let resolved = apply_variables(&request, &[], &[], &env_vars, &[]);
+        let client = Client::new();
+        let result = execute_request(&client, &resolved, &[]).await;
+
+        assert!(result.is_ok(), "execute_request should succeed: {:?}", result.err());
+
+        // Wait briefly for the server to capture the request
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        // The request line should contain the resolved path
+        assert!(raw.contains("GET /api/users HTTP"), "Request line should have resolved path. Got: {}", raw);
+        // The Host header should contain the resolved address
+        assert!(raw.contains(&format!("host: {}", addr)), "Host header should be resolved. Got: {}", raw);
+    }
+
+    #[tokio::test]
+    async fn test_integration_variable_resolution_headers() {
+        // {{token}} in Authorization should be resolved before sending
+        let (port, captured) = start_capture_server().await;
+
+        let request = test_request(
+            &format!("http://127.0.0.1:{}/api/data", port),
+            HttpMethod::GET,
+            vec![("Authorization", "Bearer {{token}}")],
+            vec![],
+            "",
+            BodyType::none,
+        );
+
+        let env_vars: HashMap<String, String> = [
+            ("token".into(), "secret-test-token-123".into()),
+        ].into();
+
+        let resolved = apply_variables(&request, &[], &[], &env_vars, &[]);
+        let client = Client::new();
+        let result = execute_request(&client, &resolved, &[]).await;
+
+        assert!(result.is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        assert!(
+            raw.contains("Bearer secret-test-token-123"),
+            "Authorization header should have resolved token. Got: {}",
+            raw.lines().find(|l| l.to_lowercase().starts_with("authorization")).unwrap_or("<not found>")
+        );
+        // Ensure the raw {{token}} is NOT present
+        assert!(!raw.contains("{{token}}"), "Raw {{token}} should not appear in request");
+    }
+
+    #[tokio::test]
+    async fn test_integration_variable_resolution_body() {
+        // {{body_key}} and {{body_value}} in JSON body should be resolved before sending
+        let (port, captured) = start_capture_server().await;
+
+        let request = test_request(
+            &format!("http://127.0.0.1:{}/api/submit", port),
+            HttpMethod::POST,
+            vec![],
+            vec![],
+            r#"{"key": "{{body_key}}", "value": "{{body_value}}"}"#,
+            BodyType::json,
+        );
+
+        let env_vars: HashMap<String, String> = [
+            ("body_key".into(), "test-key".into()),
+            ("body_value".into(), "test-value".into()),
+        ].into();
+
+        let resolved = apply_variables(&request, &[], &[], &env_vars, &[]);
+        assert_eq!(
+            resolved.body,
+            r#"{"key": "test-key", "value": "test-value"}"#,
+            "Body should be resolved"
+        );
+
+        let client = Client::new();
+        let result = execute_request(&client, &resolved, &[]).await;
+
+        assert!(result.is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        assert!(raw.contains("test-key"), "Body should contain resolved key");
+        assert!(raw.contains("test-value"), "Body should contain resolved value");
+        assert!(!raw.contains("{{body_key}}"), "Raw {{body_key}} should not appear");
+        assert!(!raw.contains("{{body_value}}"), "Raw {{body_value}} should not appear");
+    }
+
+    #[tokio::test]
+    async fn test_integration_variable_resolution_query_params() {
+        // {{page}} and {{limit}} in query params should be resolved before sending
+        let (port, captured) = start_capture_server().await;
+
+        let request = test_request(
+            &format!("http://127.0.0.1:{}/api/search", port),
+            HttpMethod::GET,
+            vec![],
+            vec![("page", "{{page}}"), ("limit", "{{limit}}")],
+            "",
+            BodyType::none,
+        );
+
+        let env_vars: HashMap<String, String> = [
+            ("page".into(), "2".into()),
+            ("limit".into(), "50".into()),
+        ].into();
+
+        let resolved = apply_variables(&request, &[], &[], &env_vars, &[]);
+        assert_eq!(
+            resolved.url,
+            format!("http://127.0.0.1:{}/api/search", port),
+            "URL should not include query params (they are sent separately)"
+        );
+
+        let client = Client::new();
+        let result = execute_request(&client, &resolved, &[]).await;
+        assert!(result.is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        assert!(raw.contains("page=2"), "Query param page should be resolved");
+        assert!(raw.contains("limit=50"), "Query param limit should be resolved");
+        assert!(!raw.contains("{{page}}"), "Raw {{page}} should not appear");
+        assert!(!raw.contains("{{limit}}"), "Raw {{limit}} should not appear");
+    }
+
+    #[tokio::test]
+    async fn test_integration_variable_resolution_missing_var_passthrough() {
+        // {{missing}} with no matching variable should stay as-is in the actual request
+        let (port, captured) = start_capture_server().await;
+
+        let request = test_request(
+            &format!("http://127.0.0.1:{}/{{{{missing}}}}", port),
+            HttpMethod::GET,
+            vec![("X-Custom", "{{missing}}")],
+            vec![],
+            "",
+            BodyType::none,
+        );
+
+        let env_vars: HashMap<String, String> = HashMap::new(); // No variable defined
+
+        let resolved = apply_variables(&request, &[], &[], &env_vars, &[]);
+        // The {{missing}} should remain as-is in the resolved request
+        assert!(resolved.url.contains("{{missing}}"), "Missing var should stay in URL");
+        assert!(resolved.headers[0].value.contains("{{missing}}"), "Missing var should stay in headers");
+
+        // When execute_request sends this, it will actually send {{missing}} literally
+        // reqwest will try to connect to that URL which has {{missing}} as the path
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()
+            .unwrap();
+        let result = execute_request(&client, &resolved, &[]).await;
+        assert!(result.is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        // reqwest URL-encodes { and } as %7B and %7D in the path
+        assert!(raw.contains("%7B%7Bmissing%7D%7D"), "Raw {{missing}} should appear (URL-encoded) in the sent request");
+        // It should be in the request line (URL-encoded)
+        assert!(raw.contains("GET /%7B%7Bmissing%7D%7D HTTP"), "Path should contain unresolved {{missing}}, URL-encoded");
+    }
+
+    #[tokio::test]
+    async fn test_integration_variable_resolution_all_scopes() {
+        // Test global + env + script variable priority in full pipeline
+        let (port, captured) = start_capture_server().await;
+
+        let request = test_request(
+            &format!("http://127.0.0.1:{}/{{{{global_var}}}}/{{{{env_var}}}}/{{{{script_var}}}}/{{{{override_var}}}}", port),
+            HttpMethod::GET,
+            vec![],
+            vec![],
+            "",
+            BodyType::none,
+        );
+
+        // Global variables
+        let global = vec![
+            KeyValue { key: "global_var".into(), value: "global_val".into(), enabled: true, is_secret: false },
+            KeyValue { key: "override_var".into(), value: "global_override".into(), enabled: true, is_secret: false },
+        ];
+
+        // Environment variables (overrides global)
+        let mut env = HashMap::new();
+        env.insert("env_var".into(), "env_val".into());
+        env.insert("override_var".into(), "env_override".into());
+
+        // Script variables (highest priority — overrides env)
+        let script = vec![
+            KeyValue { key: "script_var".into(), value: "script_val".into(), enabled: true, is_secret: false },
+            KeyValue { key: "override_var".into(), value: "script_override".into(), enabled: true, is_secret: false },
+        ];
+
+        let resolved = apply_variables(&request, &global, &[], &env, &script);
+
+        // Verify resolution is correct before sending
+        assert!(resolved.url.contains("global_val"), "Should contain global_val");
+        assert!(resolved.url.contains("env_val"), "Should contain env_val");
+        assert!(resolved.url.contains("script_val"), "Should contain script_val");
+        assert!(resolved.url.contains("script_override"), "Script should override env and global");
+
+        let client = Client::new();
+        let result = execute_request(&client, &resolved, &[]).await;
+        assert!(result.is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        // The request line should have the fully resolved path with all scopes
+        assert!(raw.contains("/global_val/env_val/script_val/script_override"),
+            "Path should have correct scope priority. Got: {}", raw.lines().next().unwrap_or("<no request line>"));
+    }
+
+    #[tokio::test]
+    async fn test_integration_dynamic_vars_in_request() {
+        // {{$uuid}} and {{$timestamp}} should be resolved before sending
+        let (port, captured) = start_capture_server().await;
+
+        // Use string concatenation to avoid format! escaping issues with {{$uuid}} / {{$timestamp}}
+        let base_url = format!("http://127.0.0.1:{}", port);
+        let url = base_url + "/log?ts={{$timestamp}}&id={{$uuid}}";
+        let request = test_request(
+            &url,
+            HttpMethod::GET,
+            vec![("X-Request-Id", "{{$uuid}}")],
+            vec![],
+            "",
+            BodyType::none,
+        );
+
+        // No static vars needed — dynamic vars are resolved by apply_variables automatically
+        let resolved = apply_variables(&request, &[], &[], &HashMap::new(), &[]);
+
+        // The dynamic vars should be resolved
+        assert!(!resolved.url.contains("{{$uuid}}"), "$uuid should be resolved");
+        assert!(!resolved.url.contains("{{$timestamp}}"), "$timestamp should be resolved");
+
+        let client = Client::new();
+        let result = execute_request(&client, &resolved, &[]).await;
+        assert!(result.is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        // Should contain a UUID-like value (36 chars of hex + dashes)
+        assert!(raw.contains("id="), "Should have id query param");
+        // Extract the id value and verify it looks like a UUID
+        if let Some(id_start) = raw.find("id=") {
+            let id_val = &raw[id_start + 3..id_start + 3 + 36];
+            assert_eq!(id_val.len(), 36, "UUID should be 36 chars");
+        }
+
+        // Should have a numeric timestamp
+        assert!(raw.contains("ts="), "Should have ts query param");
+    }
+
+    #[tokio::test]
+    async fn test_integration_disabled_global_var_skipped() {
+        // A disabled global variable should NOT be resolved in the sent request
+        let (port, captured) = start_capture_server().await;
+
+        let request = test_request(
+            &format!("http://127.0.0.1:{}/{{{{key}}}}", port),
+            HttpMethod::GET,
+            vec![],
+            vec![],
+            "",
+            BodyType::none,
+        );
+
+        // Disabled global var
+        let global = vec![
+            KeyValue { key: "key".into(), value: "should_not_appear".into(), enabled: false, is_secret: false },
+        ];
+
+        let resolved = apply_variables(&request, &global, &[], &HashMap::new(), &[]);
+        assert!(resolved.url.contains("{{key}}"), "Disabled var should remain unresolved");
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()
+            .unwrap();
+        let result = execute_request(&client, &resolved, &[]).await;
+        assert!(result.is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        // reqwest URL-encodes { and } as %7B and %7D in the path
+        assert!(raw.contains("%7B%7Bkey%7D%7D"), "Disabled global var should NOT be resolved in the sent request");
+        assert!(!raw.contains("should_not_appear"), "The disabled var's value should not appear");
+    }
+}
+
