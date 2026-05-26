@@ -4,6 +4,7 @@ mod curl_parser;
 mod grpc;
 mod http;
 mod models;
+mod mock_server;
 mod openapi_parser;
 mod postman_parser;
 mod scripts;
@@ -20,6 +21,7 @@ use websocket::WsState;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use tauri::Manager;
+use crate::mock_server::manager::MockServerManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -37,8 +39,16 @@ pub fn run() {
             app.manage(GrpcState(Arc::new(Mutex::new(HashMap::new()))));
             app.manage(WsState(Arc::new(Mutex::new(HashMap::new()))));
             app.manage(http::RequestHandles(Mutex::new(HashMap::new())));
+            app.manage(MockServerManager::new());
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if let Some(manager) = window.try_state::<MockServerManager>() {
+                    manager.stop_all();
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::send_request,
@@ -102,6 +112,17 @@ pub fn run() {
             websocket::ws_connect,
             websocket::ws_send,
             websocket::ws_disconnect,
+            commands::get_mock_configs,
+            commands::create_mock_config,
+            commands::update_mock_config_cmd,
+            commands::delete_mock_config_cmd,
+            commands::start_mock_server_cmd,
+            commands::stop_mock_server_cmd,
+            commands::get_mock_server_status,
+            commands::get_mock_server_logs,
+            commands::get_mock_server_stats,
+            commands::import_openapi_mock,
+            commands::import_collection_mock,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

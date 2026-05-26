@@ -1232,3 +1232,7 @@ pub fn delete_cookie(
 pub fn clear_cookies(db: State<'_, Db>) -> Result<(), String> {
     clear_all_cookies(&db)
 }
+
+pub mod mock_server;
+pub use mock_server::*;
+

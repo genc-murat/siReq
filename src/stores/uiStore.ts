@@ -4,7 +4,7 @@ import type { HttpResponse } from "@/lib/invoke";
 
 interface UIState {
   theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord";
-  toolMode: "http" | "websocket" | "grpc";
+  toolMode: "http" | "websocket" | "grpc" | "mock";
   sidebarOpen: boolean;
   settingsOpen: boolean;
   activeTab: string;
@@ -22,7 +22,7 @@ interface UIState {
   setSettingsOpen: (open: boolean) => void;
   setActiveTab: (tab: string) => void;
   setResponseTab: (tab: string) => void;
-  setToolMode: (mode: "http" | "websocket" | "grpc") => void;
+  setToolMode: (mode: "http" | "websocket" | "grpc" | "mock") => void;
   setActiveHistoryId: (id: string | null) => void;
   setActiveCollectionId: (id: string | null) => void;
   setActiveEnvironmentId: (id: string | null) => void;
@@ -48,7 +48,7 @@ export const useUIStore = create<UIState>()(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSettingsOpen: (open) => set({ settingsOpen: open }),
       setActiveTab: (tab) => set({ activeTab: tab }),
-      setToolMode: (mode: "http" | "websocket" | "grpc") => set({ toolMode: mode }),
+      setToolMode: (mode: "http" | "websocket" | "grpc" | "mock") => set({ toolMode: mode }),
   setResponseTab: (tab) => set({ responseTab: tab }),
       compareResponse: null,
       showRunner: false,

@@ -107,6 +107,36 @@ export function Layout() {
           </svg>
           <span>WebSocket</span>
         </button>
+        <button
+          onClick={() => setToolMode("grpc")}
+          className={cn(
+            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
+            toolMode === "grpc"
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}
+          title="gRPC Client"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>gRPC</span>
+        </button>
+        <button
+          onClick={() => setToolMode("mock")}
+          className={cn(
+            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
+            toolMode === "mock"
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}
+          title="Smart Mock Server"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          <span>Mock</span>
+        </button>
         <div className="h-4 w-px bg-border" />
         <button
           onClick={handleNew}

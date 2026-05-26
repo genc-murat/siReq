@@ -46,3 +46,8 @@ aes-gcm = "0.10"
 rand = "0.8"
 dirs = "5"
 sha2 = "0.10"
+axum = { version = "0.7", features = ["tokio"] }
+rand_distr = "0.4"
+jsonpath-rust = "0.3"
+regex = "1"
+

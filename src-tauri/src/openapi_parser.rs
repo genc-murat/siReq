@@ -461,7 +461,7 @@ fn resolve_ref<'a>(spec: &'a Value, ref_path: &str) -> Option<&'a Value> {
 /// Fully resolve a schema: follows `$ref`, handles `allOf`/`oneOf`/`anyOf`.
 /// Returns a merged schema Value.
 /// `resolving` tracks circular refs to prevent infinite loops.
-fn resolve_schema<'a>(
+pub fn resolve_schema<'a>(
     spec: &'a Value,
     schema: &'a Value,
     resolving: &mut HashSet<String>,
@@ -681,7 +681,7 @@ fn generate_scalar_example(schema: &Value, spec: &Value) -> String {
     }
 }
 
-fn generate_example_body_with_spec(schema: &Value, spec: &Value) -> String {
+pub fn generate_example_body_with_spec(schema: &Value, spec: &Value) -> String {
     // Resolve $ref and composition
     let mut resolving = HashSet::new();
     let resolved = resolve_schema(spec, schema, &mut resolving, 0);

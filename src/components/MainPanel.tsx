@@ -6,6 +6,7 @@ import { WebSocketPanel } from "@/components/WebSocketPanel";
 import { GrpcPanel } from "@/components/GrpcPanel";
 import { RunnerPanel } from "@/components/RunnerPanel";
 import { IntelligenceDashboard } from "@/components/Intelligence/IntelligenceDashboard";
+import MockPanel from "@/components/MockServer/MockPanel";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -46,6 +47,14 @@ export function MainPanel() {
     return (
       <div className="h-full flex flex-col">
         <GrpcPanel />
+      </div>
+    );
+  }
+
+  if (toolMode === "mock") {
+    return (
+      <div className="h-full flex flex-col">
+        <MockPanel />
       </div>
     );
   }

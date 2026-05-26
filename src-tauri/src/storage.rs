@@ -2,6 +2,7 @@ use rusqlite::{Connection, params};
 use std::sync::Mutex;
 use tauri::State;
 use crate::models::*;
+use crate::mock_server::models::MockServerConfig;
 
 pub struct Db(pub Mutex<Connection>);
 
@@ -108,6 +109,18 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             created_at TEXT NOT NULL
         );"
     )?;
+
+    // Initialize mock_servers table
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mock_servers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            config TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );"
+    )?;
+
     Ok(())
 }
 
@@ -945,3 +958,67 @@ pub fn get_environment_by_id(conn: &Connection, id: &str) -> Result<Option<Envir
         Err(e) => Err(e.to_string()),
     }
 }
+
+// ─── Mock Servers CRUD ──────────────────────────────────────────────────
+
+pub fn get_all_mock_configs(db: &State<Db>) -> Result<Vec<MockServerConfig>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, name, config, created_at, updated_at FROM mock_servers ORDER BY updated_at DESC"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let config_json: String = row.get(2)?;
+        let _created_at: String = row.get(3)?;
+        let _updated_at: String = row.get(4)?;
+        Ok((id, name, config_json))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .filter_map(|(_id, _name, config_json)| {
+        let config: MockServerConfig = serde_json::from_str(&config_json).ok()?;
+        Some(config)
+    })
+    .collect();
+    Ok(entries)
+}
+
+#[allow(dead_code)]
+pub fn get_mock_config_by_id(db: &State<Db>, id: &str) -> Result<MockServerConfig, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT config FROM mock_servers WHERE id = ?1"
+    ).map_err(|e| e.to_string())?;
+    let config_json: String = stmt.query_row(params![id], |row| row.get(0)).map_err(|e| e.to_string())?;
+    let config: MockServerConfig = serde_json::from_str(&config_json).map_err(|e| e.to_string())?;
+    Ok(config)
+}
+
+pub fn insert_mock_config(db: &State<Db>, config: &MockServerConfig) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let config_json = serde_json::to_string(config).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO mock_servers (id, name, config, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![config.id, config.name, config_json, now, now],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn update_mock_config(db: &State<Db>, config: &MockServerConfig) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let config_json = serde_json::to_string(config).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE mock_servers SET name = ?1, config = ?2, updated_at = ?3 WHERE id = ?4",
+        params![config.name, config_json, now, config.id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn delete_mock_config(db: &State<Db>, id: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM mock_servers WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+

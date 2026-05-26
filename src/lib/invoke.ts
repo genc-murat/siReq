@@ -849,3 +849,132 @@ export async function grpcReflectGetProto(
 ): Promise<GrpcDescriptorSet> {
   return safeInvoke("grpc_reflect_get_proto", { address, tls, symbol });
 }
+
+// ─── Smart Mock Server Types ───────────────────────────────────────────────
+
+export interface CorsConfig {
+  allow_origin: string;
+  allow_methods: string[];
+  allow_headers: string[];
+  allow_credentials: boolean;
+}
+
+export interface LatencyProfile {
+  mode: "fixed" | "random_range" | "normal_distribution";
+  fixed_ms?: number | null;
+  min_ms?: number | null;
+  max_ms?: number | null;
+  mean_ms?: number | null;
+  std_dev_ms?: number | null;
+}
+
+export interface RequestMatcher {
+  source: "query" | "header" | "body" | "jsonpath";
+  key: string;
+  operator: "equals" | "contains" | "regex" | "exists";
+  value: string;
+}
+
+export interface ResponseScenario {
+  id: string;
+  name: string;
+  is_default: boolean;
+  status_code: number;
+  headers: Record<string, string>;
+  body: string;
+  latency?: LatencyProfile | null;
+  rules: RequestMatcher[];
+}
+
+export interface MockEndpoint {
+  id: string;
+  path: string;
+  method: string;
+  scenarios: ResponseScenario[];
+}
+
+export interface MockServerConfig {
+  id: string;
+  name: string;
+  port: number;
+  endpoints: MockEndpoint[];
+  cors_enabled: boolean;
+  cors_config: CorsConfig;
+  headers: Record<string, string>;
+}
+
+export interface MockLogEntry {
+  id: string;
+  timestamp: string;
+  method: string;
+  path: string;
+  request_headers: Record<string, string>;
+  request_body: string;
+  response_status: number;
+  response_headers: Record<string, string>;
+  response_body: string;
+  latency_ms: number;
+  matched_scenario?: string | null;
+  warnings: string[];
+}
+
+export interface MockServerStatus {
+  id: string;
+  name: string;
+  port: number;
+  status: "running" | "stopped" | "error";
+  error_message?: string | null;
+}
+
+export interface MockStats {
+  request_count: number;
+  error_count: number;
+  average_latency_ms: number;
+}
+
+// ─── Smart Mock Server API Functions ────────────────────────────────────────
+
+export async function getMockConfigs(): Promise<MockServerConfig[]> {
+  return safeInvoke("get_mock_configs");
+}
+
+export async function createMockConfig(config: MockServerConfig): Promise<void> {
+  return safeInvoke("create_mock_config", { config });
+}
+
+export async function updateMockConfig(config: MockServerConfig): Promise<void> {
+  return safeInvoke("update_mock_config_cmd", { config });
+}
+
+export async function deleteMockConfig(id: string): Promise<void> {
+  return safeInvoke("delete_mock_config_cmd", { id });
+}
+
+export async function startMockServer(config: MockServerConfig): Promise<void> {
+  return safeInvoke("start_mock_server_cmd", { config });
+}
+
+export async function stopMockServer(id: string): Promise<void> {
+  return safeInvoke("stop_mock_server_cmd", { id });
+}
+
+export async function getMockServerStatus(id: string): Promise<string> {
+  return safeInvoke("get_mock_server_status", { id });
+}
+
+export async function getMockServerLogs(id: string): Promise<MockLogEntry[]> {
+  return safeInvoke("get_mock_server_logs", { id });
+}
+
+export async function getMockServerStats(id: string): Promise<MockStats> {
+  return safeInvoke("get_mock_server_stats", { id });
+}
+
+export async function importOpenApiMock(spec: string, name: string, port: number): Promise<MockServerConfig> {
+  return safeInvoke("import_openapi_mock", { spec, name, port });
+}
+
+export async function importCollectionMock(collectionId: string, name: string, port: number): Promise<MockServerConfig> {
+  return safeInvoke("import_collection_mock", { collectionId, name, port });
+}
+
