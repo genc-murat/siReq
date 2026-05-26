@@ -127,6 +127,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     }
   },
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   runBenchmark: async (count: number, _environmentId?: string | null) => {
     const { request } = get();
     set({ benchmarkLoading: true, error: null, benchmarkResult: null });

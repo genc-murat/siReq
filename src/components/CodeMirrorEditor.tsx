@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useImperativeHandle } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -61,7 +61,8 @@ function jsSyntaxLinter() {
     try {
       acorn.parse(code, { ecmaVersion: "latest", locations: true });
       return [];
-    } catch (e: any) {
+    } catch (err: unknown) {
+      const e = err as { loc?: { line?: number; column?: number }; pos?: number; message?: string };
       const diagnostics: Diagnostic[] = [];
       // Acorn provides precise loc (1-based line, 0-based column) and pos (character offset)
       const line = e.loc?.line;
@@ -105,6 +106,7 @@ function jsSyntaxLinter() {
  * Check JavaScript code for syntax errors using acorn parser.
  * Used by parent components to display error badges.
  */
+/* eslint-disable-next-line react-refresh/only-export-components */
 export function countJSSyntaxErrors(code: string | undefined | null): number {
   if (!code?.trim()) return 0;
   try {
@@ -157,7 +159,10 @@ export function CodeMirrorEditor({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const extraCompletions = useMemo(() => {
     if (!completions || completions.length === 0) return [] as Completion[];
@@ -255,22 +260,22 @@ export function CodeMirrorEditor({
     viewRef.current = view;
 
     // Expose openSearch via the editorRef
-    if (editorRef) {
-      (editorRef as React.MutableRefObject<CodeMirrorEditorHandle | null>).current = {
-        openSearch: () => {
-          openSearchPanel(view);
-        },
-      };
-    }
+    // (Handled cleanly by useImperativeHandle)
 
     return () => {
       view.destroy();
       viewRef.current = null;
-      if (editorRef) {
-        (editorRef as React.MutableRefObject<CodeMirrorEditorHandle | null>).current = null;
-      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, readOnly, extraCompletions]);
+
+  useImperativeHandle(editorRef, () => ({
+    openSearch: () => {
+      if (viewRef.current) {
+        openSearchPanel(viewRef.current);
+      }
+    },
+  }));
 
   useEffect(() => {
     const view = viewRef.current;

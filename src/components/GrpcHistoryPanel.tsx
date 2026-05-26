@@ -53,6 +53,7 @@ export function GrpcHistoryPanel({
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {

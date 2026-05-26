@@ -54,12 +54,12 @@ function CollectionVarsModal({
 }) {
   const [vars, setVars] = useState<KeyValue[]>([]);
   const [saving, setSaving] = useState(false);
-  const [initialized, setInitialized] = useState(false);
+  const initializedRef = useRef(false);
   const addToast = useToastStore((s) => s.addToast);
 
   useEffect(() => {
-    if (initialized) return;
-    setInitialized(true);
+    if (initializedRef.current) return;
+    initializedRef.current = true;
     const decryptAll = async () => {
       const decrypted = await Promise.all(
         (collection.variables ?? []).map(async (v) => {
@@ -77,7 +77,7 @@ function CollectionVarsModal({
       setVars(decrypted);
     };
     decryptAll();
-  }, [collection.variables, initialized]);
+  }, [collection.variables]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -559,6 +559,7 @@ export function CollectionList() {
     async (
       targetCollectionId: string,
       targetFolderId: string | null,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       _targetIndex: number
     ) => {
       const drag = dragRef.current;
@@ -1247,6 +1248,7 @@ function TreeItems({
             }}
             onClick={() => {
               // Convert CollectionRequest to HttpRequest for the store
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { type: _t, examples, ...httpReq } = req;
               onLoadRequest({
                 ...httpReq,

@@ -134,7 +134,7 @@ export function PostmanImport({ onImported }: PostmanImportProps) {
             <textarea
               value={specContent}
               onChange={(e) => setSpecContent(e.target.value)}
-              placeholder={`{\n  \"info\": {\n    \"name\": \"My API\",\n    \"schema\": \"https://schema.getpostman.com/json/collection/v2.1.0/collection.json\"\n  },\n  \"item\": [...]\n}`}
+              placeholder={`{\n  "info": {\n    "name": "My API",\n    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"\n  },\n  "item": [...]\n}`}
               className="flex-1 bg-background text-foreground text-xs px-3 py-2 rounded-lg border border-input focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150 resize-none font-mono min-h-[200px]"
               spellCheck={false}
               autoFocus

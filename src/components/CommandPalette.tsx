@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import { useTabStore } from "@/stores/tabStore";
@@ -150,10 +150,29 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const closingRef = useRef(false);
 
-  const actions = buildActions(() => {
+  const [prevOpen, setPrevOpen] = useState(false);
+  const [prevSearch, setPrevSearch] = useState("");
+
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setSearch("");
+      setSelectedIndex(0);
+    }
+  }
+
+  if (search !== prevSearch) {
+    setPrevSearch(search);
+    setSelectedIndex(0);
+  }
+
+  const onClose = useCallback(() => {
     closingRef.current = true;
     setOpen(false);
-  });
+  }, []);
+
+  // eslint-disable-next-line react-hooks/refs
+  const actions = useMemo(() => buildActions(onClose), [onClose]);
 
   const filtered = search.trim()
     ? actions.filter(
@@ -167,15 +186,9 @@ export function CommandPalette() {
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
-      setSearch("");
-      setSelectedIndex(0);
       closingRef.current = false;
     }
   }, [open]);
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [search]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

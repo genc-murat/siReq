@@ -39,6 +39,7 @@ function buildFieldDefault(field: GrpcFieldInfo): unknown {
   }
 }
 
+/* eslint-disable-next-line react-refresh/only-export-components */
 export function buildDefaultValues(fields: GrpcFieldInfo[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
   for (const f of fields) {
@@ -162,7 +163,7 @@ function RepeatedField({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const arr = (value as unknown[]) ?? [];
+  const arr = useMemo(() => (value as unknown[]) ?? [], [value]);
 
   const addItem = useCallback(() => {
     // Override label to "optional" so buildFieldDefault doesn't hit the repeated guard and return []
@@ -226,7 +227,7 @@ function MapField({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const map = (value as Record<string, unknown>) ?? {};
+  const map = useMemo(() => (value as Record<string, unknown>) ?? {}, [value]);
 
   // Map entries are stored as a repeated message with "key" and "value" fields
   const entries = useMemo(() => Object.entries(map), [map]);

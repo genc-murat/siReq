@@ -57,7 +57,7 @@ export function StatusDistributionChart({ status200, status400, status500, statu
                 borderRadius: "8px",
                 fontSize: "11px",
               }}
-              formatter={(value: any) => [`${value} requests`, undefined]}
+              formatter={(value: number | string | boolean) => [`${value} requests`, undefined]}
             />
           </PieChart>
         </ResponsiveContainer>

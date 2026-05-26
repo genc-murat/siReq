@@ -11,8 +11,18 @@ export function CookiesViewer() {
   const [stored, setStored] = useState<StoredCookie[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadStored = useCallback(async () => {
-    setLoading(true);
+  const [prevTab, setPrevTab] = useState<CookieTab>("response");
+  if (tab !== prevTab) {
+    setPrevTab(tab);
+    if (tab === "stored") {
+      setLoading(true);
+    }
+  }
+
+  const loadStored = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     try {
       const cookies = await getCookies();
       setStored(cookies);
@@ -25,7 +35,8 @@ export function CookiesViewer() {
 
   useEffect(() => {
     if (tab === "stored") {
-      loadStored();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadStored(false);
     }
   }, [tab, loadStored]);
 

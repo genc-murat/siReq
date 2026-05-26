@@ -16,9 +16,16 @@ export function GlobalVariablesDialog({ open, onClose }: GlobalVariablesDialogPr
   const [originalState, setOriginalState] = useState<GlobalVariables | null>(null);
   const addToast = useToastStore((s) => s.addToast);
 
+  const [prevOpen, setPrevOpen] = useState(false);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setLoading(true);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
     getGlobalVariables()
       .then(async (gv) => {
         // Decrypt any secret values that were stored encrypted

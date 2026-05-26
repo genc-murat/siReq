@@ -45,7 +45,7 @@ export function EndpointList() {
     }
   };
 
-  const SortHeader = ({ label, sort }: { label: string; sort: SortKey }) => (
+  const renderSortHeader = (label: string, sort: SortKey) => (
     <button
       onClick={() => toggleSort(sort)}
       className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors duration-150 flex items-center gap-1 whitespace-nowrap"
@@ -122,14 +122,14 @@ export function EndpointList() {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="px-3 py-2 text-left"><SortHeader label="Method" sort="method" /></th>
-                <th className="px-3 py-2 text-left"><SortHeader label="Endpoint" sort="endpoint_key" /></th>
-                <th className="px-3 py-2 text-right"><SortHeader label="Requests" sort="request_count" /></th>
-                <th className="px-3 py-2 text-right"><SortHeader label="Avg (ms)" sort="avg_time_ms" /></th>
-                <th className="px-3 py-2 text-right"><SortHeader label="P95 (ms)" sort="p95_time_ms" /></th>
-                <th className="px-3 py-2 text-right"><SortHeader label="Success" sort="status_200_count" /></th>
-                <th className="px-3 py-2 text-center"><SortHeader label="Schema" sort="schema_version_count" /></th>
-                <th className="px-3 py-2 text-right"><SortHeader label="Last Seen" sort="last_seen" /></th>
+                <th className="px-3 py-2 text-left">{renderSortHeader("Method", "method")}</th>
+                <th className="px-3 py-2 text-left">{renderSortHeader("Endpoint", "endpoint_key")}</th>
+                <th className="px-3 py-2 text-right">{renderSortHeader("Requests", "request_count")}</th>
+                <th className="px-3 py-2 text-right">{renderSortHeader("Avg (ms)", "avg_time_ms")}</th>
+                <th className="px-3 py-2 text-right">{renderSortHeader("P95 (ms)", "p95_time_ms")}</th>
+                <th className="px-3 py-2 text-right">{renderSortHeader("Success", "status_200_count")}</th>
+                <th className="px-3 py-2 text-center">{renderSortHeader("Schema", "schema_version_count")}</th>
+                <th className="px-3 py-2 text-right">{renderSortHeader("Last Seen", "last_seen")}</th>
                 <th className="px-3 py-2 text-right"></th>
               </tr>
             </thead>

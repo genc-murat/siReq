@@ -76,7 +76,7 @@ export function WebSocketPanel() {
     return () => {
       unlisteners.forEach((fn) => fn());
     };
-  }, []);
+  }, [addMessage, addToast, setConnectionId, setStatus]);
 
   const handleConnect = async () => {
     if (!url.trim()) {

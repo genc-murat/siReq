@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import type { GrpcFieldInfo, GrpcMethodInfo } from "@/lib/invoke";
 import { ProtoFormBuilder, buildDefaultValues } from "./GrpcProtoForm";
 
@@ -84,13 +84,15 @@ export function MethodDetail({
     }
   }, [singleInput, multiInputs, isClientStreaming, isBidiStreaming, onCall, editorMode, formValues]);
 
-  useEffect(() => {
+  const [prevMethodName, setPrevMethodName] = useState("");
+  if (method.full_name !== prevMethodName) {
+    setPrevMethodName(method.full_name);
     const defaults = buildDefaultValues(method.input_fields);
     setFormValues(defaults);
     setSingleInput(buildSampleJson(method.input_fields));
     setMultiInputs([buildSampleJson(method.input_fields)]);
     setEditorMode(method.input_fields.some(f => f.sub_fields.length > 0 || f.enum_values.length > 0 || f.is_map) ? "form" : "form");
-  }, [method.full_name]);
+  }
 
   // Add/remove messages for client-streaming
   const addMessage = useCallback(() => {

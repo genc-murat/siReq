@@ -146,7 +146,7 @@ export function BenchmarkResults() {
   // Load history on mount
   useEffect(() => {
     loadBenchmarkHistory();
-  }, []);
+  }, [loadBenchmarkHistory]);
 
   if (benchmarkLoading) {
     return (

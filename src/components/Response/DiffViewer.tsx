@@ -265,20 +265,13 @@ export function DiffViewer() {
   const [view, setView] = useState<DiffView>("unified");
   const [scope, setScope] = useState<DiffScope>("body");
 
-  if (!response || !compareResponse) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        Select a response to compare
-      </div>
-    );
-  }
-
   const changes = useMemo(() => {
-    if (scope === "headers") return [];
+    if (!response || !compareResponse || scope === "headers") return [];
     return diffLines(response.body || "", compareResponse.body || "");
-  }, [response.body, compareResponse.body, scope]);
+  }, [response, compareResponse, scope]);
 
   const headerChanges = useMemo(() => {
+    if (!response || !compareResponse) return { added: 0, removed: 0, changed: 0 };
     const aHeaders = new Map(response.headers);
     const bHeaders = new Map(compareResponse.headers);
     let added = 0, removed = 0, changed = 0;
@@ -290,7 +283,15 @@ export function DiffViewer() {
       if (!aHeaders.has(k)) added++;
     }
     return { added, removed, changed };
-  }, [response.headers, compareResponse.headers]);
+  }, [response, compareResponse]);
+
+  if (!response || !compareResponse) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+        Select a response to compare
+      </div>
+    );
+  }
 
   const addedLines = changes.filter((c) => c.added).length;
   const removedLines = changes.filter((c) => c.removed).length;

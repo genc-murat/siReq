@@ -33,10 +33,17 @@ export function CompareSelector({ open, onClose }: CompareSelectorProps) {
   const [search, setSearch] = useState("");
   const setCompareResponse = useUIStore((s) => s.setCompareResponse);
 
+  const [prevOpen, setPrevOpen] = useState(false);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setLoading(true);
+      setSearch("");
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
-    setSearch("");
     getHistory(100, 0)
       .then(setEntries)
       .catch(() => {})

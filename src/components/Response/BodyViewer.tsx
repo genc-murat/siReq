@@ -15,7 +15,7 @@ function detectLanguage(body: string, contentType: string): SupportedLanguage {
   if (contentType.includes("html")) return "html";
   if (contentType.includes("javascript") || contentType.includes("ecmascript")) return "javascript";
   if (contentType.includes("css")) return "css";
-  try { JSON.parse(body); return "json"; } catch {}
+  try { JSON.parse(body); return "json"; } catch { /* ignore JSON parsing error */ }
   const trimmed = body.trim();
   if (trimmed.startsWith("<")) return "xml";
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) return "json";
@@ -23,7 +23,7 @@ function detectLanguage(body: string, contentType: string): SupportedLanguage {
   return "text";
 }
 
-function LargeBodyViewer({ body, language: _language, size, findOpen, onFindClose }: {
+function LargeBodyViewer({ body, size, findOpen, onFindClose }: {
   body: string;
   language: SupportedLanguage;
   size: number;
@@ -35,7 +35,7 @@ function LargeBodyViewer({ body, language: _language, size, findOpen, onFindClos
   const digitCount = String(lineCount).length;
   const [findQuery, setFindQuery] = useState("");
   const [activeFindIdx, setActiveFindIdx] = useState(0);
-  const virtuosoRef = useRef<any>(null);
+  const virtuosoRef = useRef<import("react-virtuoso").VirtuosoHandle | null>(null);
 
   // Listen to findbar-goto events for scrolling
   useEffect(() => {
@@ -156,7 +156,7 @@ function LargeBodyViewer({ body, language: _language, size, findOpen, onFindClos
 
 function tryFormat(body: string, lang: string): string {
   if (lang === "json") {
-    try { return JSON.stringify(JSON.parse(body), null, 2); } catch {}
+    try { return JSON.stringify(JSON.parse(body), null, 2); } catch { /* ignore parsing errors */ }
   }
   return body;
 }

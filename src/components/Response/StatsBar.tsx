@@ -48,7 +48,7 @@ export function StatsBar() {
           color: added > 0 && removed > 0 ? "text-yellow-500" : added > 0 ? "text-green-500" : "text-red-500",
         });
       }
-    } catch {}
+    } catch { /* ignore diffing error */ }
 
     if (response.time_ms !== lastResponse.time_ms) {
       const diff = response.time_ms - lastResponse.time_ms;

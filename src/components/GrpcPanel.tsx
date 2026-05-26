@@ -444,7 +444,7 @@ export function GrpcPanel() {
         }]);
       }
     }
-  }, [activeMethod, descriptor, address, tls]);
+  }, [activeMethod, descriptor, address, tls, activeEnvironmentId]);
 
   // Resolve active method info for the detail view
   const detailMethod = activeMethod?.info ?? null;
