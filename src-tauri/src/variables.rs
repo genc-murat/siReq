@@ -545,8 +545,12 @@ mod tests {
         let result = apply_variables(&request, &global, &[], &HashMap::new(), &[]);
         // Both outcomes contain "prefix_" at least once
         assert!(result.url.contains("prefix_"));
-        // No raw {{A}} should remain (it gets resolved in both orderings)
-        assert!(!result.url.contains("{{A}}"), "Raw {{A}} should not remain in output");
+        // The output should be exactly one of the two valid outcomes depending on HashMap iteration order
+        assert!(
+            result.url == "prefix_{{B}}" || result.url == "prefix_prefix_{{A}}",
+            "Output '{}' was not one of the expected circular substitution results",
+            result.url
+        );
     }
 
     #[test]
