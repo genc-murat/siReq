@@ -74,7 +74,7 @@ export function OpenApiImport({ onImported }: OpenApiImportProps) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+        className="text-xs text-muted-foreground hover:text-foreground hover:bg-accent px-2 py-1 rounded-lg transition-all duration-150 flex items-center gap-1"
         title="Import OpenAPI/Swagger spec"
       >
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

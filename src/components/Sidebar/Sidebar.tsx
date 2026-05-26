@@ -49,50 +49,57 @@ export function Sidebar() {
         {activeSidebarTab === "collections" && <CollectionList />}
       </div>
       <GlobalVariablesDialog open={globalVarsOpen} onClose={() => setGlobalVarsOpen(false)} />
-      <div className="p-2 border-t border-sidebar-border flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-1">
+      <div className="p-2 border-t border-sidebar-border flex flex-col gap-2 shrink-0">
+        {/* Row 1: Imports (cURL, Postman, OpenAPI) - fully responsive/wrapping */}
+        <div className="flex flex-wrap items-center gap-1.5">
           <CurlImport />
-          <span className="text-muted-foreground/40">|</span>
-          <button
-            onClick={() => setToolMode(toolMode === "grpc" ? "http" : "grpc")}
-            className={cn(
-              "text-xs p-1.5 rounded-lg transition-all duration-150 flex items-center gap-1",
-              toolMode === "grpc"
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            )}
-            title={toolMode === "grpc" ? "Switch to HTTP" : "gRPC Client"}
-          >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M8 9l3 3-3 3m5 0h3" strokeLinecap="round" strokeLinejoin="round" />
-              <rect x="2" y="3" width="20" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <span className="text-muted-foreground/40">|</span>
           <PostmanImport onImported={() => setActiveSidebarTab("collections")} />
-          <span className="text-muted-foreground/40">|</span>
           <OpenApiImport onImported={() => setActiveSidebarTab("collections")} />
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setGlobalVarsOpen(true)}
-            className="text-xs text-muted-foreground hover:text-foreground hover:bg-accent p-1.5 rounded-lg transition-all duration-150 flex items-center gap-1"
-            title="Global Variables"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setShowIntelligence(!showIntelligence)}
-            className={showIntelligence ? "text-primary bg-primary/10 p-1.5 rounded-lg transition-all duration-150" : "text-xs text-muted-foreground hover:text-foreground hover:bg-accent p-1.5 rounded-lg transition-all duration-150"}
-            title="API Intelligence"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-          </button>
-          <ThemeToggle />
+
+        {/* Row 2: Mode Toggle & Utilities */}
+        <div className="flex items-center justify-between border-t border-sidebar-border/30 pt-1.5 mt-0.5">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setToolMode(toolMode === "grpc" ? "http" : "grpc")}
+              className={cn(
+                "text-xs p-1.5 rounded-lg transition-all duration-150 flex items-center gap-1.5",
+                toolMode === "grpc"
+                  ? "text-primary bg-primary/10 hover:bg-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+              title={toolMode === "grpc" ? "Switch to HTTP" : "Switch to gRPC"}
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M8 9l3 3-3 3m5 0h3" strokeLinecap="round" strokeLinejoin="round" />
+                <rect x="2" y="3" width="20" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-[10px] font-bold tracking-wider font-mono">
+                {toolMode === "grpc" ? "gRPC" : "HTTP"}
+              </span>
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setGlobalVarsOpen(true)}
+              className="text-xs text-muted-foreground hover:text-foreground hover:bg-accent p-1.5 rounded-lg transition-all duration-150 flex items-center gap-1"
+              title="Global Variables"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowIntelligence(!showIntelligence)}
+              className={showIntelligence ? "text-primary bg-primary/10 p-1.5 rounded-lg transition-all duration-150" : "text-xs text-muted-foreground hover:text-foreground hover:bg-accent p-1.5 rounded-lg transition-all duration-150"}
+              title="API Intelligence"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+              </svg>
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </div>

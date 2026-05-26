@@ -27,9 +27,12 @@ export function CurlImport() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs text-muted-foreground hover:text-foreground"
+        className="text-xs text-muted-foreground hover:text-foreground hover:bg-accent px-2 py-1 rounded-lg transition-all duration-150 flex items-center gap-1"
         title="Import cURL"
       >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3" />
+        </svg>
         cURL
       </button>
     );
