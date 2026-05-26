@@ -36,6 +36,7 @@ pub fn run() {
             app.manage(Client::new());
             app.manage(GrpcState(Arc::new(Mutex::new(HashMap::new()))));
             app.manage(WsState(Arc::new(Mutex::new(HashMap::new()))));
+            app.manage(http::RequestHandles(Mutex::new(HashMap::new())));
 
             Ok(())
         })
