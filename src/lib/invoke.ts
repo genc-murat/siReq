@@ -82,6 +82,26 @@ export interface HttpRequest {
   post_script: string;
   json_schema?: string;
   examples?: RequestExample[];
+  extractions?: VariableExtraction[];
+}
+
+// ─── Variable Extraction Types ──────────────────────────────────────────────
+
+export interface VariableExtraction {
+  id: string;
+  name: string;
+  expression: string;
+  target_variable: string;
+  enabled: boolean;
+}
+
+export interface DatasetRow {
+  values: Record<string, string>;
+}
+
+export interface RunDataset {
+  name: string;
+  rows: DatasetRow[];
 }
 
 // ─── Collection Tree Types ──────────────────────────────────────────────────
@@ -116,6 +136,7 @@ export interface CollectionRequest {
   post_script: string;
   json_schema?: string;
   examples?: RequestExample[];
+  extractions?: VariableExtraction[];
 }
 
 export interface RequestExample {
@@ -232,6 +253,8 @@ export interface RunRequestResult {
   test_results: TestResult[];
   script_logs: ScriptLog[];
   error: string | null;
+  extracted_variables: [string, string][];
+  iteration: number | null;
 }
 
 export interface CollectionRunResult {
@@ -248,6 +271,7 @@ export interface CollectionRunResult {
   passed: number;
   failed: number;
   total_time_ms: number;
+  extracted_variables?: [string, string][];
 }
 
 export interface BenchmarkHistoryEntry {
@@ -403,6 +427,22 @@ export async function runCollection(
     environmentId: environmentId ?? null,
     delayMs: delayMs ?? 0,
     stopOnFailure: stopOnFailure ?? false,
+  });
+}
+
+export async function runCollectionDataDriven(
+  collectionId: string,
+  environmentId: string | null,
+  delayMs: number,
+  stopOnFailure: boolean,
+  dataset: RunDataset
+): Promise<CollectionRunResult> {
+  return safeInvoke("run_collection_data_driven", {
+    collectionId,
+    environmentId,
+    delayMs,
+    stopOnFailure,
+    dataset,
   });
 }
 

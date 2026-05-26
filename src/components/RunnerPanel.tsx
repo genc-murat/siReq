@@ -1,7 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRunnerStore } from "@/stores/runnerStore";
 import { useUIStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
+import type { RunDataset, CollectionItem } from "@/lib/invoke";
+import { countCollectionRequests, getCollections } from "@/lib/invoke";
 
 function statusColor(status: number): string {
   if (status === 0) return "text-red-500";
@@ -36,23 +38,99 @@ export function RunnerPanel() {
   const startRun = useRunnerStore((s) => s.startRun);
   const resetRunState = useRunnerStore((s) => s.resetRunState);
 
+  // Data-driven state
+  const dataDrivenMode = useRunnerStore((s) => s.dataDrivenMode);
+  const dataset = useRunnerStore((s) => s.dataset);
+  const datasetFileName = useRunnerStore((s) => s.datasetFileName);
+  const setDataDrivenMode = useRunnerStore((s) => s.setDataDrivenMode);
+  const setDataset = useRunnerStore((s) => s.setDataset);
+
   const setShowRunner = useUIStore((s) => s.setShowRunner);
   const activeEnvironmentId = useUIStore((s) => s.activeEnvironmentId);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+
   const handleRun = () => {
     if (!collectionId) return;
+    setParseError(null);
     startRun(collectionId, collectionName, activeEnvironmentId);
   };
 
   const handleClose = () => {
-    if (isRunning) return; // Don't close while running
+    if (isRunning) return;
     setShowRunner(false);
     resetRunState();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setParseError(null);
+
+    try {
+      const text = await file.text();
+      const fileName = file.name;
+
+      if (fileName.endsWith(".csv")) {
+        // Parse CSV
+        const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+        if (lines.length < 2) {
+          setParseError("CSV must have a header row and at least one data row");
+          return;
+        }
+        const headers = lines[0].split(",").map((h) => h.trim());
+        const rows = lines.slice(1).map((line) => {
+          const values = line.split(",").map((v) => v.trim());
+          const row: Record<string, string> = {};
+          headers.forEach((h, i) => {
+            row[h] = values[i] ?? "";
+          });
+          return { values: row };
+        });
+
+        setDataset(
+          { name: file.name.replace(/\.[^/.]+$/, ""), rows },
+          file.name
+        );
+      } else if (fileName.endsWith(".json")) {
+        // Parse JSON (array of objects)
+        const data = JSON.parse(text);
+        if (!Array.isArray(data) || data.length === 0) {
+          setParseError("JSON must be a non-empty array of objects");
+          return;
+        }
+        const rows = data.map((item: Record<string, unknown>) => ({
+          values: Object.fromEntries(
+            Object.entries(item).map(([k, v]) => [k, String(v ?? "")])
+          ),
+        }));
+
+        setDataset(
+          { name: file.name.replace(/\.[^/.]+$/, ""), rows },
+          file.name
+        );
+      } else {
+        setParseError("Unsupported file format. Use .csv or .json");
+      }
+    } catch (err) {
+      setParseError(`Failed to parse file: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Reset file input so same file can be re-uploaded
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const progress = totalRequests > 0
     ? Math.round((runResult?.results.length ?? 0) / totalRequests * 100)
     : 0;
+
+  // Collect all extracted variables from results
+  const allExtractions = runResult?.results.flatMap(
+    (r) => r.extracted_variables ?? []
+  ) ?? [];
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -74,7 +152,9 @@ export function RunnerPanel() {
             </svg>
             <div>
               <h2 className="text-sm font-semibold truncate">{collectionName}</h2>
-              <p className="text-[10px] text-muted-foreground">Collection Runner</p>
+              <p className="text-[10px] text-muted-foreground">
+                {dataDrivenMode ? "Data-Driven Runner" : "Collection Runner"}
+              </p>
             </div>
           </div>
         </div>
@@ -130,14 +210,116 @@ export function RunnerPanel() {
                 </label>
               </div>
             </div>
+
+            {/* Data-driven mode toggle */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="dataDrivenMode"
+                    checked={dataDrivenMode}
+                    onChange={(e) => {
+                      setDataDrivenMode(e.target.checked);
+                      if (!e.target.checked) {
+                        setDataset(null, "");
+                      }
+                    }}
+                    className="rounded-lg border-input"
+                  />
+                  <label htmlFor="dataDrivenMode" className="text-xs font-medium text-foreground">
+                    Data-Driven Run
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Run collection with multiple data sets
+                  </span>
+                </div>
+              </div>
+
+              {dataDrivenMode && (
+                <div className="space-y-2 pl-6">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.json"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="datasetFileInput"
+                    />
+                    <label
+                      htmlFor="datasetFileInput"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border rounded-lg hover:bg-accent cursor-pointer transition-all duration-150"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Upload CSV/JSON
+                    </label>
+                    {dataset && (
+                      <span className="text-[10px] text-green-500 font-medium">
+                        {datasetFileName} ({dataset.rows.length} rows)
+                      </span>
+                    )}
+                  </div>
+                  {parseError && (
+                    <div className="text-[10px] text-red-500">{parseError}</div>
+                  )}
+                  {dataset && dataset.rows.length > 0 && (
+                    <div className="text-[10px] text-muted-foreground space-y-1">
+                      <div className="font-medium text-foreground">Dataset Preview:</div>
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full text-[10px]">
+                          <thead>
+                            <tr className="bg-muted/50 text-left">
+                              {Object.keys(dataset.rows[0].values).map((key) => (
+                                <th key={key} className="px-2 py-1 font-medium">{key}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dataset.rows.slice(0, 3).map((row, i) => (
+                              <tr key={i} className="border-t border-border/40">
+                                {Object.values(row.values).map((val, j) => (
+                                  <td key={j} className="px-2 py-1 truncate max-w-[120px]" title={val}>{val}</td>
+                                ))}
+                              </tr>
+                            ))}
+                            {dataset.rows.length > 3 && (
+                              <tr className="border-t border-border/40">
+                                <td colSpan={Object.keys(dataset.rows[0].values).length} className="px-2 py-1 text-muted-foreground italic">
+                                  ...and {dataset.rows.length - 3} more rows
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span>Each row will run <strong>{totalRequests}</strong> request(s)</span>
+                        <span className="text-muted-foreground/50">→</span>
+                        <span className="font-medium text-primary">{totalRequests * dataset.rows.length} total executions</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={handleRun}
-              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-all duration-150 flex items-center gap-2"
+              disabled={dataDrivenMode && !dataset}
+              className={cn(
+                "px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-all duration-150 flex items-center gap-2",
+                (dataDrivenMode && !dataset) && "opacity-50 cursor-not-allowed"
+              )}
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
               </svg>
-              Run Collection ({totalRequests} requests)
+              {dataDrivenMode && dataset
+                ? `Run (${totalRequests * dataset.rows.length} executions)`
+                : `Run Collection (${totalRequests} requests)`}
             </button>
           </div>
         )}
@@ -153,6 +335,27 @@ export function RunnerPanel() {
                 ? formatTime(runResult.results.reduce((s, r) => s + r.time_ms, 0) / runResult.results.length)
                 : "-"
             } color="text-foreground" />
+          </div>
+        )}
+
+        {/* Extracted variables summary */}
+        {completed && allExtractions.length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="text-[10px] font-medium text-muted-foreground px-3 py-1.5 border-b bg-muted/30 flex items-center gap-1.5">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+              </svg>
+              Extracted Variables ({allExtractions.length})
+            </div>
+            <div className="text-[10px] font-mono divide-y divide-border/40">
+              {allExtractions.map(([key, value], i) => (
+                <div key={i} className="px-3 py-1.5 flex items-center gap-2 hover:bg-accent/20 transition-all duration-150">
+                  <span className="font-semibold text-foreground shrink-0">{key}</span>
+                  <span className="text-muted-foreground/40">=</span>
+                  <span className="text-primary truncate">{value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -183,12 +386,14 @@ export function RunnerPanel() {
                 <thead>
                   <tr className="bg-muted/50 text-left text-muted-foreground">
                     <th className="px-3 py-2 font-medium">#</th>
+                    <th className="px-3 py-2 font-medium">Iter</th>
                     <th className="px-3 py-2 font-medium">Method</th>
                     <th className="px-3 py-2 font-medium">Name / URL</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Time</th>
                     <th className="px-3 py-2 font-medium">Size</th>
                     <th className="px-3 py-2 font-medium">Tests</th>
+                    <th className="px-3 py-2 font-medium">Extractions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,9 +407,18 @@ export function RunnerPanel() {
                     >
                       <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                       <td className="px-3 py-2">
+                        {r.iteration !== null && r.iteration !== undefined ? (
+                          <span className="text-[10px] bg-muted rounded px-1.5 py-0.5 font-medium">
+                            #{r.iteration + 1}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/30">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
                         <span className="font-semibold">{r.request_method}</span>
                       </td>
-                      <td className="px-3 py-2 max-w-[300px]">
+                      <td className="px-3 py-2 max-w-[250px]">
                         <div className="truncate" title={`${r.request_name} — ${r.request_url}`}>
                           {r.request_name || r.request_url || "—"}
                         </div>
@@ -238,6 +452,15 @@ export function RunnerPanel() {
                               );
                             })()}
                           </div>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.extracted_variables && r.extracted_variables.length > 0 ? (
+                          <span className="text-[10px] text-primary font-medium">
+                            {r.extracted_variables.length} vars
+                          </span>
                         ) : (
                           <span className="text-muted-foreground/50">—</span>
                         )}

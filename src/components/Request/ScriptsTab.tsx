@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { getEnvironments } from "@/lib/invoke";
-import type { Environment } from "@/lib/invoke";
+import type { Environment, VariableExtraction } from "@/lib/invoke";
+import { ExtractionEditor } from "./ExtractionEditor";
 
 interface Template {
   label: string;
@@ -159,9 +160,11 @@ export function ScriptsTab() {
   const response = useRequestStore((s) => s.response);
   const setPreScript = useRequestStore((s) => s.setPreScript);
   const setPostScript = useRequestStore((s) => s.setPostScript);
+  const setRequest = useRequestStore((s) => s.setRequest);
   const activeEnvironmentId = useUIStore((s) => s.activeEnvironmentId);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [activeEditor, setActiveEditor] = useState<"pre" | "post">("pre");
+  const [showExtractions, setShowExtractions] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -255,6 +258,11 @@ export function ScriptsTab() {
     ];
   }, [preScriptErrors, postScriptErrors, request.pre_script, request.post_script]);
 
+  const extractions = request.extractions ?? [];
+  const setExtractions = (extractions: VariableExtraction[]) => {
+    setRequest({ ...request, extractions });
+  };
+
   return (
     <div className="h-full flex flex-col gap-2 p-1">
       <Tabs
@@ -263,18 +271,51 @@ export function ScriptsTab() {
         onChange={(id) => setActiveEditor(id as "pre" | "post")}
         className="shrink-0"
         trailing={
-          testResults.length > 0 ? (
-            <div className="flex items-center gap-2 text-xs px-1">
-              {passedTests > 0 && (
-                <span className="text-green-500">{passedTests} passed</span>
+          <div className="flex items-center gap-1 px-1">
+            <button
+              onClick={() => setShowExtractions(!showExtractions)}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg transition-all duration-150",
+                showExtractions
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
-              {failedTests > 0 && (
-                <span className="text-red-500">{failedTests} failed</span>
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+              </svg>
+              Extractions
+              {extractions.filter(e => e.enabled).length > 0 && (
+                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-primary-foreground/20 text-[8px] font-semibold">
+                  {extractions.filter(e => e.enabled).length}
+                </span>
               )}
-            </div>
-          ) : undefined
+            </button>
+            {testResults.length > 0 && (
+              <React.Fragment>
+                {passedTests > 0 && (
+                  <span className="text-green-500 text-xs">{passedTests}✓</span>
+                )}
+                {failedTests > 0 && (
+                  <span className="text-red-500 text-xs">{failedTests}✗</span>
+                )}
+              </React.Fragment>
+            )}
+          </div>
         }
       />
+
+      {showExtractions && (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <ExtractionEditor
+            extractions={extractions}
+            onChange={setExtractions}
+          />
+        </div>
+      )}
+
+      {!showExtractions && (
+        <div className="flex flex-col gap-2 min-h-0 flex-1">
 
       {/* Toolbar */}
       <div className="flex items-center gap-2 shrink-0">
@@ -350,7 +391,7 @@ export function ScriptsTab() {
       </div>
 
       {/* Help text */}
-      <div className="text-[10px] text-muted-foreground border rounded-lg p-2 space-y-1 shrink-0">
+        <div className="text-[10px] text-muted-foreground border rounded-lg p-2 space-y-1 shrink-0">
         <div className="font-medium text-[11px] text-foreground mb-1">Available APIs</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <code className="text-[10px]">console.log(...)</code>
@@ -373,6 +414,8 @@ export function ScriptsTab() {
           <span>Performance metrics</span>
         </div>
       </div>
+      </div>
+      )}
 
       {/* Script log output */}
       {scriptLogs.length > 0 && (

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { CollectionRunResult, RunRequestResult } from "@/lib/invoke";
-import { runCollection, getRunHistory, deleteRunHistory, clearRunHistory } from "@/lib/invoke";
+import type { CollectionRunResult, RunRequestResult, RunDataset } from "@/lib/invoke";
+import { runCollection, runCollectionDataDriven, getRunHistory, deleteRunHistory, clearRunHistory } from "@/lib/invoke";
 
 interface RunnerState {
   isRunning: boolean;
@@ -16,8 +16,15 @@ interface RunnerState {
   delayMs: number;
   stopOnFailure: boolean;
 
+  // Data-driven state
+  dataDrivenMode: boolean;
+  dataset: RunDataset | null;
+  datasetFileName: string;
+
   setDelayMs: (ms: number) => void;
   setStopOnFailure: (stop: boolean) => void;
+  setDataDrivenMode: (enabled: boolean) => void;
+  setDataset: (dataset: RunDataset | null, fileName: string) => void;
   startRun: (collectionId: string, collectionName: string, environmentId?: string | null) => Promise<void>;
   loadRunHistory: () => Promise<void>;
   deleteRunHistoryItem: (id: string) => Promise<void>;
@@ -39,12 +46,17 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
   runHistoryLoading: false,
   delayMs: 0,
   stopOnFailure: false,
+  dataDrivenMode: false,
+  dataset: null,
+  datasetFileName: "",
 
   setDelayMs: (delayMs) => set({ delayMs }),
   setStopOnFailure: (stopOnFailure) => set({ stopOnFailure }),
+  setDataDrivenMode: (dataDrivenMode) => set({ dataDrivenMode }),
+  setDataset: (dataset, fileName) => set({ dataset, datasetFileName: fileName }),
 
   startRun: async (collectionId, collectionName, environmentId) => {
-    const { delayMs, stopOnFailure } = get();
+    const { delayMs, stopOnFailure, dataDrivenMode, dataset } = get();
     set({
       isRunning: true,
       currentIndex: 0,
@@ -57,7 +69,18 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
     });
 
     try {
-      const result = await runCollection(collectionId, environmentId, delayMs, stopOnFailure);
+      let result: CollectionRunResult;
+      if (dataDrivenMode && dataset && dataset.rows.length > 0) {
+        result = await runCollectionDataDriven(
+          collectionId,
+          environmentId ?? null,
+          delayMs,
+          stopOnFailure,
+          dataset
+        );
+      } else {
+        result = await runCollection(collectionId, environmentId, delayMs, stopOnFailure);
+      }
       set({
         isRunning: false,
         completed: true,
@@ -93,11 +116,14 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
             test_results: [],
             script_logs: [{ level: "error", message: errMsg }],
             error: errMsg,
+            extracted_variables: [],
+            iteration: null,
           }],
           total: 1,
           passed: 0,
           failed: 1,
           total_time_ms: 0,
+          extracted_variables: [],
         },
         results: [],
         totalRequests: 1,

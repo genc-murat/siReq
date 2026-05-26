@@ -199,6 +199,7 @@ fn parse_postman_request(
         pre_script,
         post_script,
         examples: vec![],
+        extractions: vec![],
     })
 }
 

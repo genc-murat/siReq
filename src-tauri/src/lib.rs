@@ -65,6 +65,7 @@ pub fn run() {
             commands::decrypt_secret_value,
             commands::export_postman_collection,
             commands::run_collection,
+            commands::run_collection_data_driven,
             commands::get_run_history,
             commands::delete_run_history,
             commands::clear_run_history,

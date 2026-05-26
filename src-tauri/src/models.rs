@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize, Deserializer};
 use serde_json::Value;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
@@ -123,6 +124,9 @@ pub struct HttpRequest {
     /// Request examples (variants of this request with different params/responses)
     #[serde(default)]
     pub examples: Vec<RequestExample>,
+    /// Variable extractions (extract values from response using JSONPath)
+    #[serde(default)]
+    pub extractions: Vec<VariableExtraction>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,6 +207,23 @@ pub struct RequestExample {
     pub response: Option<HttpResponse>,
     pub created_at: String,
 }
+
+/// A variable extraction definition — extracts a value from the response
+/// using a JSONPath expression and stores it as a variable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VariableExtraction {
+    pub id: String,
+    /// Display name for this extraction
+    pub name: String,
+    /// JSONPath expression to extract the value
+    pub expression: String,
+    /// Target variable name to store the extracted value
+    pub target_variable: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_true() -> bool { true }
 
 /// A reusable request template (global or collection-scoped).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -385,6 +406,12 @@ pub struct RunRequestResult {
     pub test_results: Vec<TestResult>,
     pub script_logs: Vec<ScriptLog>,
     pub error: Option<String>,
+    /// Variables extracted from this response
+    #[serde(default)]
+    pub extracted_variables: Vec<(String, String)>,
+    /// Dataset iteration index (for data-driven runs)
+    #[serde(default)]
+    pub iteration: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -402,6 +429,22 @@ pub struct CollectionRunResult {
     pub passed: u32,
     pub failed: u32,
     pub total_time_ms: u64,
+    /// Extracted variables during this run
+    #[serde(default)]
+    pub extracted_variables: Vec<(String, String)>,
+}
+
+/// A single row in a data-driven dataset
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetRow {
+    pub values: HashMap<String, String>,
+}
+
+/// A dataset for data-driven runs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunDataset {
+    pub name: String,
+    pub rows: Vec<DatasetRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

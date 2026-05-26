@@ -100,11 +100,25 @@ pub async fn send_request(
         &post_script_env,
     )?;
 
-    // Step 4: Collect all modified variables from pre and post scripts
+    // Step 4: Execute variable extractions
+    let extracted_vars = execute_extractions(
+        &request.extractions,
+        &response.body,
+    ).unwrap_or_default();
+
+    // Step 5: Collect all modified variables from pre and post scripts + extractions
     let mut all_modified_vars = pre_script_results.modified_variables.clone();
     all_modified_vars.extend(post_script_results.modified_variables.clone());
+    for (var_name, var_value) in &extracted_vars {
+        all_modified_vars.push(KeyValue {
+            key: var_name.clone(),
+            value: var_value.clone(),
+            enabled: true,
+            is_secret: false,
+        });
+    }
 
-    // Step 5: Persist modified variables back to the environment in DB
+    // Step 6: Persist modified variables back to the environment in DB
     if let Some(ref env_id) = environment_id {
         if !all_modified_vars.is_empty() {
             let conn = db.0.lock().map_err(|e| e.to_string())?;
@@ -128,7 +142,7 @@ pub async fn send_request(
         }
     }
 
-    // Step 6: Attach script results to response
+    // Step 7: Attach script results and extracted variables to response
     let mut response_with_scripts = response.clone();
     let mut all_logs = pre_script_results.logs.clone();
     all_logs.extend(post_script_results.logs.clone());
@@ -139,7 +153,6 @@ pub async fn send_request(
 
     response_with_scripts.script_logs = all_logs;
     response_with_scripts.test_results = all_tests;
-    response_with_scripts.modified_variables = all_modified_vars;
 
     if !all_errors.is_empty() {
         response_with_scripts.script_logs.push(ScriptLog {
@@ -541,6 +554,12 @@ pub async fn run_collection(
                     });
                 }
 
+                // Step 5a: Execute variable extractions
+                let extracted_vars = execute_extractions(
+                    &request.extractions,
+                    &response.body,
+                ).unwrap_or_default();
+
                 let run_req = RunRequestResult {
                     request_name: request.name.clone(),
                     request_method: format!("{:?}", request.method),
@@ -552,6 +571,8 @@ pub async fn run_collection(
                     test_results: all_tests,
                     script_logs: all_logs,
                     error: None,
+                    extracted_variables: extracted_vars,
+                    iteration: None,
                 };
 
                 if response.status >= 200 && response.status < 400 {
@@ -586,6 +607,8 @@ pub async fn run_collection(
                     test_results: pre_script_results.tests.clone(),
                     script_logs: all_logs,
                     error: Some(e),
+                    extracted_variables: vec![],
+                    iteration: None,
                 }
             }
         };
@@ -620,6 +643,7 @@ pub async fn run_collection(
         passed,
         failed,
         total_time_ms,
+        extracted_variables: vec![],
     };
 
     // Save to run history
@@ -648,6 +672,206 @@ pub fn delete_run_history(
 #[tauri::command]
 pub fn clear_run_history(db: State<'_, Db>) -> Result<(), String> {
     clear_all_run_history(&db)
+}
+
+// ─── Data-driven runner command ────────────────────────────────────────
+
+#[tauri::command]
+pub async fn run_collection_data_driven(
+    collection_id: String,
+    environment_id: Option<String>,
+    delay_ms: u64,
+    stop_on_failure: bool,
+    dataset: RunDataset,
+    db: State<'_, Db>,
+) -> Result<CollectionRunResult, String> {
+    // Load collection
+    let collections = get_all_collections(&db)?;
+    let collection = collections.into_iter()
+        .find(|c| c.id == collection_id)
+        .ok_or_else(|| "Collection not found".to_string())?;
+
+    let global_vars = get_global_variables(&db)?;
+    let collection_vars = collection.variables.clone();
+
+    let env_vars: HashMap<String, String> = match environment_id {
+        Some(ref env_id) => {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            let env = get_environment_by_id(&conn, env_id)?;
+            drop(conn);
+            env.map(|e| e.variables.into_iter()
+                .filter(|v| v.enabled && !v.key.is_empty())
+                .map(|v| (v.key, v.value))
+                .collect()
+            ).unwrap_or_default()
+        }
+        None => HashMap::new()
+    };
+
+    let started_at = chrono::Utc::now().to_rfc3339();
+    let start_instant = Instant::now();
+    let mut results: Vec<RunRequestResult> = Vec::new();
+    let mut passed: u32 = 0;
+    let mut failed: u32 = 0;
+
+    let flat_requests = flatten_collection_items(&collection.items);
+    let total = flat_requests.len();
+
+    // For each dataset row, run through the collection
+    for (row_idx, row) in dataset.rows.iter().enumerate() {
+        // Merge dataset variables into base env
+        let mut iteration_env: HashMap<String, String> = env_vars.clone();
+        for (k, v) in &row.values {
+            iteration_env.insert(k.clone(), v.clone());
+        }
+
+        for (idx, request) in flat_requests.iter().enumerate() {
+            // Pre-request script
+            let (modified_request, pre_script_results) = execute_pre_request(
+                &request.pre_script,
+                request,
+                &iteration_env,
+            )?;
+
+            let script_vars = pre_script_results.modified_variables.clone();
+
+            // Variable resolution (includes dataset vars via iteration_env)
+            let resolved = apply_variables(
+                &modified_request,
+                &global_vars.variables,
+                &collection_vars,
+                &iteration_env,
+                &script_vars,
+            );
+
+            let stored_cookies: Vec<StoredCookie> = vec![];
+            let request_start = Instant::now();
+
+            let client = Client::builder()
+                .timeout(Duration::from_secs(if resolved.settings.timeout > 0 { resolved.settings.timeout } else { 30 }))
+                .build()
+                .map_err(|e| e.to_string())?;
+
+            let req_result = match execute_request(&client, &resolved, &stored_cookies).await {
+                Ok((response, _new_cookies)) => {
+                    let elapsed = response.time_ms;
+
+                    let post_script_results = execute_post_response(
+                        &request.post_script,
+                        &modified_request,
+                        &response,
+                        &iteration_env,
+                    )?;
+
+                    let extracted_vars = execute_extractions(
+                        &request.extractions,
+                        &response.body,
+                    ).unwrap_or_default();
+
+                    let mut all_logs = pre_script_results.logs.clone();
+                    all_logs.extend(post_script_results.logs.clone());
+                    let mut all_tests = pre_script_results.tests.clone();
+                    all_tests.extend(post_script_results.tests.clone());
+                    let mut all_errors = pre_script_results.errors.clone();
+                    all_errors.extend(post_script_results.errors.clone());
+
+                    if !all_errors.is_empty() {
+                        all_logs.push(ScriptLog {
+                            level: "error".to_string(),
+                            message: all_errors.join("\n"),
+                        });
+                    }
+
+                    if response.status >= 200 && response.status < 400 {
+                        passed += 1;
+                    } else {
+                        failed += 1;
+                    }
+
+                    RunRequestResult {
+                        request_name: format!("[Iteration {}] {}", row_idx + 1, request.name),
+                        request_method: format!("{:?}", request.method),
+                        request_url: request.url.clone(),
+                        status_code: response.status,
+                        status_text: response.status_text.clone(),
+                        time_ms: elapsed,
+                        size: response.size,
+                        test_results: all_tests,
+                        script_logs: all_logs,
+                        error: None,
+                        extracted_variables: extracted_vars,
+                        iteration: Some(row_idx),
+                    }
+                }
+                Err(e) => {
+                    let mut all_logs = pre_script_results.logs.clone();
+                    let mut all_errors = pre_script_results.errors.clone();
+                    all_errors.push(e.clone());
+                    if !all_errors.is_empty() {
+                        all_logs.push(ScriptLog {
+                            level: "error".to_string(),
+                            message: all_errors.join("\n"),
+                        });
+                    }
+
+                    failed += 1;
+
+                    RunRequestResult {
+                        request_name: format!("[Iteration {}] {}", row_idx + 1, request.name),
+                        request_method: format!("{:?}", request.method),
+                        request_url: request.url.clone(),
+                        status_code: 0,
+                        status_text: String::new(),
+                        time_ms: request_start.elapsed().as_millis() as u64,
+                        size: 0,
+                        test_results: pre_script_results.tests.clone(),
+                        script_logs: all_logs,
+                        error: Some(e),
+                        extracted_variables: vec![],
+                        iteration: Some(row_idx),
+                    }
+                }
+            };
+
+            results.push(req_result);
+
+            if stop_on_failure && failed > 0 {
+                break;
+            }
+
+            if delay_ms > 0 && (row_idx < dataset.rows.len() - 1 || idx < total - 1) {
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            }
+        }
+
+        if stop_on_failure && failed > 0 {
+            break;
+        }
+    }
+
+    let total_time_ms = start_instant.elapsed().as_millis() as u64;
+    let completed_at = chrono::Utc::now().to_rfc3339();
+
+    let result = CollectionRunResult {
+        id: uuid::Uuid::new_v4().to_string(),
+        collection_id,
+        collection_name: format!("{} (Data-driven)", collection.name),
+        environment_id,
+        started_at,
+        completed_at,
+        delay_ms,
+        stop_on_failure,
+        results,
+        total: (passed + failed),
+        passed,
+        failed,
+        total_time_ms,
+        extracted_variables: vec![],
+    };
+
+    let _ = save_run_result(&db, &result);
+
+    Ok(result)
 }
 
 // ─── Tree manipulation commands ────────────────────────────────────────

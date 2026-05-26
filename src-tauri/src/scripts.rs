@@ -150,6 +150,135 @@ pub fn execute_pre_request(
     Ok((modified_request, results))
 }
 
+/// Execute variable extractions against a JSON response body using a JS-based JSONPath evaluator.
+pub fn execute_extractions(
+    extractions: &[VariableExtraction],
+    response_body: &str,
+) -> Result<Vec<(String, String)>, String> {
+    if extractions.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // Serialize extractions and body to pass into JS
+    let ext_json = serde_json::to_string(extractions)
+        .map_err(|e| format!("Failed to serialize extractions: {}", e))?;
+
+    let wrapped = format!(
+        r#"
+(function() {{
+    const responseBodyRaw = {};
+    const extractions = {};
+
+    let responseBody;
+    try {{
+        responseBody = JSON.parse(responseBodyRaw);
+    }} catch (e) {{
+        // Not valid JSON — no extractions possible
+        return JSON.stringify({{ results: [] }});
+    }}
+
+    // Simple JSONPath evaluator
+    function evaluateJsonPath(obj, path) {{
+        if (!path.startsWith('$')) return undefined;
+        if (path === '$') return obj;
+
+        // Handle bracket notation: $.foo[0].bar, $['foo']['bar']
+        // Normalize to dot-separated parts
+        let normalized = path.slice(1); // remove $
+        // Convert ['foo'] to .foo
+        normalized = normalized.replace(/\['([^']+)'\]/g, '.$1');
+        // Convert ["foo"] to .foo
+        normalized = normalized.replace(/\["([^"]+)"\]/g, '.$1');
+        // Convert [0] to .0 for array indexing
+        normalized = normalized.replace(/\[(\d+)\]/g, '.$1');
+
+        let parts = normalized.split('.').filter(p => p.length > 0);
+        let current = obj;
+
+        for (const part of parts) {{
+            if (current === null || current === undefined) return undefined;
+
+            // Handle array index (numeric string key)
+            if (/^\d+$/.test(part) && Array.isArray(current)) {{
+                const idx = parseInt(part, 10);
+                if (idx < current.length) {{
+                    current = current[idx];
+                }} else {{
+                    return undefined;
+                }}
+                continue;
+            }}
+
+            // Handle recursive descent: ..propertyName
+            if (part.startsWith('..')) {{
+                const searchKey = part.slice(2);
+                if (searchKey) {{
+                    const result = recursiveFind(current, searchKey);
+                    if (result !== undefined) {{
+                        current = result;
+                        continue;
+                    }}
+                    return undefined;
+                }}
+                return current;
+            }}
+
+            // Regular property access
+            if (current && typeof current === 'object' && part in current) {{
+                current = current[part];
+            }} else {{
+                return undefined;
+            }}
+        }}
+
+        return current;
+    }}
+
+    function recursiveFind(obj, key) {{
+        if (obj === null || obj === undefined) return undefined;
+        if (typeof obj !== 'object') return undefined;
+        if (key in obj) return obj[key];
+        for (const v of Object.values(obj)) {{
+            if (v && typeof v === 'object') {{
+                const result = recursiveFind(v, key);
+                if (result !== undefined) return result;
+            }}
+        }}
+        return undefined;
+    }}
+
+    const results = [];
+
+    for (const ext of extractions) {{
+        if (!ext.enabled) continue;
+        try {{
+            const value = evaluateJsonPath(responseBody, ext.expression);
+            if (value !== undefined && value !== null) {{
+                const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                results.push([ext.target_variable, strVal]);
+            }}
+        }} catch (e) {{
+            // Skip extraction on error
+        }}
+    }}
+
+    return JSON.stringify({{ results }});
+}})()
+"#,
+        serde_json::to_string(response_body).unwrap_or_else(|_| "\"\"".to_string()),
+        ext_json
+    );
+
+    let result = execute_js(&wrapped, 3000)?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result).map_err(|e| format!("Failed to parse extraction output: {}", e))?;
+
+    let results: Vec<(String, String)> =
+        serde_json::from_value(parsed["results"].clone()).unwrap_or_default();
+
+    Ok(results)
+}
+
 /// Execute a post-response script that can inspect the response and run tests.
 pub fn execute_post_response(
     script: &str,
