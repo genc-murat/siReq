@@ -18,13 +18,16 @@ interface MockLogViewerProps {
   serverId: string;
 }
 
+const DEFAULT_LOGS: MockLogEntry[] = [];
+const DEFAULT_STATS: MockStats = {
+  request_count: 0,
+  error_count: 0,
+  average_latency_ms: 0,
+};
+
 export function MockLogViewer({ serverId }: MockLogViewerProps) {
-  const logs = useMockStore((s) => s.serverLogs[serverId] || []);
-  const stats = useMockStore((s) => s.serverStats[serverId] || {
-    request_count: 0,
-    error_count: 0,
-    average_latency_ms: 0,
-  });
+  const logs = useMockStore((s) => s.serverLogs[serverId] || DEFAULT_LOGS);
+  const stats = useMockStore((s) => s.serverStats[serverId] || DEFAULT_STATS);
   const clearLogs = useMockStore((s) => s.clearLogs);
 
   const [search, setSearch] = useState("");
