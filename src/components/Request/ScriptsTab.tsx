@@ -292,14 +292,14 @@ export function ScriptsTab() {
               )}
             </button>
             {testResults.length > 0 && (
-              <React.Fragment>
+              <>
                 {passedTests > 0 && (
                   <span className="text-green-500 text-xs">{passedTests}✓</span>
                 )}
                 {failedTests > 0 && (
                   <span className="text-red-500 text-xs">{failedTests}✗</span>
                 )}
-              </React.Fragment>
+              </>
             )}
           </div>
         }

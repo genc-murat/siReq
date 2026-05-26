@@ -111,7 +111,7 @@ export function SchemaTab() {
       {/* Schema editor */}
       <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
         <CodeMirrorEditor
-          value={jsonSchema}
+          value={jsonSchema || ""}
           onChange={setJsonSchema}
           language="json"
           placeholder={`{\n  "$schema": "http://json-schema.org/draft-07/schema#",\n  "type": "object",\n  "properties": {\n    "id": { "type": "integer" },\n    "name": { "type": "string" }\n  },\n  "required": ["id", "name"]\n}`}

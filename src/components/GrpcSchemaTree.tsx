@@ -3,7 +3,7 @@ import type { GrpcFieldInfo } from "@/lib/invoke";
 
 // ─── Color-coded scalar value display ──────────────────────────────────────
 
-function ScalarValue({ value, type }: { value: unknown; type: string }) {
+function ScalarValue({ value }: { value: unknown; type: string }) {
   if (value === null || value === undefined) {
     return <span className="text-muted-foreground/40 italic text-[11px]">null</span>;
   }

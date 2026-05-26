@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { GrpcFieldInfo } from "@/lib/invoke";
 
 // ─── Helper: build default values from field definitions ──────────────────
@@ -357,10 +357,6 @@ export function ProtoFormBuilder({
   return (
     <div className="flex flex-col gap-1.5">
       {fields.map((field) => {
-        const isMsg = field.sub_fields.length > 0;
-        const isRepeated = field.label === "repeated" && !field.is_map;
-        const isMap = field.is_map;
-        const isEnum = field.enum_values.length > 0;
         const isBool = field.field_type === "bool";
 
         // For bool fields, show the checkbox inline (no separate label row)

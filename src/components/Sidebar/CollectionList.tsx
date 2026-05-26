@@ -12,6 +12,7 @@ import {
   deleteCollectionItem,
   moveCollectionItem,
   countCollectionRequests,
+  findCollectionItem,
 } from "@/lib/invoke";
 import type {
   Collection,
@@ -608,7 +609,7 @@ export function CollectionList() {
           };
 
           // Add to target collection first, then delete from source
-          const targetResult = await addRequestToCollection(
+          await addRequestToCollection(
             targetCollectionId,
             httpReq,
             targetFolderId
@@ -702,15 +703,16 @@ export function CollectionList() {
       setRenamingItem(null);
       return;
     }
-    const col = collections.find((c) => c.id === renamingItem.collectionId);
+    const currentRenamingItem = renamingItem;
+    const col = collections.find((c) => c.id === currentRenamingItem.collectionId);
     if (!col) { setRenamingItem(null); return; }
 
     const updated = { ...col };
 
     function renameInTree(items: CollectionItem[]): boolean {
       for (const item of items) {
-        if (item.id === renamingItem.itemId) {
-          item.name = renamingItem.name.trim();
+        if (item.id === currentRenamingItem.itemId) {
+          item.name = currentRenamingItem.name.trim();
           return true;
         }
         if (item.type === "folder") {

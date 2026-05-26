@@ -26,7 +26,7 @@ export function SchemaViewer() {
 
   const result = useMemo(() => {
     // No schema provided
-    if (!jsonSchema.trim()) {
+    if (!jsonSchema || !jsonSchema.trim()) {
       return { state: "no-schema" as const };
     }
 
