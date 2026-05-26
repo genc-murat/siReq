@@ -44,7 +44,7 @@ const groups: ShortcutGroup[] = [
     category: "Sidebar",
     shortcuts: [
       { keys: "Ctrl+Shift+H", description: "Show history tab" },
-      { keys: "Ctrl+Shift+C", description: "Show collections tab" },
+      { keys: "Ctrl+Shift+S", description: "Show collections tab" },
     ],
   },
 ];
