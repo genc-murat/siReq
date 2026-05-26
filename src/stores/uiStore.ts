@@ -4,7 +4,7 @@ import type { HttpResponse } from "@/lib/invoke";
 
 interface UIState {
   theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord";
-  toolMode: "http" | "websocket" | "grpc" | "mock" | "graphql";
+  toolMode: "http" | "websocket" | "grpc" | "mock" | "graphql" | "flow";
   sidebarOpen: boolean;
   settingsOpen: boolean;
   activeTab: string;
@@ -22,7 +22,7 @@ interface UIState {
   setSettingsOpen: (open: boolean) => void;
   setActiveTab: (tab: string) => void;
   setResponseTab: (tab: string) => void;
-  setToolMode: (mode: "http" | "websocket" | "grpc" | "mock" | "graphql") => void;
+  setToolMode: (mode: "http" | "websocket" | "grpc" | "mock" | "graphql" | "flow") => void;
   setActiveHistoryId: (id: string | null) => void;
   setActiveCollectionId: (id: string | null) => void;
   setActiveEnvironmentId: (id: string | null) => void;
@@ -48,15 +48,15 @@ export const useUIStore = create<UIState>()(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSettingsOpen: (open) => set({ settingsOpen: open }),
       setActiveTab: (tab) => set({ activeTab: tab }),
-      setToolMode: (mode: "http" | "websocket" | "grpc" | "mock" | "graphql") => set({ toolMode: mode }),
-  setResponseTab: (tab) => set({ responseTab: tab }),
+      setToolMode: (mode: "http" | "websocket" | "grpc" | "mock" | "graphql" | "flow") => set({ toolMode: mode }),
+      setResponseTab: (tab) => set({ responseTab: tab }),
       compareResponse: null,
       showRunner: false,
-  runnerCollectionId: null,
-  setShowRunner: (show, collectionId) => set({ showRunner: show, runnerCollectionId: collectionId ?? null }),
-  showIntelligence: false,
-  setShowIntelligence: (show) => set({ showIntelligence: show, showRunner: false }),
-  setCompareResponse: (response) => set({ compareResponse: response, responseTab: response ? "diff" : "body" }),
+      runnerCollectionId: null,
+      setShowRunner: (show, collectionId) => set({ showRunner: show, runnerCollectionId: collectionId ?? null }),
+      showIntelligence: false,
+      setShowIntelligence: (show) => set({ showIntelligence: show, showRunner: false }),
+      setCompareResponse: (response) => set({ compareResponse: response, responseTab: response ? "diff" : "body" }),
       setActiveHistoryId: (id) => set({ activeHistoryId: id }),
       setActiveCollectionId: (id) => set({ activeCollectionId: id }),
       setActiveEnvironmentId: (id) => set({ activeEnvironmentId: id }),

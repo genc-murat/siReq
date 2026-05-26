@@ -27,10 +27,10 @@
 **siReq** is a full-featured, native desktop API client built with **Tauri v2** (Rust) and **React 19** (TypeScript). It brings the power of Postman-like workflows into a lightweight, high-performance desktop application — without the bloat.
 
 - **⚡ Native performance** — Rust-powered backend with no Electron overhead
-- **🔧 One tool for everything** — HTTP, gRPC, WebSocket, benchmarking, scripting, collections, and API analytics
+- **🔧 One tool for everything** — HTTP, gRPC, WebSocket, benchmarking, scripting, mock servers, collections, visual flows, and API analytics
 - **🔒 Local-first** — All data stored locally in SQLite with encrypted secrets
-- **🤖 Automation-ready** — Variables, JavaScript scripting, data-driven runs, and variable extraction
-- **🎨 Modern UX** — 12 themes, resizable panels, keyboard shortcuts, command palette, and tab-based workflows
+- **🤖 Automation-ready** — Variables, JavaScript scripting, data-driven runs, JSONPath variable extraction, and visual chaining flow graphs
+- **🎨 Modern UX** — 12 themes, interactive grid canvas, resizable panels, shortcuts, command palette, and tabbed workflows
 - **🔄 Interoperable** — Import from cURL, OpenAPI, and Postman; export to Postman format
 
 ---
@@ -52,6 +52,7 @@
   - [gRPC Client](#grpc-client)
   - [WebSocket Client](#websocket-client)
   - [Smart Mock Server](#smart-mock-server)
+  - [Visual Chaining Flow Editor](#visual-chaining-flow-editor)
   - [Benchmark Tool](#benchmark-tool)
   - [Collection Runner](#collection-runner)
   - [API Intelligence](#api-intelligence)
@@ -104,6 +105,14 @@
 - **GraphQL**: Schema Introspection & visual explorer, SDL schema parser, CodeMirror autocomplete/linting editor, JSON variables editor, custom Auth & Headers, HTTP query/mutation sending, and `graphql-ws` WebSocket subscriptions
 - **gRPC**: Parse `.proto` files, server reflection, unary/server-streaming/client-streaming/bidirectional streaming calls, TLS support
 - **WebSocket**: Connect to `ws://`/`wss://` endpoints, send/receive messages, real-time log, environment variable resolution
+
+### Visual Chaining Flow Editor
+
+- **Interactive Node-Graph** — Drag and drop workspace with dot-grid backdrop, 10px snap alignment, custom drag-to-connect wire handles, and smooth mouse-wheel panning/zooming.
+- **Dynamic Bezier Paths** — Fluid cubic Bezier wires linking ports. Supports active **neon traveling pulse animations** along wire routes to show real-time signal flows!
+- **State-Driven Engine** — Runs request chains visually, resolving double-brace `{{variables}}` placeholders in URLs, headers, and request bodies before firing.
+- **Robust Node Types** — Start triggers, HTTP Request nodes, wait delay timers, JS conditional branching logic nodes, and format-ready Console Loggers.
+- **Integrated Debug HUD** — Collapsible monospaced Flow Debugger Terminal, live variables context list, and granular inspectors.
 
 ### Smart Mock Server
 
@@ -461,6 +470,30 @@ Automate API testing with collection runs:
 - **Extracted variables view** — All variables extracted during the run
 - **Run history** — Full history of all collection runs with dates, pass/fail stats, and delete/clear
 
+### Visual Chaining Flow Editor
+
+siReq provides a state-of-the-art, GPU-accelerated **Visual Chaining Flow Editor** (Node-Graph style) to visually model, link, and automate sequential request workflows:
+
+<p align="center">
+  <img src="./docs/screenshots/flow-editor.png" alt="Visual Flow Editor showing connected Start, Request, Wait, Condition, and Console Logger nodes" width="1000" />
+</p>
+
+**Interactive Canvas & Editor features:**
+- **Grid Backdrop** — Interactive vector dot-grid supporting drag-to-pan, pinch-to-zoom, and mouse scroll wheel zoom. Nodes snap to 10px coordinates for clean layouts.
+- **Cubic Bezier Wires** — Fluid connection paths linking inputs and outputs. During execution, wires trigger **neon travelers** (pulsing glowing sparks) that run along the path to illuminate downstream routes in real time!
+- **Execution Debugger** — Run the entire flow visually. Nodes light up in **pulsing Cyan** when running, **Green** on success, or **Red** on failure.
+- **Flow Debugger Terminal** — A collapsible monospaced stream panel at the bottom of the canvas displaying chronological execution steps, millisecond response speeds, data warnings, and logger outputs in real-time.
+- **Live Variables Monitor** — Lists all evaluated variable states in the active flow context, displaying their drop-in `{{placeholders}}` format.
+
+**Visual Node Types:**
+- **Start Node** — Simple green glowing trigger pill starting the execution.
+- **HTTP Request Node** — Binds to any saved request or open tab in the workspace (displays method badges like `GET` or `POST`, URL, and statistics). Supports **Response Extractions**: configure JSONPath expressions (e.g. `$.token` -> `flow_token`) to automatically extract JSON values from responses into the variables stream.
+- **Wait Timer Node** — Pauses execution flow dynamically for a specified delay in milliseconds.
+- **Branch Condition Node** — Evaluates standard JavaScript conditions (e.g. `status_code === '200'`) against current variable values, branching into `True` or `False` trigger paths.
+- **Console Log Node** — Formats and prints custom strings (e.g. `Received user ID: {{user_id}}`) directly to the debugger terminal.
+
+---
+
 ### API Intelligence
 
 Analyze your API behavior over time:
@@ -588,6 +621,10 @@ siReq/
 │   │   ├── Intelligence/   # API Intelligence dashboard
 │   │   ├── GrpcPanel.tsx / Grpc*.tsx  # gRPC client
 │   │   ├── WebSocketPanel.tsx         # WebSocket client
+│   │   ├── Flow/                      # Visual Chaining Flow Editor
+│   │   │   ├── FlowPanel.tsx          # Main shell, toolbar, sidebar inspectors, & flow terminal
+│   │   │   ├── FlowCanvas.tsx         # SVG/HTML grid canvas, pan/zoom, snapping, & wires drawer
+│   │   │   └── FlowNode.tsx           # Visual render cards for Start, Request, Condition, Timer, & Logger
 │   │   ├── MockServer/                # Smart Mock Server components
 │   │   │   ├── MockPanel.tsx          # 3-column mock server dashboard orchestrator
 │   │   │   ├── MockConfigList.tsx     # Server instances listing, start/stop, duplicate, delete
@@ -605,6 +642,7 @@ siReq/
 │   │   └── ...                        # Other components
 │   ├── stores/             # Zustand state stores
 │   │   ├── mockStore.ts    # Smart Mock Server Zustand state store
+│   │   ├── flowStore.ts    # Visual Flow Editor Zustand state store
 │   │   └── ...
 │   ├── lib/                # Utilities and Tauri invoke wrappers
 │   ├── hooks/              # Custom React hooks

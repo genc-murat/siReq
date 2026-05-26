@@ -8,6 +8,7 @@ import { GraphQLPanel } from "@/components/GraphQL/GraphQLPanel";
 import { RunnerPanel } from "@/components/RunnerPanel";
 import { IntelligenceDashboard } from "@/components/Intelligence/IntelligenceDashboard";
 import MockPanel from "@/components/MockServer/MockPanel";
+import { FlowPanel } from "@/components/Flow/FlowPanel";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -64,6 +65,14 @@ export function MainPanel() {
     return (
       <div className="h-full flex flex-col">
         <MockPanel />
+      </div>
+    );
+  }
+
+  if (toolMode === "flow") {
+    return (
+      <div className="h-full flex flex-col">
+        <FlowPanel />
       </div>
     );
   }

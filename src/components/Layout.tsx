@@ -153,6 +153,24 @@ export function Layout() {
           </svg>
           <span>Mock</span>
         </button>
+        <button
+          onClick={() => setToolMode("flow")}
+          className={cn(
+            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
+            toolMode === "flow"
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}
+          title="Visual Request Chaining Flow"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="6" cy="6" r="3" />
+            <circle cx="18" cy="18" r="3" />
+            <circle cx="18" cy="6" r="3" />
+            <path d="M6 9v7a3 3 0 0 0 3 3h6M18 9v6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>Visual Flow</span>
+        </button>
         <div className="h-4 w-px bg-border" />
         <button
           onClick={handleNew}
