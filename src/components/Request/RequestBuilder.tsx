@@ -7,6 +7,7 @@ import { AuthTab } from "./AuthTab";
 import { BodyTab } from "./BodyTab";
 import { ScriptsTab } from "./ScriptsTab";
 import { SchemaTab } from "./SchemaTab";
+import { ContractTab } from "./ContractTab";
 import { Tabs } from "@/components/Tabs";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -23,6 +24,7 @@ const requestTabs = [
   { id: "auth", label: "Auth" },
   { id: "scripts", label: "Scripts" },
   { id: "schema", label: "Schema" },
+  { id: "contract", label: "Contract" },
 ];
 
 export function RequestBuilder() {
@@ -249,6 +251,7 @@ export function RequestBuilder() {
         {activeTab === "auth" && <AuthTab />}
         {activeTab === "scripts" && <ScriptsTab />}
         {activeTab === "schema" && <SchemaTab />}
+        {activeTab === "contract" && <ContractTab />}
       </div>
     </div>
   );

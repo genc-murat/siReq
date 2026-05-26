@@ -5,10 +5,12 @@ import { HeadersViewer } from "./HeadersViewer";
 import { CookiesViewer } from "./CookiesViewer";
 import { DiffViewer } from "./DiffViewer";
 import { SchemaViewer } from "./SchemaViewer";
+import { ContractViewer } from "./ContractViewer";
+import { useContractStore } from "@/stores/contractStore";
 import { StatsBar } from "./StatsBar";
 import { Tabs, type Tab } from "@/components/Tabs";
 
-function getTabs(showDiff: boolean, hasSchema: boolean): Tab[] {
+function getTabs(showDiff: boolean, hasSchema: boolean, hasContract: boolean): Tab[] {
   const base: Tab[] = [
     { id: "body", label: "Body" },
     { id: "headers", label: "Headers" },
@@ -20,18 +22,28 @@ function getTabs(showDiff: boolean, hasSchema: boolean): Tab[] {
   if (hasSchema) {
     base.push({ id: "schema", label: "Schema" });
   }
+  base.push({
+    id: "contract",
+    label: "Contract",
+    badge: hasContract ? (
+      <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse shrink-0 ml-0.5" />
+    ) : undefined,
+  });
   return base;
 }
 
 export function ResponseViewer() {
   const response = useRequestStore((s) => s.response);
+  const request = useRequestStore((s) => s.request);
   const loading = useRequestStore((s) => s.loading);
   const responseTab = useUIStore((s) => s.responseTab);
   const setResponseTab = useUIStore((s) => s.setResponseTab);
   const compareResponse = useUIStore((s) => s.compareResponse);
   const jsonSchema = useRequestStore((s) => s.request.json_schema);
+  const contract = useContractStore((s) => s.getContract(request.id));
   const showDiff = compareResponse !== null;
   const hasSchema = (jsonSchema ?? "").trim().length > 0;
+  const hasContract = !!contract;
 
   if (!response && !loading) {
     return (
@@ -73,7 +85,7 @@ export function ResponseViewer() {
     <div className="flex flex-col h-full">
       <StatsBar />
       <Tabs
-        tabs={getTabs(showDiff, hasSchema)}
+        tabs={getTabs(showDiff, hasSchema, hasContract)}
         activeTab={responseTab}
         onChange={setResponseTab}
         className="shrink-0 px-3"
@@ -84,6 +96,7 @@ export function ResponseViewer() {
         {responseTab === "cookies" && <CookiesViewer />}
         {responseTab === "diff" && showDiff && <DiffViewer />}
         {responseTab === "schema" && hasSchema && <SchemaViewer />}
+        {responseTab === "contract" && <ContractViewer />}
       </div>
     </div>
   );

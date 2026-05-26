@@ -494,6 +494,30 @@ siReq provides a state-of-the-art, GPU-accelerated **Visual Chaining Flow Editor
 
 ---
 
+### API Contract Testing (OpenAPI / Pact-style Validation)
+
+siReq features an integrated **API Contract Testing** workspace that lets you audit HTTP requests against your OpenAPI/Swagger Specifications (OAS) and run Pact-style response validations:
+
+<p align="center">
+  <img src="./docs/screenshots/contract-testing.png" alt="Contract Testing panel showing a fully compliant contract audit report with status, headers, and body checks" width="1000" />
+</p>
+
+**Visual Binding Wizard (Request Editor):**
+- **OAS Spec Binding** — A multi-step wizard tab. Paste a JSON spec and siReq instantly parses it.
+- **Dynamic Endpoint Selector** — Dynamically parses and displays available **API Paths** (e.g. `/api/v1/users/{id}`), **HTTP Methods** (e.g. `GET`), and documented **Expected Response Codes** directly from the spec.
+- **Recursive Reference Resolver** — Resolves and flattens all internal `$ref` schema structures (e.g. `#/components/schemas/UserProfile`) on the fly, including complex nested component mappings.
+- **Automatic Sync** — Once bound, siReq automatically dereferences the schema and populates the request's existing JSON Schema editor tab, ensuring zero configuration friction.
+
+**Pact-style Compliance Report (Response Viewer):**
+- **Verification Indicator** — The Response panel's Contract tab displays a **pulsing green dot** whenever contract validation is active for a request.
+- **Live Assertion Checklist** — Runs 3 comprehensive contract tests on every server response:
+  1. **HTTP Status Code Compliance** — Verifies if the returned status matches expectations or is documented under the OpenAPI contract path.
+  2. **Response Headers Compliance** — Verifies that the Content-Type strictly conforms to `application/json` and checks if all expected response headers specified in the contract spec are returned.
+  3. **Response Body JSON Schema Compliance** — Validates the actual JSON payload structure against the dereferenced schema using the high-performance `Ajv` validator.
+- **Compliance Badge HUD** — Displays a visual **"CONTRACT COMPLIANT ✓"** (neon green glowing card) or **"CONTRACT BREACHED ✗"** (neon red card listing exact missing headers, status mismatches, or AJV schema path errors) banner.
+
+---
+
 ### API Intelligence
 
 Analyze your API behavior over time:
