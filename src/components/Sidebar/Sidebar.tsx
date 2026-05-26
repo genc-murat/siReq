@@ -20,6 +20,8 @@ export function Sidebar() {
   const [globalVarsOpen, setGlobalVarsOpen] = useState(false);
   const showIntelligence = useUIStore((s) => s.showIntelligence);
   const setShowIntelligence = useUIStore((s) => s.setShowIntelligence);
+  const toolMode = useUIStore((s) => s.toolMode);
+  const setToolMode = useUIStore((s) => s.setToolMode);
 
   return (
     <div className="h-full flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -50,6 +52,22 @@ export function Sidebar() {
       <div className="p-2 border-t border-sidebar-border flex items-center justify-between shrink-0">
         <div className="flex items-center gap-1">
           <CurlImport />
+          <span className="text-muted-foreground/40">|</span>
+          <button
+            onClick={() => setToolMode(toolMode === "grpc" ? "http" : "grpc")}
+            className={cn(
+              "text-xs p-1.5 rounded-lg transition-all duration-150 flex items-center gap-1",
+              toolMode === "grpc"
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+            title={toolMode === "grpc" ? "Switch to HTTP" : "gRPC Client"}
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M8 9l3 3-3 3m5 0h3" strokeLinecap="round" strokeLinejoin="round" />
+              <rect x="2" y="3" width="20" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           <span className="text-muted-foreground/40">|</span>
           <PostmanImport onImported={() => setActiveSidebarTab("collections")} />
           <span className="text-muted-foreground/40">|</span>

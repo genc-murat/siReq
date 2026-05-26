@@ -7,6 +7,7 @@ use crate::http::*;
 use crate::scripts::*;
 use crate::variables::*;
 use crate::secrets::*;
+use crate::grpc::{self, GrpcState};
 use reqwest::Client;
 
 #[tauri::command]
@@ -949,6 +950,94 @@ pub fn create_template(
 #[tauri::command]
 pub fn delete_template(id: String, db: State<'_, Db>) -> Result<(), String> {
     delete_existing_template(&db, &id)
+}
+
+// ─── gRPC commands ──────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn grpc_parse_proto(
+    content: String,
+    state: State<'_, GrpcState>,
+) -> Result<GrpcDescriptorSet, String> {
+    grpc::parse_proto(&content, &state)
+}
+
+#[tauri::command]
+pub async fn grpc_call_unary(
+    address: String,
+    tls: bool,
+    proto_id: String,
+    service_name: String,
+    method_name: String,
+    input_json: String,
+    state: State<'_, GrpcState>,
+) -> Result<GrpcResponse, String> {
+    let pool = grpc::get_pool(&state, &proto_id)?;
+    grpc::call_unary(&address, tls, &pool, &service_name, &method_name, &input_json).await
+}
+
+#[tauri::command]
+pub async fn grpc_call_client_streaming(
+    address: String,
+    tls: bool,
+    proto_id: String,
+    service_name: String,
+    method_name: String,
+    input_jsons: Vec<String>,
+    state: State<'_, GrpcState>,
+) -> Result<GrpcResponse, String> {
+    let pool = grpc::get_pool(&state, &proto_id)?;
+    grpc::call_client_streaming(&address, tls, &pool, &service_name, &method_name, input_jsons).await
+}
+
+#[tauri::command]
+pub async fn grpc_call_bidi_streaming(
+    address: String,
+    tls: bool,
+    proto_id: String,
+    service_name: String,
+    method_name: String,
+    input_jsons: Vec<String>,
+    max_messages: usize,
+    state: State<'_, GrpcState>,
+) -> Result<Vec<GrpcResponse>, String> {
+    let pool = grpc::get_pool(&state, &proto_id)?;
+    grpc::call_bidi_streaming(&address, tls, &pool, &service_name, &method_name, input_jsons, max_messages).await
+}
+
+#[tauri::command]
+pub async fn grpc_call_server_streaming(
+    address: String,
+    tls: bool,
+    proto_id: String,
+    service_name: String,
+    method_name: String,
+    input_json: String,
+    max_messages: usize,
+    state: State<'_, GrpcState>,
+) -> Result<Vec<GrpcResponse>, String> {
+    let pool = grpc::get_pool(&state, &proto_id)?;
+    grpc::call_server_streaming(&address, tls, &pool, &service_name, &method_name, &input_json, max_messages).await
+}
+
+// ─── gRPC Reflection commands ─────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn grpc_reflect_list_services(
+    address: String,
+    tls: bool,
+) -> Result<Vec<String>, String> {
+    grpc::reflect_list_services(&address, tls).await
+}
+
+#[tauri::command]
+pub async fn grpc_reflect_get_proto(
+    address: String,
+    tls: bool,
+    symbol: String,
+    state: State<'_, GrpcState>,
+) -> Result<GrpcDescriptorSet, String> {
+    grpc::reflect_get_proto(&address, tls, &symbol, &state).await
 }
 
 // --- Cookie management commands ---

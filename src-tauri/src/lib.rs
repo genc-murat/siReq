@@ -1,6 +1,7 @@
 mod api_intelligence;
 mod commands;
 mod curl_parser;
+mod grpc;
 mod http;
 mod models;
 mod openapi_parser;
@@ -13,7 +14,8 @@ mod websocket;
 
 use reqwest::Client;
 use storage::Db;
-use http::RequestHandles;
+use grpc::GrpcState;
+
 use websocket::WsState;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
@@ -32,7 +34,7 @@ pub fn run() {
 
             app.manage(Db(Mutex::new(conn)));
             app.manage(Client::new());
-            app.manage(RequestHandles(Mutex::new(HashMap::new())));
+            app.manage(GrpcState(Arc::new(Mutex::new(HashMap::new()))));
             app.manage(WsState(Arc::new(Mutex::new(HashMap::new()))));
 
             Ok(())
@@ -79,6 +81,13 @@ pub fn run() {
             commands::get_cookies,
             commands::delete_cookie,
             commands::clear_cookies,
+            commands::grpc_parse_proto,
+            commands::grpc_call_unary,
+            commands::grpc_call_server_streaming,
+            commands::grpc_call_client_streaming,
+            commands::grpc_call_bidi_streaming,
+            commands::grpc_reflect_list_services,
+            commands::grpc_reflect_get_proto,
             api_intelligence::analyze_api_behavior_cmd,
             api_intelligence::get_api_intelligence_overview,
             api_intelligence::get_all_endpoint_insights,

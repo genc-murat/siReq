@@ -249,7 +249,7 @@ mod tests {
     fn test_resolve_uuid() {
         let result = resolve_dynamic_vars("id={{$uuid}}");
         assert!(result.starts_with("id="));
-        assert_eq!(result.len(), 41); // "id=" + 36 chars for UUID
+        assert_eq!(result.len(), 39); // "id=" (3) + 36 chars for UUID
     }
 
     #[test]

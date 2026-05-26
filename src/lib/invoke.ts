@@ -667,3 +667,148 @@ export async function getSchemaEvolution(endpointKey: string): Promise<SchemaVer
 export async function getPerformanceRegressions(): Promise<PerformanceRegression[]> {
   return safeInvoke("get_performance_regressions");
 }
+
+// ─── gRPC Types ──────────────────────────────────────────────────────────────
+
+export interface GrpcFieldInfo {
+  name: string;
+  field_type: string;
+  label: string;
+  is_map: boolean;
+  /** Nested sub-fields for message types */
+  sub_fields: GrpcFieldInfo[];
+  /** Enum value names for enum types */
+  enum_values: string[];
+}
+
+export interface GrpcMethodInfo {
+  name: string;
+  full_name: string;
+  input_type: string;
+  output_type: string;
+  client_streaming: boolean;
+  server_streaming: boolean;
+  input_fields: GrpcFieldInfo[];
+  output_fields: GrpcFieldInfo[];
+}
+
+export interface GrpcServiceInfo {
+  name: string;
+  full_name: string;
+  methods: GrpcMethodInfo[];
+}
+
+export interface GrpcDescriptorSet {
+  proto_id: string;
+  services: GrpcServiceInfo[];
+  from_cache: boolean;
+}
+
+export interface GrpcResponse {
+  status_code: string;
+  status_message: string;
+  headers: [string, string][];
+  body: string;
+  size: number;
+  time_ms: number;
+  error: string | null;
+}
+
+// ─── gRPC API Functions ─────────────────────────────────────────────────────
+
+export async function grpcParseProto(content: string): Promise<GrpcDescriptorSet> {
+  return safeInvoke("grpc_parse_proto", { content });
+}
+
+export async function grpcCallUnary(
+  address: string,
+  tls: boolean,
+  protoId: string,
+  serviceName: string,
+  methodName: string,
+  inputJson: string,
+): Promise<GrpcResponse> {
+  return safeInvoke("grpc_call_unary", {
+    address,
+    tls,
+    protoId,
+    serviceName,
+    methodName,
+    inputJson,
+  });
+}
+
+export async function grpcCallClientStreaming(
+  address: string,
+  tls: boolean,
+  protoId: string,
+  serviceName: string,
+  methodName: string,
+  inputJsons: string[],
+): Promise<GrpcResponse> {
+  return safeInvoke("grpc_call_client_streaming", {
+    address,
+    tls,
+    protoId,
+    serviceName,
+    methodName,
+    inputJsons,
+  });
+}
+
+export async function grpcCallBidiStreaming(
+  address: string,
+  tls: boolean,
+  protoId: string,
+  serviceName: string,
+  methodName: string,
+  inputJsons: string[],
+  maxMessages?: number,
+): Promise<GrpcResponse[]> {
+  return safeInvoke("grpc_call_bidi_streaming", {
+    address,
+    tls,
+    protoId,
+    serviceName,
+    methodName,
+    inputJsons,
+    maxMessages: maxMessages ?? 100,
+  });
+}
+
+export async function grpcCallServerStreaming(
+  address: string,
+  tls: boolean,
+  protoId: string,
+  serviceName: string,
+  methodName: string,
+  inputJson: string,
+  maxMessages?: number,
+): Promise<GrpcResponse[]> {
+  return safeInvoke("grpc_call_server_streaming", {
+    address,
+    tls,
+    protoId,
+    serviceName,
+    methodName,
+    inputJson,
+    maxMessages: maxMessages ?? 100,
+  });
+}
+
+// ─── gRPC Reflection API Functions ─────────────────────────────────────────
+
+export async function grpcReflectListServices(
+  address: string,
+  tls: boolean,
+): Promise<string[]> {
+  return safeInvoke("grpc_reflect_list_services", { address, tls });
+}
+
+export async function grpcReflectGetProto(
+  address: string,
+  tls: boolean,
+  symbol: string,
+): Promise<GrpcDescriptorSet> {
+  return safeInvoke("grpc_reflect_get_proto", { address, tls, symbol });
+}

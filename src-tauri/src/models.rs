@@ -454,3 +454,60 @@ pub struct BenchmarkHistoryEntry {
     pub result: BenchmarkResult,
     pub created_at: String,
 }
+
+// ─── gRPC Types ────────────────────────────────────────────────────────
+
+/// Result of parsing a .proto file — contains service definitions and a reference to the descriptor pool.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrpcDescriptorSet {
+    pub proto_id: String,
+    pub services: Vec<GrpcServiceInfo>,
+    #[serde(default)]
+    pub from_cache: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrpcServiceInfo {
+    pub name: String,
+    pub full_name: String,
+    pub methods: Vec<GrpcMethodInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrpcMethodInfo {
+    pub name: String,
+    pub full_name: String,
+    pub input_type: String,
+    pub output_type: String,
+    pub client_streaming: bool,
+    pub server_streaming: bool,
+    pub input_fields: Vec<GrpcFieldInfo>,
+    pub output_fields: Vec<GrpcFieldInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrpcFieldInfo {
+    pub name: String,
+    pub field_type: String,
+    pub label: String,
+    pub is_map: bool,
+    /// Nested sub-fields for message types (empty for scalars)
+    #[serde(default)]
+    pub sub_fields: Vec<GrpcFieldInfo>,
+    /// Enum value names for enum types (empty for non-enums)
+    #[serde(default)]
+    pub enum_values: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrpcResponse {
+    pub status_code: String,
+    pub status_message: String,
+    pub headers: Vec<(String, String)>,
+    pub body: String,
+    pub size: u64,
+    pub time_ms: u64,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+

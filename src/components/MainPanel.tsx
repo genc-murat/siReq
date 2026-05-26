@@ -3,6 +3,7 @@ import { RequestBuilder } from "@/components/Request/RequestBuilder";
 import { ResponseViewer } from "@/components/Response/ResponseViewer";
 import { BenchmarkResults } from "@/components/Response/BenchmarkResults";
 import { WebSocketPanel } from "@/components/WebSocketPanel";
+import { GrpcPanel } from "@/components/GrpcPanel";
 import { RunnerPanel } from "@/components/RunnerPanel";
 import { IntelligenceDashboard } from "@/components/Intelligence/IntelligenceDashboard";
 import { useRequestStore } from "@/stores/requestStore";
@@ -37,6 +38,14 @@ export function MainPanel() {
     return (
       <div className="h-full flex flex-col">
         <WebSocketPanel />
+      </div>
+    );
+  }
+
+  if (toolMode === "grpc") {
+    return (
+      <div className="h-full flex flex-col">
+        <GrpcPanel />
       </div>
     );
   }
