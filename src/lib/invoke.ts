@@ -11,7 +11,7 @@ async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>): Promi
 }
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "TRACE";
-export type BodyType = "none" | "json" | "xml" | "text" | "form" | "form_urlencoded";
+export type BodyType = "none" | "json" | "xml" | "text" | "form" | "form_urlencoded" | "graphql";
 export type AuthType = "none" | "basic" | "bearer" | "api_key";
 
 export interface KeyValue {

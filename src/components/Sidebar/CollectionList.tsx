@@ -410,6 +410,14 @@ export function CollectionList() {
 
   useEffect(() => {
     getCollections().then(setCollections);
+
+    const handleUpdate = () => {
+      getCollections().then(setCollections);
+    };
+    window.addEventListener("collections-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("collections-updated", handleUpdate);
+    };
   }, []);
 
   // ─── Search logic: flatten tree ───────────────────────────────────────
@@ -1250,6 +1258,26 @@ function TreeItems({
               // Convert CollectionRequest to HttpRequest for the store
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { type: _t, examples, ...httpReq } = req;
+
+              // Check if it's a GraphQL request (body_type json, but body has {"query": "..."})
+              let isGraphQL = false;
+              if (httpReq.body_type === "json" && httpReq.body) {
+                try {
+                  const parsed = JSON.parse(httpReq.body);
+                  if (parsed && typeof parsed === "object" && "query" in parsed) {
+                    isGraphQL = true;
+                  }
+                } catch {
+                  // Not valid JSON
+                }
+              }
+
+              if (isGraphQL) {
+                useUIStore.getState().setToolMode("graphql");
+              } else if (useUIStore.getState().toolMode === "graphql") {
+                useUIStore.getState().setToolMode("http");
+              }
+
               onLoadRequest({
                 ...httpReq,
                 json_schema: "",
@@ -1264,9 +1292,31 @@ function TreeItems({
             <span className="text-muted-foreground/30 cursor-grab active:cursor-grabbing shrink-0 text-xs">
               ⠿
             </span>
-            <span className={cn("font-bold shrink-0 text-[10px]", methodColors[req.method] ?? "")}>
-              {req.method}
-            </span>
+            {(() => {
+              let isGraphQL = false;
+              if (req.body_type === "json" && req.body) {
+                try {
+                  const parsed = JSON.parse(req.body);
+                  if (parsed && typeof parsed === "object" && "query" in parsed) {
+                    isGraphQL = true;
+                  }
+                } catch {
+                  // Not valid JSON
+                }
+              }
+              if (isGraphQL) {
+                return (
+                  <span className="shrink-0 text-[9px] bg-purple-600/20 text-purple-400 font-bold px-1 rounded border border-purple-500/30">
+                    GQL
+                  </span>
+                );
+              }
+              return (
+                <span className={cn("font-bold shrink-0 text-[10px]", methodColors[req.method] ?? "")}>
+                  {req.method}
+                </span>
+              );
+            })()}
             <span className="truncate flex-1">{req.name || req.url || "No URL"}</span>
             {/* Request context actions */}
             <button

@@ -123,6 +123,22 @@ export function Layout() {
           <span>gRPC</span>
         </button>
         <button
+          onClick={() => setToolMode("graphql")}
+          className={cn(
+            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
+            toolMode === "graphql"
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}
+          title="GraphQL Client"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          <span>GraphQL</span>
+        </button>
+
+        <button
           onClick={() => setToolMode("mock")}
           className={cn(
             "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",

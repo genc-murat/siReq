@@ -4,6 +4,7 @@ import { ResponseViewer } from "@/components/Response/ResponseViewer";
 import { BenchmarkResults } from "@/components/Response/BenchmarkResults";
 import { WebSocketPanel } from "@/components/WebSocketPanel";
 import { GrpcPanel } from "@/components/GrpcPanel";
+import { GraphQLPanel } from "@/components/GraphQL/GraphQLPanel";
 import { RunnerPanel } from "@/components/RunnerPanel";
 import { IntelligenceDashboard } from "@/components/Intelligence/IntelligenceDashboard";
 import MockPanel from "@/components/MockServer/MockPanel";
@@ -47,6 +48,14 @@ export function MainPanel() {
     return (
       <div className="h-full flex flex-col">
         <GrpcPanel />
+      </div>
+    );
+  }
+
+  if (toolMode === "graphql") {
+    return (
+      <div className="h-full flex flex-col">
+        <GraphQLPanel />
       </div>
     );
   }

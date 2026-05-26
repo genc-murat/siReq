@@ -5,7 +5,7 @@
 <div align="center">
   <h1>siReq</h1>
   <h3>A modern, high-performance desktop API client</h3>
-  <p>HTTP · gRPC · WebSocket · Scripting · Benchmarking · API Intelligence</p>
+  <p>HTTP · GraphQL · gRPC · WebSocket · Scripting · Benchmarking · API Intelligence</p>
 </div>
 
 <p align="center">
@@ -48,6 +48,7 @@
   - [Environments & Variables](#environments--variables)
   - [Scripting & Automation](#scripting--automation)
   - [Import / Export](#import--export)
+  - [GraphQL Client](#graphql-client)
   - [gRPC Client](#grpc-client)
   - [WebSocket Client](#websocket-client)
   - [Smart Mock Server](#smart-mock-server)
@@ -98,8 +99,9 @@
 - OpenAPI / Swagger spec import → collection generation
 - Postman collection import and export
 
-### gRPC & WebSocket
+### GraphQL, gRPC & WebSocket
 
+- **GraphQL**: Schema Introspection & visual explorer, SDL schema parser, CodeMirror autocomplete/linting editor, JSON variables editor, custom Auth & Headers, HTTP query/mutation sending, and `graphql-ws` WebSocket subscriptions
 - **gRPC**: Parse `.proto` files, server reflection, unary/server-streaming/client-streaming/bidirectional streaming calls, TLS support
 - **WebSocket**: Connect to `ws://`/`wss://` endpoints, send/receive messages, real-time log, environment variable resolution
 
@@ -366,6 +368,18 @@ Seamlessly move data between tools:
 - **Postman Import** — Import Postman collections (v2.1) with requests, folders, auth, and variables
 - **Postman Export** — Export your siReq collections back to Postman format
 
+### GraphQL Client
+
+Full-featured GraphQL client for querying, mutating, and subscribing:
+
+- **Schema Explorer** — Interactive schema navigator showing `Query`, `Mutation`, and `Subscription` entrypoints, arguments, nested field types, and descriptions.
+- **Introspection & SDL** — Run schema introspection queries against your endpoint or paste a raw SDL schema string directly.
+- **GraphQL Editor** — Fully featured query editor with syntax highlighting, autocomplete, and real-time schema linting (powered by CodeMirror 6).
+- **Variables Editor** — Dedicated JSON variables editor with on-the-fly syntax validation.
+- **Header & Auth Sections** — Configure custom HTTP headers, Bearer tokens, Basic auth, or API Keys.
+- **Subscriptions** — Dynamic connection to subscription endpoints using WebSocket (`graphql-ws` protocol) with real-time log, message counters, and status indicators.
+- **Collection Integration** — Fully integrated with siReq's collection list, folders, environments, and toast alerts. Auto-detects GQL queries in collections and tags them with a visual `GQL` badge.
+
 ### gRPC Client
 
 Full gRPC support with siReq's dedicated gRPC panel:
@@ -498,7 +512,9 @@ Designed for productivity:
 | **Tailwind CSS v4** | Utility-first styling |
 | **Zustand** | State management with persistence |
 | **Radix UI** | Accessible UI primitives (dialog, select, tabs, tooltip, etc.) |
-| **CodeMirror 6** | Code editor and syntax highlighting |
+| **CodeMirror 6** | Code editor, GraphQL autocomplete/linting, JSON validation |
+| **graphql** | AST parsing and GraphQL schema validation |
+| **graphql-ws** | WebSocket client for GraphQL subscriptions |
 | **Recharts** | Charts and data visualization |
 | **react-resizable-panels** | Resizable split pane layout |
 | **react-virtuoso** | Virtualized list rendering for large responses |
