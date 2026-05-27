@@ -1,4 +1,3 @@
-import React from "react";
 import type { MockLogEntry } from "@/lib/invoke";
 import { X, Copy, Check, Info, AlertTriangle, ShieldAlert } from "lucide-react";
 import { useState } from "react";

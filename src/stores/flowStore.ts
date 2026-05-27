@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { HttpRequest, HttpResponse } from "@/lib/invoke";
+import type { HttpRequest, HttpResponse, HttpMethod } from "@/lib/invoke";
 import { sendRequest, cancelRequest } from "@/lib/invoke";
 import { executeSandboxed, evaluateInSandbox } from "@/lib/sandbox";
 
@@ -719,7 +719,7 @@ export const useFlowStore = create<FlowState>()(
               const requestToRun: HttpRequest = {
                 id: requestId,
                 name: node.data.requestName ?? node.name,
-                method: node.data.requestMethod ?? "GET",
+                method: (node.data.requestMethod ?? "GET") as HttpMethod,
                 url: node.data.requestUrl ?? "",
                 headers: snap?.headers ?? [],
                 query_params: snap?.query_params ?? [],

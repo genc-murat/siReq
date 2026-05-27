@@ -17,6 +17,7 @@ import {
   foldGutter,
   indentOnInput,
   StreamLanguage,
+  StringStream,
   LanguageSupport,
 } from "@codemirror/language";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -36,7 +37,7 @@ import {
 const graphqlLanguage = StreamLanguage.define({
   name: "graphql",
   startState: () => ({ inString: false, depth: 0 }),
-  token(stream, state) {
+  token(stream: StringStream, state: { inString: boolean; depth: number }) {
     if (state.inString) {
       if (stream.next() === '"') state.inString = false;
       return "string";

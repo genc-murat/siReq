@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useContractStore } from "@/stores/contractStore";
 import { useRequestStore } from "@/stores/requestStore";
 import { useToastStore } from "@/stores/toastStore";

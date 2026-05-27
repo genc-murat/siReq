@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { MockLogEntry, MockStats } from "@/lib/invoke";
 import { useMockStore } from "@/stores/mockStore";
 import { MockLogDetail } from "./MockLogDetail";

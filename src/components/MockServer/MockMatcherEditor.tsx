@@ -1,4 +1,3 @@
-import React from "react";
 import type { RequestMatcher } from "@/lib/invoke";
 import { Plus, Trash, ShieldAlert } from "lucide-react";
 

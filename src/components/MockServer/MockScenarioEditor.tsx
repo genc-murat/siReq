@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { ResponseScenario } from "@/lib/invoke";
 import { CodeMirrorEditor } from "@/components/CodeMirrorEditor";
 import { MockLatencyEditor } from "./MockLatencyEditor";
@@ -97,7 +97,9 @@ export function MockScenarioEditor({ scenario, onChange }: MockScenarioEditorPro
               }`}
             />
             {isStatusInvalid && (
-              <AlertCircle className="w-4.5 h-4.5 text-rose-500 absolute right-2.5 top-2.5 animate-bounce" title="Status code must be in the range 100-599!" />
+              <span title="Status code must be in the range 100-599!" className="absolute right-2.5 top-2.5">
+                <AlertCircle className="w-4.5 h-4.5 text-rose-500 animate-bounce" />
+              </span>
             )}
           </div>
         </div>

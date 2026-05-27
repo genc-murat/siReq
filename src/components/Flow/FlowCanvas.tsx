@@ -165,7 +165,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
         .filter((n) => {
           if (n.type === "start") return false; // Can't select start via drag
           const nodeW = 240;
-          const nodeH = n.type === "start" ? 76 : n.type === "request" ? 135 : n.type === "delay" ? 100 : n.type === "logger" || n.type === "condition" ? 108 : n.type === "set_variable" ? 108 : n.type === "script" ? 120 : n.type === "assertion" ? 108 : 100;
+          const nodeH = n.type === "request" ? 135 : n.type === "delay" ? 100 : n.type === "logger" || n.type === "condition" ? 108 : n.type === "set_variable" ? 108 : n.type === "script" ? 120 : n.type === "assertion" ? 108 : 100;
           return n.x < maxX && n.x + nodeW > minX && n.y < maxY && n.y + nodeH > minY;
         })
         .map((n) => n.id);

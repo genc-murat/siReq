@@ -18,7 +18,8 @@ interface ContractState {
 }
 
 // Recursive Resolver to dereference all local OpenAPI $ref structures
-export function dereferenceSchema(schema: Record<string, unknown>, fullSpec: Record<string, unknown>): Record<string, unknown> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function dereferenceSchema(schema: any, fullSpec: any): any {
   if (!schema) return schema;
 
   // Create deep copy
@@ -43,7 +44,8 @@ export function dereferenceSchema(schema: Record<string, unknown>, fullSpec: Rec
 
       if (typeof refPath === "string" && refPath.startsWith("#/")) {
         const parts = refPath.replace(/^#\//, "").split("/");
-        let current = fullSpec;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let current: any = fullSpec;
         for (const part of parts) {
           if (current === undefined || current === null) break;
           // Handle path keys with escaped slashes like ~1 or ~0

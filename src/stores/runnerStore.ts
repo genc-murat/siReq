@@ -232,7 +232,7 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
           size: 0,
           test_results: [],
           script_logs: snapshot.logs.map((l) => ({ level: l.level, message: l.message })),
-          error: errorNodes.length > 0 ? `${errorNodes.length} node(s) failed` : undefined,
+          error: errorNodes.length > 0 ? `${errorNodes.length} node(s) failed` : null,
           extracted_variables: Object.entries(snapshot.variables).map(([k, v]) => [k, v]),
           iteration: iterations > 1 ? i : null,
         });

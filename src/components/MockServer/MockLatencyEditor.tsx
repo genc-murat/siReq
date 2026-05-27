@@ -1,4 +1,3 @@
-import React from "react";
 import type { LatencyProfile } from "@/lib/invoke";
 import { Clock } from "lucide-react";
 

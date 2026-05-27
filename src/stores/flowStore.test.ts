@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useFlowStore } from "@/stores/flowStore";
 import fc from "fast-check";
-import type { FlowNode } from "@/stores/flowStore";
+import type { FlowNode, FlowNodeType } from "@/stores/flowStore";
 
 /**
  * Helper: reset the store to its initial state between tests.

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { useContractStore, getResponseSchemaFromSpec, dereferenceSchema } from "@/stores/contractStore";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -36,13 +36,14 @@ export function ContractViewer() {
     
     // Parse spec to see if returned code is documented at all
     let isDocumented = false;
-    let spec: Record<string, unknown> | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let spec: any = null;
     try {
-      spec = JSON.parse(contract.specContent) as Record<string, unknown>;
-      const pathObj = spec.paths as Record<string, unknown> | undefined;
-      const methodObj = pathObj?.[contract.path] as Record<string, unknown> | undefined;
-      const methodResponses = methodObj?.[contract.method.toLowerCase()] as Record<string, unknown> | undefined;
-      const responses = methodResponses?.responses as Record<string, unknown> | undefined;
+      spec = JSON.parse(contract.specContent);
+      const pathObj = spec?.paths;
+      const methodObj = pathObj?.[contract.path];
+      const methodResponses = methodObj?.[contract.method.toLowerCase()];
+      const responses = methodResponses?.responses;
       if (responses?.[String(returnedStatus)]) {
         isDocumented = true;
       }
@@ -97,7 +98,7 @@ export function ContractViewer() {
     // Inspect spec to find required response headers
     let expectedHeadersList: string[] = [];
     try {
-      const pathObj = spec.paths?.[contract.path];
+      const pathObj = spec?.paths?.[contract.path];
       const methodObj = pathObj?.[contract.method.toLowerCase()];
       const responseObj = methodObj?.responses?.[String(returnedStatus)];
       if (responseObj && responseObj.headers) {
@@ -148,7 +149,7 @@ export function ContractViewer() {
       try {
         // Resolve the schema for the returned status code dynamically
         const rawSchema = getResponseSchemaFromSpec(spec, contract.path, contract.method, returnedStatus);
-        const resolvedSchema = rawSchema ? dereferenceSchema(rawSchema, spec) : null;
+        const resolvedSchema = rawSchema ? dereferenceSchema(rawSchema, spec || {}) : null;
 
         if (resolvedSchema) {
           const validate = ajv.compile(resolvedSchema);

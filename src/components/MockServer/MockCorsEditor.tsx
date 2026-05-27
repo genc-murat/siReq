@@ -1,4 +1,3 @@
-import React from "react";
 import type { CorsConfig } from "@/lib/invoke";
 import { Network } from "lucide-react";
 

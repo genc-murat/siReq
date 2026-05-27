@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { MockServerConfig, MockEndpoint, ResponseScenario } from "@/lib/invoke";
 import { MockScenarioEditor } from "./MockScenarioEditor";
 import { MockCorsEditor } from "./MockCorsEditor";

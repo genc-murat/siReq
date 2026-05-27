@@ -100,7 +100,9 @@ export interface DatasetRow {
 }
 
 export interface RunDataset {
-  name: string;
+  name?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns?: any[];
   rows: DatasetRow[];
 }
 
