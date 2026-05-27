@@ -10,7 +10,6 @@ import {
   Clock,
   AlertOctagon,
   Zap,
-  CheckCircle2,
   Terminal
 } from "lucide-react";
 

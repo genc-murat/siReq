@@ -36,15 +36,17 @@ export function ContractViewer() {
     
     // Parse spec to see if returned code is documented at all
     let isDocumented = false;
-    let spec: any = null;
+    let spec: Record<string, unknown> | null = null;
     try {
-      spec = JSON.parse(contract.specContent);
-      const pathObj = spec.paths?.[contract.path];
-      const methodObj = pathObj?.[contract.method.toLowerCase()];
-      if (methodObj && methodObj.responses && methodObj.responses[String(returnedStatus)]) {
+      spec = JSON.parse(contract.specContent) as Record<string, unknown>;
+      const pathObj = spec.paths as Record<string, unknown> | undefined;
+      const methodObj = pathObj?.[contract.path] as Record<string, unknown> | undefined;
+      const methodResponses = methodObj?.[contract.method.toLowerCase()] as Record<string, unknown> | undefined;
+      const responses = methodResponses?.responses as Record<string, unknown> | undefined;
+      if (responses?.[String(returnedStatus)]) {
         isDocumented = true;
       }
-    } catch {}
+    } catch { /* spec parse failed */ }
 
     const statusDetails = [
       { label: "Bound Expected Status", value: String(expectedStatus), passed: returnedStatus === expectedStatus },
@@ -101,7 +103,7 @@ export function ContractViewer() {
       if (responseObj && responseObj.headers) {
         expectedHeadersList = Object.keys(responseObj.headers);
       }
-    } catch {}
+    } catch { /* response headers not found in spec */ }
 
     for (const expHeader of expectedHeadersList) {
       const actualHeader = returnedHeaders.find(([k]) => k.toLowerCase() === expHeader.toLowerCase());
@@ -133,9 +135,9 @@ export function ContractViewer() {
     let bodyErrors: { path: string; message: string }[] = [];
 
     // Parse response body
-    let responseData: any = null;
+    let responseData: Record<string, unknown> | null = null;
     try {
-      responseData = JSON.parse(response.body);
+      responseData = JSON.parse(response.body) as Record<string, unknown>;
     } catch {
       bodyPassed = false;
       isFullyCompliant = false;
@@ -173,10 +175,10 @@ export function ContractViewer() {
           // No schema defined for this status code
           bodyMsg = `No schema contract defined in OpenAPI spec for status code ${returnedStatus}. Skipping schema validate.`;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         bodyPassed = false;
         isFullyCompliant = false;
-        bodyMsg = `AJV schema validation engine error: ${err.message}`;
+        bodyMsg = `AJV schema validation engine error: ${err instanceof Error ? err.message : String(err)}`;
       }
     }
 

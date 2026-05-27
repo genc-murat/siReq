@@ -18,12 +18,13 @@ interface ContractState {
 }
 
 // Recursive Resolver to dereference all local OpenAPI $ref structures
-export function dereferenceSchema(schema: any, fullSpec: any): any {
+export function dereferenceSchema(schema: Record<string, unknown>, fullSpec: Record<string, unknown>): Record<string, unknown> {
   if (!schema) return schema;
 
   // Create deep copy
   const clone = JSON.parse(JSON.stringify(schema));
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resolve = (obj: any, visited = new Set<string>()): any => {
     if (obj === null || typeof obj !== "object") return obj;
 
@@ -40,7 +41,7 @@ export function dereferenceSchema(schema: any, fullSpec: any): any {
       }
       visited.add(refPath);
 
-      if (refPath.startsWith("#/")) {
+      if (typeof refPath === "string" && refPath.startsWith("#/")) {
         const parts = refPath.replace(/^#\//, "").split("/");
         let current = fullSpec;
         for (const part of parts) {
@@ -52,6 +53,7 @@ export function dereferenceSchema(schema: any, fullSpec: any): any {
         
         if (current !== undefined && current !== null) {
           // Merge resolved ref attributes with any other sibling attributes of the ref (like description)
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { $ref, ...rest } = obj;
           const resolved = resolve(current, new Set(visited));
           return { ...resolved, ...rest };
@@ -60,7 +62,7 @@ export function dereferenceSchema(schema: any, fullSpec: any): any {
       return obj;
     }
 
-    const nextObj: any = {};
+    const nextObj: Record<string, unknown> = {};
     for (const key of Object.keys(obj)) {
       nextObj[key] = resolve(obj[key], visited);
     }
@@ -71,6 +73,7 @@ export function dereferenceSchema(schema: any, fullSpec: any): any {
 }
 
 // Traverse spec to find exact schema for path -> method -> response code
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getResponseSchemaFromSpec(spec: any, path: string, method: string, statusCode: number): any {
   if (!spec || !spec.paths) return null;
 
@@ -121,8 +124,9 @@ export const useContractStore = create<ContractState>()(
 
           // Automatically sync JSON Schema into Request Store
           useRequestStore.getState().setJsonSchema(JSON.stringify(dereferenced, null, 2));
-        } catch (e: any) {
-          throw new Error(`Failed to bind contract: ${e.message}`);
+        } catch (e: unknown) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          throw new Error(`Failed to bind contract: ${errMsg}`, { cause: e });
         }
       },
 

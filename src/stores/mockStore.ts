@@ -72,9 +72,9 @@ export const useMockStore = create<MockState>((set, get) => ({
             try {
               stats[config.id] = await getMockServerStats(config.id);
               logs[config.id] = await getMockServerLogs(config.id);
-            } catch (_) {}
+            } catch { /* server not running — skip */ }
           }
-        } catch (_) {
+        } catch {
           statuses[config.id] = "stopped";
         }
       }

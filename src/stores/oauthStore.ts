@@ -117,7 +117,7 @@ async function sendTokenRequest(url: string, params: Record<string, string>): Pr
   };
 }
 
-const DEFAULT_CONFIG = (_requestId: string): OauthConfig => ({
+const DEFAULT_CONFIG: OauthConfig = {
   grantType: "client_credentials",
   authUrl: "",
   tokenUrl: "",
@@ -126,7 +126,7 @@ const DEFAULT_CONFIG = (_requestId: string): OauthConfig => ({
   redirectUri: "http://localhost:3456/callback",
   scope: "",
   tokenData: null,
-});
+};
 
 export const useOauthStore = create<OauthStoreState>()(
   persist(
@@ -136,7 +136,7 @@ export const useOauthStore = create<OauthStoreState>()(
 
       saveConfig: (requestId, config) => {
         set((s) => {
-          const current = s.configs[requestId] ?? DEFAULT_CONFIG(requestId);
+          const current = s.configs[requestId] ?? DEFAULT_CONFIG;
           return {
             configs: {
               ...s.configs,
@@ -147,7 +147,7 @@ export const useOauthStore = create<OauthStoreState>()(
       },
 
       getConfig: (requestId) => {
-        return get().configs[requestId] ?? DEFAULT_CONFIG(requestId);
+        return get().configs[requestId] ?? DEFAULT_CONFIG;
       },
 
       setOauthEnabled: (requestId, enabled) => {
@@ -161,7 +161,7 @@ export const useOauthStore = create<OauthStoreState>()(
 
       clearToken: (requestId) => {
         set((s) => {
-          const current = s.configs[requestId] ?? DEFAULT_CONFIG(requestId);
+          const current = s.configs[requestId] ?? DEFAULT_CONFIG;
           return {
             configs: {
               ...s.configs,

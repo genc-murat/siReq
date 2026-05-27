@@ -108,11 +108,13 @@
 
 ### Visual Chaining Flow Editor
 
-- **Interactive Node-Graph** — Drag and drop workspace with dot-grid backdrop, 10px snap alignment, custom drag-to-connect wire handles, and smooth mouse-wheel panning/zooming.
+- **Interactive Node-Graph** — Drag and drop workspace with dot-grid backdrop, 10px snap alignment, **multi-node rectangle selection (Shift+drag)**, custom drag-to-connect wire handles, and smooth mouse-wheel panning/zooming.
 - **Dynamic Bezier Paths** — Fluid cubic Bezier wires linking ports. Supports active **neon traveling pulse animations** along wire routes to show real-time signal flows!
-- **State-Driven Engine** — Runs request chains visually, resolving double-brace `{{variables}}` placeholders in URLs, headers, and request bodies before firing.
-- **Robust Node Types** — Start triggers, HTTP Request nodes, wait delay timers, JS conditional branching logic nodes, and format-ready Console Loggers.
-- **Integrated Debug HUD** — Collapsible monospaced Flow Debugger Terminal, live variables context list, and granular inspectors.
+- **Expanded Node Types** — Start triggers, HTTP Request nodes (with JSONPath response extractions), wait delay timers, JS conditional branching logic nodes, **Set Variable** nodes, **Script** nodes (custom JS execution), **Assertion** nodes (boolean validation), and format-ready Console Loggers.
+- **Sandboxed Execution Engine** — All script, condition, and assertion evaluations run in an isolated QuickJS sandbox with full flow variable access. Features **execution cancellation** (stop in-flight flows), **request snapshotting** for offline-capable execution, and **built-in flow validation**.
+- **Undo/Redo & Clipboard** — Full history-based undo/redo stack (Ctrl+Z, Ctrl+Shift+Z). Copy/paste nodes and selections across the canvas (Ctrl+C, Ctrl+V). Select-all with Ctrl+A.
+- **Flow Validation & Runner Integration** — Built-in `validateFlow()` checks for missing Start nodes, unlinked requests, and disconnected paths before execution. Launch any flow directly into the **Collection Runner** for data-driven runs with CSV/JSON datasets.
+- **Integrated Debug HUD** — Collapsible monospaced Flow Debugger Terminal, live variables context list with `{{placeholder}}` display, and granular node inspectors.
 
 ### Smart Mock Server
 
@@ -483,32 +485,43 @@ Automate API testing with collection runs:
 siReq provides a state-of-the-art, GPU-accelerated **Visual Chaining Flow Editor** (Node-Graph style) to visually model, link, and automate sequential request workflows:
 
 <p align="center">
-  <img src="./docs/screenshots/flow-editor.svg" alt="Visual Flow Editor showing connected Start, Request, Wait, Condition, and Console Logger nodes" width="1000" />
+  <img src="./docs/screenshots/flow-editor.png" alt="Visual Flow Editor showing connected Start, Request, Wait, Condition, and Console Logger nodes" width="1000" />
 </p>
 
 **Interactive Canvas & Editor features:**
 - **Grid Backdrop** — Interactive vector dot-grid supporting drag-to-pan, pinch-to-zoom, and mouse scroll wheel zoom. Nodes snap to 10px coordinates for clean layouts.
+- **Multi-Node Selection** — Hold **Shift** and drag to draw a rectangle and select multiple nodes. **Shift+click** toggles individual node selection. Combined selection for bulk copy, paste, delete, and move operations.
 - **Cubic Bezier Wires** — Fluid connection paths linking inputs and outputs. During execution, wires trigger **neon travelers** (pulsing glowing sparks) that run along the path to illuminate downstream routes in real time!
 - **Execution Debugger** — Run the entire flow visually. Nodes light up in **pulsing Cyan** when running, **Green** on success, or **Red** on failure.
+- **Flow Validation** — A built-in `validateFlow()` step runs before every execution, checking for missing Start nodes, unlinked requests, disconnected paths, and other structural issues.
+- **Sandboxed Execution** — All JavaScript (conditions, assertions, scripts) runs in an isolated **QuickJS sandbox** with controlled flow variable access. Execution can be **cancelled mid-flight** with automatic request abort and state cleanup.
+- **Request Snapshotting** — When linking an HTTP Request node, the full request definition (URL, headers, body, method, auth) is **snapshotted** into the node data, enabling offline-capable execution without requiring open tabs.
 - **Flow Debugger Terminal** — A collapsible monospaced stream panel at the bottom of the canvas displaying chronological execution steps, millisecond response speeds, data warnings, and logger outputs in real-time.
 - **Live Variables Monitor** — Lists all evaluated variable states in the active flow context, displaying their drop-in `{{placeholders}}` format.
+- **Toolbar Controls** — Compact toolbar with:
+  - **Node Adders** — Quick-add buttons for all 8 node types
+  - **View Controls** — Zoom In/Out, percentage display, Reset Zoom, **Fit to View** (auto-calculates optimal zoom/pan to show all nodes)
+  - **Undo/Redo** — Full history-based undo/redo with visual stack indicators (Ctrl+Z / Ctrl+Shift+Z)
+  - **Clipboard** — Copy (Ctrl+C) and Paste (Ctrl+V) with auto-offset positioning. **Select All** (Ctrl+A) for bulk operations
+  - **Execution Controls** — Run, Stop (with abort), Reset execution states
+  - **Runner Launch** — One-click launch into the **Collection Runner** for data-driven runs with CSV/JSON datasets
+  - **Delete / Clear** — Delete selected nodes (Delete/Backspace) or clear the entire canvas
 
 **Visual Node Types:**
-- **Start Node** — Simple green glowing trigger pill starting the execution.
-- **HTTP Request Node** — Binds to any saved request or open tab in the workspace (displays method badges like `GET` or `POST`, URL, and statistics). Supports **Response Extractions**: configure JSONPath expressions (e.g. `$.token` -> `flow_token`) to automatically extract JSON values from responses into the variables stream.
-- **Wait Timer Node** — Pauses execution flow dynamically for a specified delay in milliseconds.
-- **Branch Condition Node** — Evaluates standard JavaScript conditions (e.g. `status_code === '200'`) against current variable values, branching into `True` or `False` trigger paths.
-- **Console Log Node** — Formats and prints custom strings (e.g. `Received user ID: {{user_id}}`) directly to the debugger terminal.
+- **Start Node** — Simple green glowing trigger pill starting the execution. Only one Start node allowed per flow; protected from accidental deletion.
+- **HTTP Request Node** — Links to any saved workspace request or open tab (displays method badges like `GET` or `POST`, URL, and statistics). Supports **Response Extractions**: configure JSONPath expressions (e.g. `$.data.token` → `flow_token`) to automatically extract JSON values from responses into the variables stream. Stores a full **request snapshot** for offline-capable execution.
+- **Wait Timer Node** — Pauses execution flow dynamically for a specified delay in milliseconds (0–60,000 ms).
+- **Branch Condition Node** — Evaluates standard JavaScript conditions (e.g. `status_code === '200'`) against current variable values, branching into `True` or `False` trigger paths. Evaluated in the sandboxed engine.
+- **Set Variable Node** — Assigns a value to a named flow variable. Supports `{{variable}}` interpolation for dynamic value resolution. Useful for transforming or combining extracted data mid-flow.
+- **Script Node** — Executes arbitrary JavaScript code in the sandboxed QuickJS engine. Provides a `vars` object for reading and writing flow variables. Supports **two output ports**: success (green) and failure (red) based on whether the script throws an error.
+- **Assertion Node** — Validates a boolean JavaScript expression (e.g. `status_code === '200'`) and provides a **custom failure message**. Branches into success (green) or failure (red) ports based on the evaluation result.
+- **Console Log Node** — Formats and prints custom strings (e.g. `Received user ID: {{user_id}}`) directly to the debugger terminal. Supports `{{placeholder}}` interpolation for live variable display.
 
 ---
 
 ### API Contract Testing (OpenAPI / Pact-style Validation)
 
 siReq features an integrated **API Contract Testing** workspace that lets you audit HTTP requests against your OpenAPI/Swagger Specifications (OAS) and run Pact-style response validations:
-
-<p align="center">
-  <img src="./docs/screenshots/contract-testing.svg" alt="Contract Testing panel showing a fully compliant contract audit report with status, headers, and body checks" width="1000" />
-</p>
 
 **Visual Binding Wizard (Request Editor):**
 - **OAS Spec Binding** — A multi-step wizard tab. Paste a JSON spec and siReq instantly parses it.
@@ -658,7 +671,7 @@ siReq/
 │   │   ├── Flow/                      # Visual Chaining Flow Editor
 │   │   │   ├── FlowPanel.tsx          # Main shell, toolbar, sidebar inspectors, & flow terminal
 │   │   │   ├── FlowCanvas.tsx         # SVG/HTML grid canvas, pan/zoom, snapping, & wires drawer
-│   │   │   └── FlowNode.tsx           # Visual render cards for Start, Request, Condition, Timer, & Logger
+│   │   │   └── FlowNode.tsx           # Visual render cards for all 8 node types (Start, Request, Condition, Timer, Logger, Set Variable, Script, Assertion)
 │   │   ├── MockServer/                # Smart Mock Server components
 │   │   │   ├── MockPanel.tsx          # 3-column mock server dashboard orchestrator
 │   │   │   ├── MockConfigList.tsx     # Server instances listing, start/stop, duplicate, delete
@@ -717,6 +730,104 @@ siReq/
 │   └── screenshots/        # README screenshots
 └── package.json            # Frontend dependencies
 ```
+
+## Testing
+
+<p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/genc-murai/siReq/ci.yml?branch=main&logo=github&label=CI" alt="CI" />
+  <img src="https://img.shields.io/github/actions/workflow/status/genc-murai/siReq/release.yml?branch=main&logo=githubactions&label=Release" alt="Release" />
+  <img src="https://img.shields.io/badge/Frontend-341%20tests-3178C6?logo=vitest&logoColor=white" alt="Frontend: 341 tests" />
+  <img src="https://img.shields.io/badge/Backend-217%20tests-000000?logo=rust&logoColor=white" alt="Backend: 217 tests" />
+</p>
+
+siReq includes unit test suites for both **Zustand state stores** (Vitest) and the **Rust backend** (cargo test).
+
+### Running Tests
+
+```bash
+# Run all frontend tests
+npx vitest run
+
+# Run a specific test file
+npx vitest run src/stores/flowStore.test.ts
+
+# Run with coverage
+npx vitest run --coverage
+
+# Run all Rust backend tests
+cd src-tauri && cargo test
+
+# Run a specific Rust module
+cargo test -- mock_server::manager
+```
+
+### Frontend Store Test Coverage
+
+| Store | Tests | Coverage |
+|-------|-------|----------|
+| **sandbox** (`sandbox.test.ts`) | 120 | Script evaluation (sync/async), expression evaluation, error propagation (runtime/syntax/throw/thrown), scope isolation, `vars` read/write, function calls, `console.log`, timeout limits, `request`/`response` objects. Covers all sandboxed execution paths for pre-request, post-response, flow conditions, assertions, and scripting. |
+| **flowStore** (`flowStore.test.ts`) | 44 | Node lifecycle (add/remove/connect/disconnect), P2 execution pipeline (Set Variable → Script → Assertion), undo/redo, clipboard copy/paste, flow validation, multi-node selection, runner launch, request snapshotting, keyboard shortcuts. |
+| **runnerStore** (`runnerStore.test.ts`) | 46 | `runFlow()` — data-driven flow, single run, variable binding, stop-on-failure, iteration delay, error handling, stop mid-execution, edge cases (empty/null dataset, extracted variables, isRunning toggle). `startRun()` — collection run, data-driven collection, error handling (Error/string/null/undefined), `loadRunHistory` call on success & error, delay/stopOnFailure passthrough, fallback to `runCollection` when dataset is empty/null. |
+| **requestStore** (`requestStore.test.ts`) | 41 | `send()` — invoke call chain, loading lifecycle, `lastResponse` preservation, error handling, environmentId passthrough. `cancel()` — invoke call, loading state. `runBenchmark()` — invoke chain, loading lifecycle, history refresh. `loadBenchmarkHistory()` — pagination, error handling. 15 setter tests, `reset()`, `deleteBenchmarkHistoryItem()`, `loadHistoricBenchmark()`. |
+| **contractStore** (`contractStore.test.ts`) | 38 | `dereferenceSchema()` — 12 tests covering null/undefined input, deep clone, simple/nested/cyclic `$ref`, sibling attributes, escaped paths (`~1`), missing target, immutability, multi-level nesting. `getResponseSchemaFromSpec()` — 8 tests: valid hit, null/noPaths/missingPath/missingMethod/missingStatusCode, default fallback, text/plain content, case-insensitive method. `bindContract()` — stores config, calls `setJsonSchema` with dereferenced schema, array response, invalid/missing schema throws. `unbindContract()` — removal, clears jsonSchema, no side effects. Persistence — get/rebind lifecycle. |
+| **websocketStore** (`websocketStore.test.ts`) | 25 | `setConnectionId()` — update, null clear. `setStatus()` — all 3 states. `setUrl()` — custom URL, empty string. `addMessage()` — sent/received/system directions, order preservation, unique IDs, binary flag, empty data, timestamp. `clearMessages()` — removal, no side effects. `reset()` — restores state, preserves URL. Lifecycle integration — full connect → message → disconnect cycle. |
+| **graphqlRequest** (`graphqlRequest.test.ts`) | 15 | `buildGraphQLRequest()` — query/mutation with variables, operation name, headers, empty body, special characters. Error handling — invalid JSON variables, null/undefined inputs. |
+| **graphqlStore** (`graphqlStore.test.ts`) | 8 | Schema introspection, SDL parsing, history management, endpoint configuration. |
+| **uiStore** (`uiStore.test.ts`) | 4 | Theme toggle, sidebar state, panel layout persistence. |
+| **Total** | **341** | 9 test files — all pass ✅ |
+
+### Mock Architecture
+
+For stores that call Tauri backend commands (`invoke`), tests use **`vi.hoisted()` + `vi.mock()`** to create mutable mock references:
+
+```typescript
+const { mockInvoke } = vi.hoisted(() => ({
+  mockInvoke: {
+    sendRequest: vi.fn(),
+    cancelRequest: vi.fn(),
+    benchmarkRequest: vi.fn(),
+    getBenchmarkHistory: vi.fn(),
+    deleteBenchmarkHistory: vi.fn(),
+  },
+}));
+
+vi.mock("../lib/invoke", () => mockInvoke);
+```
+
+This pattern ensures:
+- Mocks are reset between tests via `beforeEach`
+- No actual Tauri backend calls are made during testing
+- Call arguments and return values are fully assertable
+
+Pure Zustand stores (e.g., `websocketStore`) require no mocking — state transitions are tested directly.
+
+### Rust Backend Test Coverage
+
+| Module | Tests | Coverage |
+|--------|-------|----------|
+| **scripts.rs** | 26 | `execute_pre_request` — empty script, modify URL/header, console.log, syntax error, set/read variables. `execute_post_response` — passing/failing tests, expect_include, toHaveLength, console.log, set_variable, JSON parsing. `execute_extractions` — simple/nested/array/bracket JSONPath, disabled extraction, non-JSON body, missing path, multiple extractions, direct JS exec. |
+| **variables.rs** | 29 | Variable resolution engine — `{{placeholder}}` replacement, dynamic helpers (`$timestamp`, `$uuid`, `$randomInt`, `$randomString`, `$randomEmail`, `$guid`), nested resolution, escape sequences, error handling. |
+| **mock_server/faker.rs** | 33 | `faker.*` (uuid/name/email/date/integer/number), `request.*` (path/query/header/body/variable), case-insensitive header, unknown/warning/bad-args, iteration limit. Request variable echo from query/header/body. |
+| **mock_server/manager.rs** | 24 | `new()` / `Default`, `stop_server` (nonexistent/running/isolation), `stop_all` (empty/populated), `get_server_status` (stopped/running/transition), `update_server_config` (no-op/port-change rejection/config update), `get_server_logs` (error/empty/stored entries), `get_server_stats` (error/defaults/updated), log isolation, concurrent limits. |
+| **mock_server/router.rs** | 22 | `match_path` — exact, colon param, brace param, mixed params, root, trailing slashes, different lengths. `evaluate_rule` — query/header/body/jsonpath matching, exists/equals/contains/regex operators, case-insensitive headers, unknown source/operator. |
+| **mock_server/collection_import.rs** | 19 | `extract_path` URL parsing (full URL, variable prefix, query string, edge cases). `collection_to_mock_config` — basic structure, example scenarios, empty collection, nested folder, error handling. |
+| **grpc** (`grpc.rs`) | 23 | gRPC client — method descriptor parsing, streaming types, TLS config, proto reflection, error handling. |
+| **http.rs** | 13 | `extract_domain` (4), `format_cookie_header` (2), `parse_set_cookie` (6), `cancel_request` (1). |
+| **websocket.rs** | 10 | WebSocket client — connect/disconnect, send/receive, event handling, error recovery, environment variable resolution in URL. |
+| **mock_server/latency.rs** | 10 | None, fixed, random range, normal distribution, clamp 30s, unknown mode, edge cases. |
+| **mock_server/openapi.rs** | 8 | `openapi_to_mock_config` — paths, metadata, fallback endpoints, default, v2/v3 support. |
+| **http.rs (integration)** | 9 | End-to-end HTTP request/response lifecycle — method passthrough, headers, body, query params, redirects, errors. |
+| **Total** | **217** | All modules — 0 failed, 0 ignored ✅ |
+
+### Grand Total
+
+| Suite | Tests |
+|-------|-------|
+| Frontend (Vitest) | **341** |
+| Rust backend (`cargo test`) | **217** |
+| **Grand total** | **558** |
+
+---
 
 ## Contributing
 

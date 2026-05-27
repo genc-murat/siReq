@@ -76,8 +76,7 @@ pub fn render(template: &str, ctx: &RequestContext) -> (String, Vec<String>) {
 
 fn resolve_expression(expr: &str, ctx: &RequestContext) -> (String, Option<String>) {
     // 1. Faker Engine
-    if expr.starts_with("faker.") {
-        let faker_expr = &expr[6..];
+    if let Some(faker_expr) = expr.strip_prefix("faker.") {
         
         if faker_expr == "uuid" {
             return (Uuid::new_v4().to_string(), None);
@@ -147,23 +146,20 @@ fn resolve_expression(expr: &str, ctx: &RequestContext) -> (String, Option<Strin
     }
 
     // 2. Request Data
-    if expr.starts_with("request.") {
-        let req_expr = &expr[8..];
+    if let Some(req_expr) = expr.strip_prefix("request.") {
         
         if req_expr == "path" {
             return (ctx.path.clone(), None);
         }
         
-        if req_expr.starts_with("query.") {
-            let query_key = &req_expr[6..];
+        if let Some(query_key) = req_expr.strip_prefix("query.") {
             if let Some(val) = ctx.query_params.get(query_key) {
                 return (val.clone(), None);
             }
             return ("".to_string(), Some(format!("Query parameter not found: {}", query_key)));
         }
         
-        if req_expr.starts_with("headers.") {
-            let header_key = &req_expr[8..];
+        if let Some(header_key) = req_expr.strip_prefix("headers.") {
             let lower_key = header_key.to_lowercase();
             // Look up case-insensitively
             for (k, v) in &ctx.headers {
@@ -174,8 +170,7 @@ fn resolve_expression(expr: &str, ctx: &RequestContext) -> (String, Option<Strin
             return ("".to_string(), Some(format!("Request header not found: {}", header_key)));
         }
         
-        if req_expr.starts_with("body.") {
-            let jsonpath_exp = &req_expr[5..];
+        if let Some(jsonpath_exp) = req_expr.strip_prefix("body.") {
             // Prepend '$' if not present
             let parsed_path = if jsonpath_exp.starts_with('$') {
                 jsonpath_exp.to_string()
@@ -223,4 +218,207 @@ fn evaluate_jsonpath(body: &str, expression: &str) -> Option<String> {
         serde_json::Value::String(s) => s,
         other => other.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ctx() -> RequestContext {
+        let mut headers = HashMap::new();
+        headers.insert("content-type".into(), "application/json".into());
+        headers.insert("authorization".into(), "Bearer test-token".into());
+        let mut query_params = HashMap::new();
+        query_params.insert("page".into(), "2".into());
+        query_params.insert("limit".into(), "50".into());
+        let mut variables = HashMap::new();
+        variables.insert("my_var".into(), "my_value".into());
+        RequestContext {
+            path: "/api/users/42".into(),
+            headers,
+            query_params,
+            body: r#"{"name": "Alice", "age": 30}"#.into(),
+            variables,
+        }
+    }
+
+    #[test]
+    fn test_render_no_placeholders() {
+        let (result, warnings) = render("hello world", &ctx());
+        assert_eq!(result, "hello world");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_faker_uuid() {
+        let (result, warnings) = render("{{faker.uuid}}", &ctx());
+        assert_eq!(result.len(), 36); // UUID v4 format
+        assert_eq!(result.chars().filter(|&c| c == '-').count(), 4);
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_faker_name() {
+        let (result, warnings) = render("{{faker.name}}", &ctx());
+        assert!(!result.is_empty());
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_faker_email() {
+        let (result, warnings) = render("{{faker.email}}", &ctx());
+        assert!(result.contains('@'));
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_faker_date() {
+        let (result, warnings) = render("{{faker.date}}", &ctx());
+        assert!(!result.is_empty());
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_faker_integer() {
+        let (result, warnings) = render("{{faker.integer(10, 20)}}", &ctx());
+        let val: i64 = result.parse().unwrap();
+        assert!((10..=20).contains(&val));
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_faker_integer_reversed_range() {
+        // min >= max should return min
+        let (result, warnings) = render("{{faker.integer(99, 1)}}", &ctx());
+        assert_eq!(result, "99");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_faker_number() {
+        let (result, warnings) = render("{{faker.number(1.0, 10.0)}}", &ctx());
+        let val: f64 = result.parse().unwrap();
+        assert!((1.0..=10.0).contains(&val), "got {}", val);
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_request_path() {
+        let (result, warnings) = render("{{request.path}}", &ctx());
+        assert_eq!(result, "/api/users/42");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_request_query() {
+        let (result, warnings) = render("{{request.query.page}}", &ctx());
+        assert_eq!(result, "2");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_request_header() {
+        let (result, warnings) = render("{{request.headers.authorization}}", &ctx());
+        assert_eq!(result, "Bearer test-token");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_request_header_case_insensitive() {
+        let (result, warnings) = render("{{request.headers.Authorization}}", &ctx());
+        assert_eq!(result, "Bearer test-token");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_request_body_jsonpath() {
+        let (result, warnings) = render("{{request.body.name}}", &ctx());
+        assert_eq!(result, "Alice");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_variable() {
+        let (result, warnings) = render("{{my_var}}", &ctx());
+        assert_eq!(result, "my_value");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_unknown_expression_gives_warning() {
+        let (result, warnings) = render("{{nonexistent}}", &ctx());
+        assert_eq!(result, "");
+        assert!(!warnings.is_empty());
+        assert!(warnings[0].contains("nonexistent"));
+    }
+
+    #[test]
+    fn test_render_multiple_placeholders() {
+        let template = "User: {{faker.name}}, Email: {{faker.email}}, Path: {{request.path}}";
+        let (result, warnings) = render(template, &ctx());
+        assert!(result.contains("User: "));
+        assert!(result.contains(", Email: "));
+        assert!(result.contains(", Path: /api/users/42"));
+        // Name and email should NOT be empty
+        let parts: Vec<&str> = result.split(", ").collect();
+        assert_eq!(parts.len(), 3);
+        assert!(parts[0].len() > 6);  // "User: " + at least one char
+        assert!(parts[1].len() > 8);  // "Email: " + at least one char
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_unknown_faker_method() {
+        let (result, warnings) = render("{{faker.unknown}}", &ctx());
+        assert_eq!(result, "");
+        assert!(!warnings.is_empty());
+        assert!(warnings[0].contains("Unknown faker method"));
+    }
+
+    #[test]
+    fn test_render_faker_integer_bad_args() {
+        let (result, warnings) = render("{{faker.integer(abc)}}", &ctx());
+        assert_eq!(result, "");
+        assert!(!warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_request_missing_header() {
+        let (result, warnings) = render("{{request.headers.x-missing}}", &ctx());
+        assert_eq!(result, "");
+        assert!(!warnings.is_empty());
+        assert!(warnings[0].contains("header not found"));
+    }
+
+    #[test]
+    fn test_render_request_missing_query() {
+        let (result, warnings) = render("{{request.query.nonexistent}}", &ctx());
+        assert_eq!(result, "");
+        assert!(!warnings.is_empty());
+    }
+
+    #[test]
+    fn test_render_request_missing_body_path() {
+        let (result, warnings) = render("{{request.body.missing}}", &ctx());
+        assert_eq!(result, "");
+        assert!(!warnings.is_empty());
+        assert!(warnings[0].contains("no results"));
+    }
+
+    #[test]
+    fn test_render_unknown_request_property() {
+        let (result, warnings) = render("{{request.unknown}}", &ctx());
+        assert_eq!(result, "");
+        assert!(!warnings.is_empty());
+        assert!(warnings[0].contains("Unknown request property"));
+    }
+
+    #[test]
+    fn test_render_iteration_limit_prevented_infinite_loop() {
+        // A template that keeps getting replaced should eventually stop
+        let template = "{{faker.uuid}}";
+        let (result, _) = render(template, &ctx());
+        // Should produce a UUID-like string
+        assert_eq!(result.len(), 36);
+    }
 }

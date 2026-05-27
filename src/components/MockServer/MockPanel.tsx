@@ -4,7 +4,7 @@ import { MockConfigList } from "./MockConfigList";
 import { MockEndpointEditor } from "./MockEndpointEditor";
 import { MockLogViewer } from "./MockLogViewer";
 import { MockImportDialog } from "./MockImportDialog";
-import { Server, Sliders, Info, Zap } from "lucide-react";
+import { Server, Info, Zap } from "lucide-react";
 
 export default function MockPanel() {
   const loadConfigs = useMockStore((s) => s.loadConfigs);

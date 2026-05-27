@@ -16,7 +16,15 @@ interface DraggingPort {
   y: number;
 }
 
+interface SelectionRect {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}
+
 // Utility: Calculate port position dynamically based on node coordinates
+// eslint-disable-next-line react-refresh/only-export-components
 export const getPortPos = (node: FlowNode, portId: string, isOutput: boolean) => {
   const w = 240; // width is w-60 (240px)
   let h = 100;
@@ -24,6 +32,9 @@ export const getPortPos = (node: FlowNode, portId: string, isOutput: boolean) =>
   else if (node.type === "delay") h = 100;
   else if (node.type === "logger" || node.type === "condition") h = 108;
   else if (node.type === "request") h = 135;
+  else if (node.type === "set_variable") h = 108;
+  else if (node.type === "script") h = 120;
+  else if (node.type === "assertion") h = 108;
 
   const x = isOutput ? node.x + w : node.x;
   let y = node.y + h / 2;
@@ -35,6 +46,12 @@ export const getPortPos = (node: FlowNode, portId: string, isOutput: boolean) =>
   } else if (node.type === "request") {
     if (portId === "success") y = node.y + 52;
     if (portId === "failure") y = node.y + 84;
+  } else if (node.type === "script") {
+    if (portId === "flow") y = node.y + 48;
+    if (portId === "failure") y = node.y + 80;
+  } else if (node.type === "assertion") {
+    if (portId === "true") y = node.y + 44;
+    if (portId === "false") y = node.y + 76;
   }
 
   return { x, y };
@@ -53,6 +70,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
   const updateNodePosition = useFlowStore((s) => s.updateNodePosition);
   const addEdge = useFlowStore((s) => s.addEdge);
   const deleteEdge = useFlowStore((s) => s.deleteEdge);
+  const setSelectedNodeIds = useFlowStore((s) => s.setSelectedNodeIds);
   const deleteNode = useFlowStore((s) => s.deleteNode);
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -68,6 +86,11 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
   // Local connection-drawing state
   const [activePort, setActivePort] = useState<DraggingPort | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  // Multi-select drag-rectangle state
+  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
+  const [isDraggingSelection, setIsDraggingSelection] = useState(false);
+  const [, setSelectionStart] = useState({ x: 0, y: 0 });
 
   // Handle Zoom on Wheel scroll
   const handleWheel = (e: React.WheelEvent) => {
@@ -87,17 +110,34 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
     };
   };
 
-  // Handle mousedown on Canvas to start Panning
+  // Handle mousedown on Canvas to start Panning or Selection Drag
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
     if ((e.target as HTMLElement).closest(".nodrag")) return; // Don't pan if dragging node contents
-    
+
+    const canvasPos = screenToCanvas(e.clientX, e.clientY);
+
+    // If shift is held, start selection rectangle
+    if (e.shiftKey) {
+      setIsDraggingSelection(true);
+      setSelectionStart(canvasPos);
+      setSelectionRect({ startX: canvasPos.x, startY: canvasPos.y, endX: canvasPos.x, endY: canvasPos.y });
+      return;
+    }
+
     setIsPanning(true);
     setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   // Drag handles
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDraggingSelection) {
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      setSelectionRect((prev) =>
+        prev ? { ...prev, endX: pos.x, endY: pos.y } : null
+      );
+      return;
+    }
     if (isPanning) {
       setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     } else if (draggingNodeId) {
@@ -113,16 +153,55 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
   };
 
   const handleMouseUp = () => {
+    if (isDraggingSelection && selectionRect) {
+      // Calculate selection rectangle bounds
+      const minX = Math.min(selectionRect.startX, selectionRect.endX);
+      const maxX = Math.max(selectionRect.startX, selectionRect.endX);
+      const minY = Math.min(selectionRect.startY, selectionRect.endY);
+      const maxY = Math.max(selectionRect.startY, selectionRect.endY);
+
+      // Find nodes that overlap with the selection rectangle
+      const selectedIds = nodes
+        .filter((n) => {
+          if (n.type === "start") return false; // Can't select start via drag
+          const nodeW = 240;
+          const nodeH = n.type === "start" ? 76 : n.type === "request" ? 135 : n.type === "delay" ? 100 : n.type === "logger" || n.type === "condition" ? 108 : n.type === "set_variable" ? 108 : n.type === "script" ? 120 : n.type === "assertion" ? 108 : 100;
+          return n.x < maxX && n.x + nodeW > minX && n.y < maxY && n.y + nodeH > minY;
+        })
+        .map((n) => n.id);
+
+      setSelectedNodeIds(selectedIds);
+      if (selectedIds.length === 1) {
+        onNodeSelected(nodes.find((n) => n.id === selectedIds[0]) ?? null);
+      } else {
+        onNodeSelected(null);
+      }
+    }
+
     setIsPanning(false);
     setDraggingNodeId(null);
     setActivePort(null);
+    setIsDraggingSelection(false);
+    setSelectionRect(null);
   };
 
-  // Node Drag Start
+  // Node Drag Start — supports multi-select dragging
   const handleNodeDragStart = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
-    onNodeSelected(nodes.find((n) => n.id === nodeId) ?? null);
-    
+
+    // If shift is held, toggle this node in multi-selection
+    if (e.shiftKey) {
+      useFlowStore.getState().toggleSelectedNodeId(nodeId);
+      return;
+    }
+
+    // If node is not in current multi-selection, clear and select only this one
+    const store = useFlowStore.getState();
+    if (!store.selectedNodeIds.includes(nodeId)) {
+      store.setSelectedNodeIds([]);
+      onNodeSelected(nodes.find((n) => n.id === nodeId) ?? null);
+    }
+
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
 
@@ -243,7 +322,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
             const path = getBezierPath(fromPos.x, fromPos.y, toPos.x, toPos.y);
 
             // Determine edge color based on port type
-            let strokeColor = "stroke-border hover:stroke-primary/70";
+            let strokeColor: string;
             let marker = "url(#arrow)";
             let isPathActive = false;
 
@@ -316,6 +395,22 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
               className="animate-[dash_1s_linear_infinite]"
             />
           )}
+
+          {/* Selection Rectangle */}
+          {selectionRect && (
+            <rect
+              x={Math.min(selectionRect.startX, selectionRect.endX)}
+              y={Math.min(selectionRect.startY, selectionRect.endY)}
+              width={Math.abs(selectionRect.endX - selectionRect.startX)}
+              height={Math.abs(selectionRect.endY - selectionRect.startY)}
+              fill="var(--color-primary)"
+              fillOpacity={0.08}
+              stroke="var(--color-primary)"
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
+              rx={4}
+            />
+          )}
         </svg>
 
         {/* Render Flow Nodes (HTML Layer) */}
@@ -326,7 +421,14 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
               node={node}
               selected={node.id === selectedNodeId}
               active={node.id === activeNodeId}
-              onSelect={() => onNodeSelected(node)}
+              multiSelected={useFlowStore.getState().selectedNodeIds.includes(node.id) && node.id !== selectedNodeId}
+              onSelect={(e) => {
+                // Clear multi-select when clicking a single node (not holding shift)
+                if (!e.shiftKey) {
+                  useFlowStore.getState().setSelectedNodeIds([]);
+                }
+                onNodeSelected(node);
+              }}
               onDragStart={handleNodeDragStart}
               onDelete={() => deleteNode(node.id)}
               onPortMouseDown={handlePortMouseDown}
@@ -350,6 +452,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelected, selected
                 ? [{ id: "true" }, { id: "false" }]
                 : node.type === "request"
                 ? [{ id: "success" }, { id: "failure" }]
+                : node.type === "script"
+                ? [{ id: "flow" }, { id: "failure" }]
+                : node.type === "assertion"
+                ? [{ id: "true" }, { id: "false" }]
                 : [{ id: "flow" }]
               : // If drawing from an output, we seek to connect to inputs (which is only "trigger" for standard nodes)
                 node.type !== "start"

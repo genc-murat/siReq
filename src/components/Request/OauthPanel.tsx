@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import type { OauthGrantType } from "@/stores/oauthStore";
 import { useOauthStore } from "@/stores/oauthStore";
 import { useRequestStore } from "@/stores/requestStore";
@@ -46,10 +46,27 @@ export function OauthPanel() {
     }
   }, [requestAuth.token, config.tokenData, requestId, clearToken]);
 
+  const handleExchangeCode = useCallback(async (code: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await exchangeCodeForToken(requestId, code);
+      addToast("Successfully exchanged authorization code for token", "success");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Code exchange failed";
+      setError(msg);
+      addToast(msg, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [requestId, exchangeCodeForToken, addToast]);
+
   // Expiry countdown timer
   useEffect(() => {
     if (!config.tokenData || !config.tokenData.expiresIn) {
-      setTimeRemaining(null);
+      startTransition(() => {
+        setTimeRemaining(null);
+      });
       return;
     }
 
@@ -58,7 +75,9 @@ export function OauthPanel() {
       const diff = expiresAt - Date.now();
 
       if (diff <= 0) {
-        setTimeRemaining("Expired");
+        startTransition(() => {
+          setTimeRemaining("Expired");
+        });
         // Clear token from requestStore if expired
         if (requestAuth.token) {
           setAuth({ ...requestAuth, token: "" });
@@ -72,11 +91,13 @@ export function OauthPanel() {
       const hours = Math.floor(mins / 60);
       const minsLeft = mins % 60;
 
-      if (hours > 0) {
-        setTimeRemaining(`${hours}h ${minsLeft}m ${secs}s`);
-      } else {
-        setTimeRemaining(`${minsLeft}m ${secs}s`);
-      }
+      startTransition(() => {
+        if (hours > 0) {
+          setTimeRemaining(`${hours}h ${minsLeft}m ${secs}s`);
+        } else {
+          setTimeRemaining(`${minsLeft}m ${secs}s`);
+        }
+      });
     };
 
     calculateTime();
@@ -99,13 +120,17 @@ export function OauthPanel() {
       }
 
       if (code) {
-        setCallbackUrlInput(""); // Reset input
-        handleExchangeCode(code);
+        startTransition(() => {
+          setCallbackUrlInput(""); // Reset input
+        });
+        // Defer async operation to avoid setState during effect warning
+        const timer = setTimeout(() => handleExchangeCode(code), 0);
+        return () => clearTimeout(timer);
       }
     } catch {
       // Not a valid URL, ignore and let manual trigger handle it
     }
-  }, [callbackUrlInput]);
+  }, [callbackUrlInput, handleExchangeCode]);
 
   const handleFetchClientCredentials = async () => {
     setIsLoading(true);
@@ -113,9 +138,10 @@ export function OauthPanel() {
     try {
       await fetchTokenClientCredentials(requestId);
       addToast("Successfully acquired Client Credentials token", "success");
-    } catch (err: any) {
-      setError(err?.message || "Token retrieval failed");
-      addToast(err?.message || "Token retrieval failed", "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Token retrieval failed";
+      setError(msg);
+      addToast(msg, "error");
     } finally {
       setIsLoading(false);
     }
@@ -129,22 +155,9 @@ export function OauthPanel() {
       // Open in browser
       window.open(authUrl, "_blank");
       addToast("Sign in in your browser to complete authorization", "info");
-    } catch (err: any) {
-      setError(err?.message || "Failed to generate authorization URL");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleExchangeCode = async (code: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await exchangeCodeForToken(requestId, code);
-      addToast("Successfully exchanged authorization code for token", "success");
-    } catch (err: any) {
-      setError(err?.message || "Code exchange failed");
-      addToast(err?.message || "Code exchange failed", "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to generate authorization URL";
+      setError(msg);
     } finally {
       setIsLoading(false);
     }

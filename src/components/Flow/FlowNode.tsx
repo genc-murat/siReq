@@ -6,7 +6,8 @@ interface FlowNodeProps {
   node: FlowNode;
   selected: boolean;
   active: boolean;
-  onSelect: () => void;
+  multiSelected?: boolean;
+  onSelect: (e: React.MouseEvent) => void;
   onDragStart: (e: React.MouseEvent, nodeId: string) => void;
   onDelete: () => void;
   onPortMouseDown: (e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => void;
@@ -16,6 +17,7 @@ export const FlowNodeComponent: React.FC<FlowNodeProps> = ({
   node,
   selected,
   active,
+  multiSelected,
   onSelect,
   onDragStart,
   onDelete,
@@ -33,15 +35,25 @@ export const FlowNodeComponent: React.FC<FlowNodeProps> = ({
         };
       case "delay":
       case "logger":
+      case "set_variable":
         return {
           inputs: [{ id: "trigger", label: "In", color: "bg-primary" }],
           outputs: [{ id: "flow", label: "Out", color: "bg-primary" }],
         };
-      case "condition":
+      case "script":
         return {
           inputs: [{ id: "trigger", label: "In", color: "bg-primary" }],
           outputs: [
-            { id: "true", label: "True", color: "bg-green-500" },
+            { id: "flow", label: "Success", color: "bg-green-500" },
+            { id: "failure", label: "Error", color: "bg-red-500" },
+          ],
+        };
+      case "condition":
+      case "assertion":
+        return {
+          inputs: [{ id: "trigger", label: "In", color: "bg-primary" }],
+          outputs: [
+            { id: "true", label: "True" , color: "bg-green-500" },
             { id: "false", label: "False", color: "bg-red-500" },
           ],
         };
@@ -67,6 +79,8 @@ export const FlowNodeComponent: React.FC<FlowNodeProps> = ({
     ? "border-green-500/50 shadow-sm shadow-green-500/5 bg-card"
     : node.status === "failure"
     ? "border-red-500/50 shadow-sm shadow-red-500/5 bg-card"
+    : multiSelected
+    ? "border-primary/50 ring-1 ring-primary/30 shadow-md shadow-primary/10 bg-accent/20"
     : selected
     ? "border-primary ring-1 ring-primary shadow-md shadow-primary/10"
     : "border-border hover:border-muted-foreground/40 bg-card";
@@ -119,6 +133,24 @@ export const FlowNodeComponent: React.FC<FlowNodeProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
           </svg>
         );
+      case "set_variable":
+        return (
+          <svg className="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        );
+      case "script":
+        return (
+          <svg className="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+          </svg>
+        );
+      case "assertion":
+        return (
+          <svg className="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -130,7 +162,7 @@ export const FlowNodeComponent: React.FC<FlowNodeProps> = ({
       style={{ left: node.x, top: node.y }}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect();
+        onSelect(e);
       }}
       className={cn(
         "absolute w-60 border rounded-xl bg-card text-card-foreground select-none flex flex-col shadow-sm transition-all duration-150 group/node cursor-pointer z-10",
@@ -232,6 +264,36 @@ export const FlowNodeComponent: React.FC<FlowNodeProps> = ({
             <div className="font-mono text-[10px] text-purple-400 bg-purple-950/15 border border-purple-500/20 px-1.5 py-1 rounded line-clamp-2 break-all" title={node.data.expression}>
               {node.data.expression || "true"}
             </div>
+          </div>
+        )}
+
+        {node.type === "set_variable" && (
+          <div className="space-y-1">
+            <div className="text-[10px] text-muted-foreground uppercase font-medium">Set Variable</div>
+            <div className="font-mono text-[11px] text-orange-400 bg-orange-950/15 border border-orange-500/20 px-1.5 py-1 rounded break-all" title={node.data.variableName}>
+              {node.data.variableName || "(no name)"} = {node.data.variableValue || ""}
+            </div>
+          </div>
+        )}
+
+        {node.type === "script" && (
+          <div className="space-y-1">
+            <div className="text-[10px] text-muted-foreground uppercase font-medium">Script</div>
+            <div className="font-mono text-[10px] text-cyan-400 bg-cyan-950/15 border border-cyan-500/20 px-1.5 py-1 rounded line-clamp-3 break-all leading-relaxed" title={node.data.scriptCode}>
+              {node.data.scriptCode ? node.data.scriptCode.split('\n').slice(0, 3).join('\n').substring(0, 80) + (node.data.scriptCode.length > 80 ? '...' : '') : "(empty)"}
+            </div>
+          </div>
+        )}
+
+        {node.type === "assertion" && (
+          <div className="space-y-1">
+            <div className="text-[10px] text-muted-foreground uppercase font-medium">Assert</div>
+            <div className="font-mono text-[10px] text-rose-400 bg-rose-950/15 border border-rose-500/20 px-1.5 py-1 rounded break-all line-clamp-2" title={node.data.assertionExpression}>
+              {node.data.assertionExpression || "true"}
+            </div>
+            {node.data.assertionMessage && (
+              <div className="text-[9px] text-muted-foreground truncate px-1">{node.data.assertionMessage}</div>
+            )}
           </div>
         )}
 

@@ -1,12 +1,26 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback, startTransition } from "react";
 import { useFlowStore } from "@/stores/flowStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useRunnerStore } from "@/stores/runnerStore";
 import { useTabStore } from "@/stores/tabStore";
 import { FlowCanvas } from "./FlowCanvas";
 import { getCollections } from "@/lib/invoke";
 import type { FlowNode, FlowNodeType } from "@/stores/flowStore";
 import type { CollectionRequest, CollectionItem } from "@/lib/invoke";
 import { cn } from "@/lib/utils";
+
+// Flatten collection items helper (pure utility, no component deps)
+const flattenRequests = (items: CollectionItem[]): CollectionRequest[] => {
+  let reqs: CollectionRequest[] = [];
+  for (const item of items) {
+    if (item.type === "request") {
+      reqs.push(item);
+    } else {
+      reqs = reqs.concat(flattenRequests(item.items));
+    }
+  }
+  return reqs;
+};
 
 export const FlowPanel: React.FC = () => {
   const nodes = useFlowStore((s) => s.nodes);
@@ -24,6 +38,21 @@ export const FlowPanel: React.FC = () => {
   const runFlow = useFlowStore((s) => s.runFlow);
   const stopFlow = useFlowStore((s) => s.stopFlow);
 
+  const zoom = useFlowStore((s) => s.zoom);
+  const undoStack = useFlowStore((s) => s.undoStack);
+  const redoStack = useFlowStore((s) => s.redoStack);
+  const selectedNodeIds = useFlowStore((s) => s.selectedNodeIds);
+  const clipboard = useFlowStore((s) => s.clipboard);
+  const setZoom = useFlowStore((s) => s.setZoom);
+  const setPan = useFlowStore((s) => s.setPan);
+  const undo = useFlowStore((s) => s.undo);
+  const redo = useFlowStore((s) => s.redo);
+  const copySelectedNodes = useFlowStore((s) => s.copySelectedNodes);
+  const pasteNodes = useFlowStore((s) => s.pasteNodes);
+  const deleteSelectedNodes = useFlowStore((s) => s.deleteSelectedNodes);
+  const validateFlow = useFlowStore((s) => s.validateFlow);
+  const setSelectedNodeIds = useFlowStore((s) => s.setSelectedNodeIds);
+
   const activeEnvironmentId = useUIStore((s) => s.activeEnvironmentId);
 
   const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
@@ -32,19 +61,6 @@ export const FlowPanel: React.FC = () => {
   const [activeRightTab, setActiveRightTab] = useState<"inspector" | "variables">("inspector");
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
-
-  // Flatten collection items helper
-  const flattenRequests = (items: CollectionItem[]): CollectionRequest[] => {
-    let reqs: CollectionRequest[] = [];
-    for (const item of items) {
-      if (item.type === "request") {
-        reqs.push(item);
-      } else {
-        reqs = reqs.concat(flattenRequests(item.items));
-      }
-    }
-    return reqs;
-  };
 
   // Fetch available workspace requests
   useEffect(() => {
@@ -73,13 +89,15 @@ export const FlowPanel: React.FC = () => {
     };
 
     fetchRequests();
-  }, [nodes]);
+  }, []);
 
   // Keep selectedNode in sync with store state
   useEffect(() => {
     if (selectedNode) {
       const updated = nodes.find((n) => n.id === selectedNode.id);
-      setSelectedNode(updated ?? null);
+      startTransition(() => {
+        setSelectedNode(updated ?? null);
+      });
     }
   }, [nodes, selectedNode]);
 
@@ -110,8 +128,128 @@ export const FlowPanel: React.FC = () => {
   };
 
   const handleRun = () => {
+    const result = validateFlow();
+    if (!result.valid || result.warnings.length > 0) {
+      return;
+    }
     runFlow(activeEnvironmentId);
   };
+
+  const handleZoomIn = () => setZoom((prev) => Math.min(2, prev + 0.15));
+  const handleZoomOut = () => setZoom((prev) => Math.max(0.3, prev - 0.15));
+  const handleZoomReset = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleFitToView = () => {
+    const { nodes } = useFlowStore.getState();
+    if (nodes.length === 0) return;
+    const minX = Math.min(...nodes.map((n) => n.x));
+    const minY = Math.min(...nodes.map((n) => n.y));
+    const maxX = Math.max(...nodes.map((n) => n.x + 240));
+    const maxY = Math.max(...nodes.map((n) => n.y + 150));
+    const padding = 60;
+    const viewW = window.innerWidth * 0.55;
+    const viewH = window.innerHeight * 0.6;
+    const fitZoom = Math.min(viewW / (maxX - minX + padding * 2), viewH / (maxY - minY + padding * 2), 1.5);
+    const clampedZoom = Math.max(0.3, Math.min(2, fitZoom));
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    setZoom(clampedZoom);
+    setPan({ x: viewW / 2 - centerX * clampedZoom, y: viewH / 2 - centerY * clampedZoom });
+  };
+
+  const handleCopy = useCallback(() => {
+    if (selectedNodeIds.length === 0 && !selectedNode) return;
+    if (selectedNodeIds.length === 0 && selectedNode) {
+      setSelectedNodeIds([selectedNode.id]);
+      copySelectedNodes();
+      return;
+    }
+    copySelectedNodes();
+  }, [selectedNodeIds, selectedNode, setSelectedNodeIds, copySelectedNodes]);
+
+  const handlePaste = useCallback(() => {
+    if (!clipboard) return;
+    const canvasWidth = 800;
+    const scrollX = -useFlowStore.getState().pan.x;
+    const scrollY = -useFlowStore.getState().pan.y;
+    const currentZoom = useFlowStore.getState().zoom;
+    const x = Math.round((scrollX + canvasWidth / 3) / currentZoom / 10) * 10;
+    const y = Math.round((scrollY + 200) / currentZoom / 10) * 10;
+    const newIds = pasteNodes(x, y);
+    if (newIds.length > 0) {
+      setSelectedNodeIds(newIds);
+      const firstNode = useFlowStore.getState().nodes.find((n) => n.id === newIds[0]);
+      setSelectedNode(firstNode ?? null);
+      setActiveRightTab("inspector");
+    }
+  }, [clipboard, pasteNodes, setSelectedNodeIds, setSelectedNode]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedNodeIds.length > 0) {
+      deleteSelectedNodes();
+      setSelectedNode(null);
+    } else if (selectedNode) {
+      deleteNode(selectedNode.id);
+      setSelectedNode(null);
+    }
+  }, [selectedNodeIds, selectedNode, deleteSelectedNodes, deleteNode, setSelectedNode]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInput = (e.target as HTMLElement)?.closest("input, textarea, select");
+      if (isInput) return;
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        handleDeleteSelected();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        if (selectedNodeIds.length > 0 || selectedNode) {
+          e.preventDefault();
+          handleCopy();
+        }
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        if (clipboard) {
+          e.preventDefault();
+          handlePaste();
+        }
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        e.preventDefault();
+        setSelectedNodeIds(nodes.filter((n) => n.type !== "start").map((n) => n.id));
+        return;
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedNodeIds, selectedNode, clipboard, nodes, handleCopy, handleDeleteSelected, handlePaste, redo, undo, setSelectedNodeIds]);
 
   // Extractions editor methods (Request node specific)
   const addExtraction = () => {
@@ -189,41 +327,191 @@ export const FlowPanel: React.FC = () => {
               </svg>
               Console Log
             </button>
+
+            <button
+              onClick={() => handleAddNode("set_variable")}
+              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-orange-400 transition-all duration-150 flex items-center gap-1"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Variable
+            </button>
+
+            <button
+              onClick={() => handleAddNode("script")}
+              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-cyan-400 transition-all duration-150 flex items-center gap-1"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+              </svg>
+              Script
+            </button>
+
+            <button
+              onClick={() => handleAddNode("assertion")}
+              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-rose-400 transition-all duration-150 flex items-center gap-1"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Assert
+            </button>
           </div>
 
-          {/* Execution Controls */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* View Controls: Zoom + Undo/Redo + Clipboard */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-0.5 mr-1">
+              <button
+                onClick={handleZoomOut}
+                className="p-1 border rounded hover:bg-accent transition-all duration-100"
+                title="Zoom Out"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                </svg>
+              </button>
+              <button
+                onClick={handleZoomReset}
+                className="px-1.5 py-0.5 text-[10px] font-mono font-bold text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all duration-100"
+                title="Reset zoom"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                onClick={handleZoomIn}
+                className="p-1 border rounded hover:bg-accent transition-all duration-100"
+                title="Zoom In"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+              <button
+                onClick={handleFitToView}
+                className="p-1 border rounded hover:bg-accent transition-all duration-100 ml-0.5"
+                title="Fit to view"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-border" />
+
+            {/* Undo / Redo */}
+            <button
+              onClick={undo}
+              disabled={undoStack.length === 0}
+              className="p-1 border rounded hover:bg-accent transition-all duration-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Undo (Ctrl+Z)"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+            </button>
+            <button
+              onClick={redo}
+              disabled={redoStack.length === 0}
+              className="p-1 border rounded hover:bg-accent transition-all duration-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+              </svg>
+            </button>
+
+            <div className="h-4 w-px bg-border" />
+
+            {/* Copy / Paste */}
+            <button
+              onClick={handleCopy}
+              disabled={selectedNodeIds.length === 0 && !selectedNode}
+              className="p-1 border rounded hover:bg-accent transition-all duration-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Copy (Ctrl+C)"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="9" y="9" width="13" height="13" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <button
+              onClick={handlePaste}
+              disabled={!clipboard}
+              className="p-1 border rounded hover:bg-accent transition-all duration-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Paste (Ctrl+V)"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6" />
+              </svg>
+            </button>
+
+            <div className="h-4 w-px bg-border" />
+
+            {/* Execution Controls */}
             {isRunning ? (
               <button
                 onClick={stopFlow}
-                className="px-3.5 py-1 bg-red-600 text-white hover:bg-red-500 text-xs font-bold rounded-lg shadow-md transition-all duration-150 flex items-center gap-1.5"
+                className="px-3 py-1 bg-red-600 text-white hover:bg-red-500 text-xs font-bold rounded-lg shadow-md transition-all duration-150 flex items-center gap-1"
               >
                 <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>
-                Stop Flow
+                Stop
               </button>
             ) : (
               <button
                 onClick={handleRun}
-                className="px-3.5 py-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg shadow-md shadow-green-600/10 transition-all duration-150 flex items-center gap-1.5"
+                className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg shadow-md shadow-green-600/10 transition-all duration-150 flex items-center gap-1"
               >
                 <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                Run Flow
+                Run
               </button>
             )}
 
             <button
               onClick={resetExecution}
-              className="px-2.5 py-1 border text-xs font-medium rounded-lg hover:bg-accent transition-all duration-150"
+              className="px-2 py-1 border text-xs font-medium rounded-lg hover:bg-accent transition-all duration-150"
               title="Reset execution states"
             >
               Reset
             </button>
 
-            <div className="h-4 w-px bg-border mx-1" />
+            <div className="h-4 w-px bg-border mx-0.5" />
+
+            {/* Run in Runner */}
+            <button
+              onClick={() => {
+                useRunnerStore.getState().setMode("flow", nodes.find(n => n.type === "start")?.name || "My Flow");
+                useUIStore.getState().setShowRunner(true);
+              }}
+              disabled={isRunning}
+              className="px-2.5 py-1 text-[11px] font-semibold border border-primary/30 text-primary hover:bg-primary/10 rounded-lg transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+              title="Run this flow in the Runner panel with data-driven support"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <rect x="2" y="3" width="20" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Runner
+            </button>
+
+            <div className="h-4 w-px bg-border" />
+
+            <button
+              onClick={handleDeleteSelected}
+              disabled={selectedNodeIds.length === 0 && !selectedNode}
+              className="px-2 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Delete selected (Delete)"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
 
             <button
               onClick={() => {
@@ -232,10 +520,10 @@ export const FlowPanel: React.FC = () => {
                   setSelectedNode(null);
                 }
               }}
-              className="px-2 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-150"
-              title="Delete all nodes"
+              className="px-1.5 py-1 text-[10px] font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-150"
+              title="Reset to default flow"
             >
-              Clear Canvas
+              Clear
             </button>
           </div>
         </div>
@@ -419,6 +707,81 @@ export const FlowPanel: React.FC = () => {
                   </div>
                 )}
 
+                {/* Set Variable Node Custom Details */}
+                {selectedNode.type === "set_variable" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider font-semibold">Variable Name</label>
+                      <input
+                        type="text"
+                        value={selectedNode.data.variableName ?? ""}
+                        onChange={(e) => updateNodeData(selectedNode.id, { variableName: e.target.value })}
+                        placeholder="my_var"
+                        className="w-full bg-background border px-3 py-1.5 text-xs font-mono rounded-lg focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider font-semibold">Value</label>
+                      <input
+                        type="text"
+                        value={selectedNode.data.variableValue ?? ""}
+                        onChange={(e) => updateNodeData(selectedNode.id, { variableValue: e.target.value })}
+                        placeholder="{{status_code}}"
+                        className="w-full bg-background border px-3 py-1.5 text-xs font-mono rounded-lg focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
+                      />
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        Supports <code className="text-primary font-mono bg-muted px-1 py-0.2 rounded">{"{{variable}}"}</code> interpolation. The resolved value will be assigned to the variable name above.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Script Node Custom Details */}
+                {selectedNode.type === "script" && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider font-semibold">JavaScript Code</label>
+                    <textarea
+                      value={selectedNode.data.scriptCode ?? ""}
+                      onChange={(e) => updateNodeData(selectedNode.id, { scriptCode: e.target.value })}
+                      placeholder={'// Access flow variables via: vars.my_var\nvars.result = vars.status_code || "no status";'}
+                      rows={8}
+                      className="w-full bg-background border px-3 py-2 text-xs font-mono rounded-lg focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150 resize-y leading-relaxed"
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Write JavaScript code. Use the <code className="text-primary font-mono bg-muted px-1 py-0.2 rounded">vars</code> object to read and write flow variables. Any value you set on <code className="text-primary font-mono">vars</code> updates the flow context. If an error is thrown, execution flows through the <span className="text-red-500 font-semibold">failure</span> port.
+                    </p>
+                  </div>
+                )}
+
+                {/* Assertion Node Custom Details */}
+                {selectedNode.type === "assertion" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider font-semibold">Expression (JavaScript)</label>
+                      <textarea
+                        value={selectedNode.data.assertionExpression ?? "true"}
+                        onChange={(e) => updateNodeData(selectedNode.id, { assertionExpression: e.target.value })}
+                        placeholder="status_code === '200'"
+                        rows={3}
+                        className="w-full bg-background border px-3 py-2 text-xs font-mono rounded-lg focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150 resize-y"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider font-semibold">Failure Message</label>
+                      <input
+                        type="text"
+                        value={selectedNode.data.assertionMessage ?? ""}
+                        onChange={(e) => updateNodeData(selectedNode.id, { assertionMessage: e.target.value })}
+                        placeholder="Expected status code to be 200"
+                        className="w-full bg-background border px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-ring transition-all duration-150"
+                      />
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        Evaluates the expression with flow variables injected. If the expression returns <code className="text-red-500 font-mono">false</code>, execution flows through the <span className="text-red-500 font-semibold">failure</span> port with the message above.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* HTTP Request Node Custom Details */}
                 {selectedNode.type === "request" && (
                   <div className="space-y-4">
@@ -432,11 +795,16 @@ export const FlowPanel: React.FC = () => {
                           const val = e.target.value;
                           const found = flatRequests.find((r) => r.id === val);
                           if (found) {
+                            // Store a full snapshot of the request so runFlow doesn't
+                            // need to search stores at execution time
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            const { type: _, ...requestSnapshot } = found;
                             updateNodeData(selectedNode.id, {
                               requestId: found.id,
                               requestName: found.name || "Request",
                               requestMethod: found.method,
                               requestUrl: found.url,
+                              requestSnapshot,
                             });
                           } else {
                             updateNodeData(selectedNode.id, {
@@ -444,6 +812,7 @@ export const FlowPanel: React.FC = () => {
                               requestName: undefined,
                               requestMethod: undefined,
                               requestUrl: undefined,
+                              requestSnapshot: undefined,
                             });
                           }
                         }}

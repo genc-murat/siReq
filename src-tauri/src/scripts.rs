@@ -446,3 +446,377 @@ fn execute_js(code: &str, timeout_ms: u64) -> Result<String, String> {
         Ok(result)
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_request() -> HttpRequest {
+        HttpRequest {
+            id: "test-id".into(),
+            name: "Test".into(),
+            method: HttpMethod::GET,
+            url: "https://example.com/api".into(),
+            headers: vec![
+                KeyValue { key: "Accept".into(), value: "application/json".into(), enabled: true, is_secret: false },
+            ],
+            query_params: vec![],
+            body_type: BodyType::none,
+            body: String::new(),
+            form_fields: vec![],
+            auth: AuthConfig {
+                auth_type: AuthType::none,
+                username: String::new(),
+                password: String::new(),
+                token: String::new(),
+                api_key: String::new(),
+                api_key_name: String::new(),
+                api_key_in: "header".into(),
+            },
+            settings: RequestSettings {
+                timeout: 30,
+                follow_redirects: true,
+                ssl_verify: true,
+                proxy: None,
+            },
+            pre_script: String::new(),
+            post_script: String::new(),
+            examples: vec![],
+            extractions: vec![],
+        }
+    }
+
+    fn test_response() -> HttpResponse {
+        HttpResponse {
+            status: 200,
+            status_text: "OK".into(),
+            headers: vec![("content-type".into(), "application/json".into())],
+            cookies: vec![],
+            body: r#"{"userId": 42, "name": "Alice", "roles": ["admin", "user"]}"#.into(),
+            body_base64: None,
+            size: 50,
+            time_ms: 100,
+            script_logs: vec![],
+            test_results: vec![],
+            modified_variables: vec![],
+        }
+    }
+
+    fn test_env() -> std::collections::HashMap<String, String> {
+        let mut m = std::collections::HashMap::new();
+        m.insert("BASE_URL".into(), "https://api.example.com".into());
+        m.insert("API_KEY".into(), "sk-123".into());
+        m
+    }
+
+    // ─── execute_pre_request ─────────────────────────────────────
+
+    #[test]
+    fn test_pre_request_empty_script_returns_unmodified() {
+        let (req, results) = execute_pre_request("", &test_request(), &test_env()).unwrap();
+        assert_eq!(req.url, "https://example.com/api");
+        assert!(results.logs.is_empty());
+        assert!(results.tests.is_empty());
+        assert!(results.errors.is_empty());
+    }
+
+    #[test]
+    fn test_pre_request_modifies_url() {
+        let script = "request.url = 'https://modified.com/new-path';";
+        let (req, _) = execute_pre_request(script, &test_request(), &test_env()).unwrap();
+        assert_eq!(req.url, "https://modified.com/new-path");
+    }
+
+    #[test]
+    fn test_pre_request_adds_header() {
+        let script = r#"
+request.headers.push({ key: "X-Custom", value: "test-value", enabled: true, is_secret: false });
+"#;
+        let (req, _) = execute_pre_request(script, &test_request(), &test_env()).unwrap();
+        assert!(req.headers.iter().any(|h| h.key == "X-Custom" && h.value == "test-value"));
+    }
+
+    #[test]
+    fn test_pre_request_console_log() {
+        let script = "console.log('hello', 'world');";
+        let (_, results) = execute_pre_request(script, &test_request(), &test_env()).unwrap();
+        assert_eq!(results.logs.len(), 1);
+        assert_eq!(results.logs[0].level, "log");
+        assert!(results.logs[0].message.contains("hello world"));
+    }
+
+    #[test]
+    fn test_pre_request_script_error_collected() {
+        let script = "throw new Error('boom!');";
+        let (_, results) = execute_pre_request(script, &test_request(), &test_env()).unwrap();
+        assert!(!results.errors.is_empty());
+        assert!(results.errors[0].contains("boom!"));
+    }
+
+    #[test]
+    fn test_pre_request_syntax_error() {
+        let script = "invalid {{{ syntax";
+        let result = execute_pre_request(script, &test_request(), &test_env());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pre_request_sets_variable() {
+        let script = r#"pm.variables.set('custom_var', 'custom_value');"#;
+        let (_, results) = execute_pre_request(script, &test_request(), &test_env()).unwrap();
+        assert!(results.modified_variables.iter().any(|kv| kv.key == "custom_var" && kv.value == "custom_value"));
+    }
+
+    #[test]
+    fn test_pre_request_reads_env_variable() {
+        let script = r#"const base = pm.environment.get('BASE_URL'); console.log(base);"#;
+        let (_, results) = execute_pre_request(script, &test_request(), &test_env()).unwrap();
+        assert!(!results.logs.is_empty());
+        assert!(results.logs[0].message.contains("https://api.example.com"));
+    }
+
+    // ─── execute_post_response ───────────────────────────────────
+
+    #[test]
+    fn test_post_response_empty_script_returns_empty() {
+        let results = execute_post_response("", &test_request(), &test_response(), &test_env()).unwrap();
+        assert!(results.logs.is_empty());
+        assert!(results.tests.is_empty());
+    }
+
+    #[test]
+    fn test_post_response_passing_test() {
+        let script = r#"pm.test('status is 200', () => { pm.expect(response.status).to.equal(200); });"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert_eq!(results.tests.len(), 1);
+        assert!(results.tests[0].passed);
+        assert_eq!(results.tests[0].name, "status is 200");
+    }
+
+    #[test]
+    fn test_post_response_failing_test() {
+        let script = r#"pm.test('body has name', () => {
+            const body = JSON.parse(response.body);
+            pm.expect(body.name).to.equal('Bob');
+        });"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert_eq!(results.tests.len(), 1);
+        assert!(!results.tests[0].passed);
+    }
+
+    #[test]
+    fn test_post_response_multiple_tests() {
+        let script = r#"
+pm.test('test a', () => { pm.expect(1).to.equal(1); });
+pm.test('test b', () => { pm.expect(2).to.equal(2); });
+pm.test('test c', () => { pm.expect(3).to.equal(4); });
+"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert_eq!(results.tests.len(), 3);
+        assert_eq!(results.tests.iter().filter(|t| t.passed).count(), 2);
+        assert_eq!(results.tests.iter().filter(|t| !t.passed).count(), 1);
+    }
+
+    #[test]
+    fn test_post_response_expect_include() {
+        let script = r#"pm.test('body includes Alice', () => { pm.expect(response.body).to.include('Alice'); });"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert_eq!(results.tests.len(), 1);
+        assert!(results.tests[0].passed);
+    }
+
+    #[test]
+    fn test_post_response_expect_to_have_length() {
+        // The JS wrapper uses toHaveLength (camelCase), not haveLength
+        let script = r#"pm.test('arr length', () => {
+            const body = JSON.parse(response.body);
+            pm.expect(body.roles).to.toHaveLength(2);
+        });"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert_eq!(results.tests.len(), 1);
+        assert!(results.tests[0].passed, "toHaveLength: errors={:?}, logs={:?}", results.errors, results.logs);
+    }
+
+    #[test]
+    fn test_post_response_json_body_parsing() {
+        let script = r#"pm.test('body has Alice', () => {
+            const body = JSON.parse(response.body);
+            pm.expect(body.name).to.equal('Alice');
+        });"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert_eq!(results.tests.len(), 1);
+        assert!(results.tests[0].passed, "JSON body parsing test: errors={:?}, logs={:?}", results.errors, results.logs);
+    }
+
+    #[test]
+    fn test_post_response_sets_variable() {
+        let script = r#"pm.variables.set('extracted_id', '42');"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert!(results.modified_variables.iter().any(|kv| kv.key == "extracted_id" && kv.value == "42"));
+    }
+
+    #[test]
+    fn test_post_response_console_log() {
+        let script = r#"console.log('Status:', response.status);"#;
+        let results = execute_post_response(script, &test_request(), &test_response(), &test_env()).unwrap();
+        assert!(!results.logs.is_empty());
+        assert!(results.logs[0].message.contains("200"));
+    }
+
+    // ─── execute_extractions ─────────────────────────────────────
+
+    #[test]
+    fn test_extractions_empty_list_returns_empty() {
+        let results = execute_extractions(&[], "{}").unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_extractions_simple_jsonpath() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "user id".into(),
+                expression: "$.userId".into(),
+                target_variable: "uid".into(),
+                enabled: true,
+            },
+        ];
+        let results = execute_extractions(&extractions, r#"{"userId": 42}"#).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "uid");
+        assert_eq!(results[0].1, "42");
+    }
+
+    #[test]
+    fn test_extractions_nested_jsonpath() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "name".into(),
+                expression: "$.user.profile.name".into(),
+                target_variable: "user_name".into(),
+                enabled: true,
+            },
+        ];
+        let results = execute_extractions(
+            &extractions,
+            r#"{"user": {"profile": {"name": "Bob"}}}"#,
+        ).unwrap();
+        assert_eq!(results[0].1, "Bob");
+    }
+
+    #[test]
+    fn test_extractions_array_index() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "first role".into(),
+                expression: "$.roles[0]".into(),
+                target_variable: "role".into(),
+                enabled: true,
+            },
+        ];
+        let results = execute_extractions(
+            &extractions,
+            r#"{"roles": ["admin", "user"]}"#,
+        ).unwrap();
+        assert_eq!(results[0].1, "admin");
+    }
+
+    #[test]
+    fn test_extractions_bracket_notation() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "name".into(),
+                expression: r#"$['user']['name']"#.into(),
+                target_variable: "n".into(),
+                enabled: true,
+            },
+        ];
+        let results = execute_extractions(
+            &extractions,
+            r#"{"user": {"name": "Charlie"}}"#,
+        ).unwrap();
+        assert_eq!(results[0].1, "Charlie");
+    }
+
+    #[test]
+    fn test_extractions_disabled_skipped() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "disabled".into(),
+                expression: "$.userId".into(),
+                target_variable: "uid".into(),
+                enabled: false,
+            },
+        ];
+        let results = execute_extractions(&extractions, r#"{"userId": 42}"#).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_extractions_non_json_body_returns_empty() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "test".into(),
+                expression: "$.key".into(),
+                target_variable: "v".into(),
+                enabled: true,
+            },
+        ];
+        let results = execute_extractions(&extractions, "not-json").unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_extractions_missing_path_skipped() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "missing".into(),
+                expression: "$.nonexistent.path".into(),
+                target_variable: "v".into(),
+                enabled: true,
+            },
+        ];
+        let results = execute_extractions(&extractions, r#"{"key": "value"}"#).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_extractions_multiple_extractions() {
+        let extractions = vec![
+            VariableExtraction {
+                id: "e1".into(),
+                name: "id".into(),
+                expression: "$.id".into(),
+                target_variable: "ext_id".into(),
+                enabled: true,
+            },
+            VariableExtraction {
+                id: "e2".into(),
+                name: "name".into(),
+                expression: "$.name".into(),
+                target_variable: "ext_name".into(),
+                enabled: true,
+            },
+        ];
+        let results = execute_extractions(&extractions, r#"{"id": 1, "name": "Test"}"#).unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].1, "1");
+        assert_eq!(results[1].1, "Test");
+    }
+
+    #[test]
+    fn test_execute_js_returns_valid_json() {
+        // Direct execution of the private execute_js via a public wrapper
+        // We test through execute_pre_request with a script that returns via console
+        let script = "console.log('direct test');";
+        let (_, results) = execute_pre_request(script, &test_request(), &test_env()).unwrap();
+        assert!(results.logs.iter().any(|l| l.message.contains("direct test")));
+    }
+}

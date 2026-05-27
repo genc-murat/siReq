@@ -118,3 +118,198 @@ pub fn openapi_to_mock_config(spec_content: &str, name: &str, port: u16) -> Resu
         headers: HashMap::new(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_openapi_to_mock_config_valid_json() {
+        let spec = r#"{
+            "openapi": "3.0.0",
+            "info": { "title": "Test API", "version": "1.0.0" },
+            "paths": {
+                "/users": {
+                    "get": {
+                        "summary": "List users",
+                        "responses": {
+                            "200": {
+                                "description": "A list of users",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "array",
+                                            "items": { "type": "object", "properties": { "id": { "type": "integer" }, "name": { "type": "string" } } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "post": {
+                        "summary": "Create user",
+                        "responses": {
+                            "201": {
+                                "description": "Created"
+                            }
+                        }
+                    }
+                },
+                "/health": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "description": "OK",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": { "status": { "type": "string" } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }"#;
+
+        let config = openapi_to_mock_config(spec, "My API", 8080).unwrap();
+        assert_eq!(config.name, "My API");
+        assert_eq!(config.port, 8080);
+        // 3 operations: GET /users, POST /users, GET /health
+        assert_eq!(config.endpoints.len(), 3);
+
+        let users_get = config.endpoints.iter().find(|e| e.path == "/users" && e.method == "GET").unwrap();
+        assert!(users_get.scenarios[0].is_default);
+        assert!(users_get.scenarios[0].body.contains("\"id\""));
+        assert!(users_get.scenarios[0].body.contains("\"name\""));
+
+        let health = config.endpoints.iter().find(|e| e.path == "/health").unwrap();
+        assert!(health.scenarios[0].body.contains("\"status\""));
+    }
+
+    #[test]
+    fn test_openapi_to_mock_config_valid_yaml() {
+        let spec = r#"
+openapi: "3.0.0"
+info:
+  title: YAML API
+  version: "1.0"
+paths:
+  /items:
+    get:
+      summary: Get items
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+"#;
+
+        let config = openapi_to_mock_config(spec, "YAML API", 9090).unwrap();
+        assert_eq!(config.name, "YAML API");
+        assert_eq!(config.port, 9090);
+        assert_eq!(config.endpoints.len(), 1);
+        assert_eq!(config.endpoints[0].path, "/items");
+        assert_eq!(config.endpoints[0].method, "GET");
+    }
+
+    #[test]
+    fn test_openapi_to_mock_config_no_paths_returns_error() {
+        let spec = r#"{"openapi": "3.0.0", "info": {"title": "Empty", "version": "1.0"}}"#;
+        let result = openapi_to_mock_config(spec, "Empty", 8080);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("paths"));
+    }
+
+    #[test]
+    fn test_openapi_to_mock_config_invalid_json() {
+        let result = openapi_to_mock_config("not valid json or yaml", "Bad", 8080);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_openapi_to_mock_config_swagger_v2() {
+        let spec = r#"{
+            "swagger": "2.0",
+            "info": { "title": "Pet Store", "version": "1.0" },
+            "host": "petstore.example.com",
+            "basePath": "/v1",
+            "schemes": ["https"],
+            "paths": {
+                "/pets": {
+                    "get": {
+                        "summary": "List pets",
+                        "responses": {
+                            "200": {
+                                "description": "OK",
+                                "schema": {
+                                    "type": "array",
+                                    "items": { "type": "object", "properties": { "id": { "type": "integer" } } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }"#;
+
+        let config = openapi_to_mock_config(spec, "Pet Store", 8080).unwrap();
+        assert_eq!(config.endpoints.len(), 1);
+        assert!(config.endpoints[0].scenarios[0].body.contains("\"id\""));
+    }
+
+    #[test]
+    fn test_openapi_to_mock_config_default_scenario_when_no_responses() {
+        let spec = r#"{
+            "openapi": "3.0.0",
+            "info": { "title": "Minimal", "version": "1.0" },
+            "paths": {
+                "/ping": {
+                    "get": {
+                        "summary": "Health check"
+                    }
+                }
+            }
+        }"#;
+
+        let config = openapi_to_mock_config(spec, "Minimal", 8080).unwrap();
+        assert_eq!(config.endpoints.len(), 1);
+        // Should have a default scenario when no responses defined
+        assert_eq!(config.endpoints[0].scenarios.len(), 1);
+        assert!(config.endpoints[0].scenarios[0].is_default);
+        assert_eq!(config.endpoints[0].scenarios[0].status_code, 200);
+    }
+
+    #[test]
+    fn test_openapi_to_mock_config_multiple_status_codes() {
+        let spec = r#"{
+            "openapi": "3.0.0",
+            "info": { "title": "Multi", "version": "1.0" },
+            "paths": {
+                "/users/{id}": {
+                    "get": {
+                        "summary": "Get user",
+                        "responses": {
+                            "200": { "description": "OK" },
+                            "404": { "description": "Not Found" }
+                        }
+                    }
+                }
+            }
+        }"#;
+
+        let config = openapi_to_mock_config(spec, "Multi", 8080).unwrap();
+        assert_eq!(config.endpoints[0].scenarios.len(), 2);
+        // First should be default (2xx sorted first)
+        assert!(config.endpoints[0].scenarios[0].is_default);
+        assert_eq!(config.endpoints[0].scenarios[0].status_code, 200);
+        assert_eq!(config.endpoints[0].scenarios[1].status_code, 404);
+    }
+}

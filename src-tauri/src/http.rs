@@ -344,6 +344,128 @@ pub fn cancel_request(handles: &RequestHandles, request_id: &str) -> Result<(), 
 }
 
 #[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_domain_normal_url() {
+        assert_eq!(extract_domain("https://example.com/path"), Some("example.com".into()));
+    }
+
+    #[test]
+    fn test_extract_domain_with_port() {
+        assert_eq!(extract_domain("http://localhost:8080/api"), Some("localhost".into()));
+    }
+
+    #[test]
+    fn test_extract_domain_invalid_url() {
+        assert_eq!(extract_domain("not-a-url"), None);
+    }
+
+    #[test]
+    fn test_extract_domain_empty() {
+        assert_eq!(extract_domain(""), None);
+    }
+
+    #[test]
+    fn test_format_cookie_header_empty() {
+        assert_eq!(format_cookie_header(&[]), "");
+    }
+
+    #[test]
+    fn test_format_cookie_header_single() {
+        let cookies = vec![StoredCookie {
+            id: "1".into(), name: "session".into(), value: "abc123".into(),
+            domain: "example.com".into(), path: "/".into(),
+            secure: false, http_only: false, expires: None, created_at: "".into(),
+        }];
+        assert_eq!(format_cookie_header(&cookies), "session=abc123");
+    }
+
+    #[test]
+    fn test_format_cookie_header_multiple() {
+        let cookies = vec![
+            StoredCookie {
+                id: "1".into(), name: "session".into(), value: "abc".into(),
+                domain: "ex.com".into(), path: "/".into(),
+                secure: false, http_only: false, expires: None, created_at: "".into(),
+            },
+            StoredCookie {
+                id: "2".into(), name: "token".into(), value: "xyz".into(),
+                domain: "ex.com".into(), path: "/".into(),
+                secure: true, http_only: true, expires: None, created_at: "".into(),
+            },
+        ];
+        assert_eq!(format_cookie_header(&cookies), "session=abc; token=xyz");
+    }
+
+    #[test]
+    fn test_parse_set_cookie_basic() {
+        let result = parse_set_cookie("sessionId=abc123", "example.com");
+        assert!(result.is_some());
+        let c = result.unwrap();
+        assert_eq!(c.name, "sessionId");
+        assert_eq!(c.value, "abc123");
+        assert_eq!(c.domain, "example.com");
+        assert_eq!(c.path, "/");
+        assert!(!c.secure);
+        assert!(!c.http_only);
+    }
+
+    #[test]
+    fn test_parse_set_cookie_with_attributes() {
+        let result = parse_set_cookie(
+            "token=xyz; Domain=.example.org; Path=/api; Secure; HttpOnly",
+            "default.com",
+        );
+        assert!(result.is_some());
+        let c = result.unwrap();
+        assert_eq!(c.name, "token");
+        assert_eq!(c.value, "xyz");
+        assert_eq!(c.domain, "example.org");
+        assert_eq!(c.path, "/api");
+        assert!(c.secure);
+        assert!(c.http_only);
+    }
+
+    #[test]
+    fn test_parse_set_cookie_max_age_zero_returns_none() {
+        let result = parse_set_cookie("deleted=value; Max-Age=0", "example.com");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_set_cookie_max_age_negative_returns_none() {
+        let result = parse_set_cookie("deleted=value; Max-Age=-1", "example.com");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_set_cookie_no_name_value_returns_none() {
+        let result = parse_set_cookie("", "example.com");
+        assert!(result.is_none());
+        let result2 = parse_set_cookie("; path=/", "example.com");
+        assert!(result2.is_none());
+    }
+
+    #[test]
+    fn test_parse_set_cookie_valid_max_age() {
+        let result = parse_set_cookie("persist=val; Max-Age=3600", "example.com");
+        assert!(result.is_some());
+        let c = result.unwrap();
+        assert_eq!(c.name, "persist");
+        assert_eq!(c.value, "val");
+    }
+
+    #[test]
+    fn test_cancel_request_nonexistent_is_ok() {
+        let handles = RequestHandles(Mutex::new(HashMap::new()));
+        let result = cancel_request(&handles, "nonexistent");
+        assert!(result.is_ok());
+    }
+}
+
+#[cfg(test)]
 mod integration_tests {
     use super::*;
     use std::sync::Arc;

@@ -9,11 +9,7 @@ import {
   Trash2,
   Settings,
   Globe,
-  FileCode,
-  AlertTriangle,
   FolderOpen,
-  ArrowRight,
-  ShieldAlert,
   Sliders,
   X
 } from "lucide-react";

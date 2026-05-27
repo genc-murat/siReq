@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRunnerStore } from "@/stores/runnerStore";
+import { useFlowStore } from "@/stores/flowStore";
 import { useUIStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 
@@ -16,24 +17,21 @@ function formatTime(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export function RunnerPanel() {
   const isRunning = useRunnerStore((s) => s.isRunning);
   const completed = useRunnerStore((s) => s.completed);
   const runResult = useRunnerStore((s) => s.runResult);
+  const mode = useRunnerStore((s) => s.mode);
   const collectionId = useRunnerStore((s) => s.collectionId);
   const collectionName = useRunnerStore((s) => s.collectionName);
+  const flowName = useRunnerStore((s) => s.flowName);
   const totalRequests = useRunnerStore((s) => s.totalRequests);
   const delayMs = useRunnerStore((s) => s.delayMs);
   const stopOnFailure = useRunnerStore((s) => s.stopOnFailure);
   const setDelayMs = useRunnerStore((s) => s.setDelayMs);
   const setStopOnFailure = useRunnerStore((s) => s.setStopOnFailure);
   const startRun = useRunnerStore((s) => s.startRun);
+  const runFlow = useRunnerStore((s) => s.runFlow);
   const resetRunState = useRunnerStore((s) => s.resetRunState);
 
   // Data-driven state
@@ -46,13 +44,25 @@ export function RunnerPanel() {
   const setShowRunner = useUIStore((s) => s.setShowRunner);
   const activeEnvironmentId = useUIStore((s) => s.activeEnvironmentId);
 
+  // Flow execution live state
+  const flowNodes = useFlowStore((s) => s.nodes);
+  const flowLogs = useFlowStore((s) => s.logs);
+  const flowActiveNodeId = useFlowStore((s) => s.activeNodeId);
+  const flowIsRunning = useFlowStore((s) => s.isRunning);
+  const flowVariables = useFlowStore((s) => s.variables);
+  const stopFlow = useFlowStore((s) => s.stopFlow);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
   const handleRun = () => {
-    if (!collectionId) return;
-    setParseError(null);
-    startRun(collectionId, collectionName, activeEnvironmentId);
+    if (mode === "flow") {
+      setParseError(null);
+      runFlow(flowName, activeEnvironmentId);
+    } else if (collectionId) {
+      setParseError(null);
+      startRun(collectionId, collectionName, activeEnvironmentId);
+    }
   };
 
   const handleClose = () => {
@@ -145,13 +155,24 @@ export function RunnerPanel() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            </svg>
+            {mode === "flow" ? (
+              <svg className="h-5 w-5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="18" cy="18" r="3" />
+                <circle cx="18" cy="6" r="3" />
+                <path d="M6 9v7a3 3 0 0 0 3 3h6M18 9v6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              </svg>
+            )}
             <div>
-              <h2 className="text-sm font-semibold truncate">{collectionName}</h2>
+              <h2 className="text-sm font-semibold truncate">{mode === "flow" ? flowName : collectionName}</h2>
               <p className="text-[10px] text-muted-foreground">
-                {dataDrivenMode ? "Data-Driven Runner" : "Collection Runner"}
+                {mode === "flow"
+                  ? dataDrivenMode ? "Data-Driven Flow Runner" : "Flow Runner"
+                  : dataDrivenMode ? "Data-Driven Runner" : "Collection Runner"}
               </p>
             </div>
           </div>
@@ -159,7 +180,11 @@ export function RunnerPanel() {
         {isRunning && (
           <div className="flex items-center gap-2 text-primary text-xs">
             <div className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span>Running...</span>
+            {mode === "flow" && flowActiveNodeId ? (
+              <span>Executing: {flowNodes.find(n => n.id === flowActiveNodeId)?.name || "..."}</span>
+            ) : (
+              <span>Running...</span>
+            )}
           </div>
         )}
         {completed && !isRunning && (
@@ -168,13 +193,95 @@ export function RunnerPanel() {
               "font-medium",
               (runResult?.failed ?? 0) > 0 ? "text-red-500" : "text-green-500"
             )}>
-              {runResult?.passed}/{runResult?.total} passed
+              {runResult?.passed}/{runResult?.total} iterations passed
             </span>
           </div>
         )}
       </div>
 
       <div className="flex-1 overflow-auto min-h-0 p-4 space-y-4">
+        {/* Flow summary: node statuses when flow is completed */}
+        {mode === "flow" && completed && runResult && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="text-[10px] font-medium text-muted-foreground px-3 py-1.5 border-b bg-muted/30 flex items-center gap-1.5">
+              <svg className="h-3 w-3 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="18" cy="18" r="3" />
+                <circle cx="18" cy="6" r="3" />
+                <path d="M6 9v7a3 3 0 0 0 3 3h6M18 9v6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Flow Nodes ({flowNodes.length})
+            </div>
+            <div className="text-[10px] font-mono divide-y divide-border/40">
+              {flowNodes.map((node) => (
+                <div key={node.id} className="px-3 py-1.5 flex items-center gap-2 hover:bg-accent/20 transition-all duration-150">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full shrink-0",
+                    node.status === "success" ? "bg-green-500" :
+                    node.status === "failure" ? "bg-red-500" :
+                    node.status === "running" ? "bg-yellow-500 animate-pulse" :
+                    "bg-muted-foreground/30"
+                  )} />
+                  <span className="font-semibold text-foreground shrink-0">{node.type}</span>
+                  <span className="text-muted-foreground truncate">{node.name}</span>
+                  <span className="ml-auto">
+                    {node.status === "success" && <span className="text-green-500">✓</span>}
+                    {node.status === "failure" && <span className="text-red-500">✗ {node.error || ""}</span>}
+                    {node.status === "idle" && <span className="text-muted-foreground/40">—</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Flow logs */}
+        {mode === "flow" && flowLogs.length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="text-[10px] font-medium text-muted-foreground px-3 py-1.5 border-b bg-muted/30 flex items-center gap-1.5">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Flow Logs ({flowLogs.length})
+            </div>
+            <div className="max-h-40 overflow-auto font-mono text-[10px] divide-y divide-border/40">
+              {flowLogs.slice(-50).map((log) => (
+                <div key={log.id} className="px-3 py-1 flex items-start gap-1.5 hover:bg-accent/20">
+                  <span className={cn(
+                    "shrink-0 px-1 rounded text-[8px] font-bold uppercase",
+                    log.level === "success" && "text-green-500 bg-green-950/20",
+                    log.level === "error" && "text-red-500 bg-red-950/20",
+                    log.level === "warn" && "text-yellow-500 bg-yellow-950/20",
+                    log.level === "info" && "text-muted-foreground bg-muted/30"
+                  )}>{log.level}</span>
+                  <span className="text-muted-foreground break-all">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Flow variables summary */}
+        {mode === "flow" && completed && Object.keys(flowVariables).length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="text-[10px] font-medium text-muted-foreground px-3 py-1.5 border-b bg-muted/30 flex items-center gap-1.5">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+              </svg>
+              Flow Variables ({Object.keys(flowVariables).length})
+            </div>
+            <div className="text-[10px] font-mono divide-y divide-border/40">
+              {Object.entries(flowVariables).map(([key, value]) => (
+                <div key={key} className="px-3 py-1.5 flex items-center gap-2 hover:bg-accent/20 transition-all duration-150">
+                  <span className="font-semibold text-foreground shrink-0">{key}</span>
+                  <span className="text-muted-foreground/40">=</span>
+                  <span className="text-primary truncate">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Controls section */}
         {!isRunning && !completed && (
           <div className="space-y-4">
@@ -315,9 +422,13 @@ export function RunnerPanel() {
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
               </svg>
-              {dataDrivenMode && dataset
-                ? `Run (${totalRequests * dataset.rows.length} executions)`
-                : `Run Collection (${totalRequests} requests)`}
+              {mode === "flow"
+                ? dataDrivenMode && dataset
+                  ? `Run Flow (${dataset.rows.length} iterations)`
+                  : `Run Flow`
+                : dataDrivenMode && dataset
+                  ? `Run (${totalRequests * dataset.rows.length} executions)`
+                  : `Run Collection (${totalRequests} requests)`}
             </button>
           </div>
         )}
@@ -361,7 +472,7 @@ export function RunnerPanel() {
         {isRunning && (
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Executing requests...</span>
+              <span>{mode === "flow" ? "Executing flow nodes..." : "Executing requests..."}</span>
               <span>{progress}%</span>
             </div>
             <div className="h-2 bg-secondary rounded-full overflow-hidden">
@@ -370,14 +481,34 @@ export function RunnerPanel() {
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {/* Flow active node indicator */}
+            {mode === "flow" && flowActiveNodeId && (
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-1">
+                <div className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse" />
+                Current: {flowNodes.find(n => n.id === flowActiveNodeId)?.name || "..."}
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Flow Stop button during execution */}
+        {mode === "flow" && flowIsRunning && (
+          <button
+            onClick={() => stopFlow()}
+            className="w-full px-3 py-2 bg-red-600 text-white hover:bg-red-500 text-xs font-bold rounded-lg shadow-md transition-all duration-150 flex items-center justify-center gap-2"
+          >
+            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+            </svg>
+            Stop Flow Execution
+          </button>
         )}
 
         {/* Request results table */}
         {runResult && runResult.results.length > 0 && (
           <div className="space-y-1">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Results ({runResult.results.length})
+              {mode === "flow" ? "Iteration Results" : "Results"} ({runResult.results.length})
             </h3>
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-xs">
@@ -385,13 +516,11 @@ export function RunnerPanel() {
                   <tr className="bg-muted/50 text-left text-muted-foreground">
                     <th className="px-3 py-2 font-medium">#</th>
                     <th className="px-3 py-2 font-medium">Iter</th>
-                    <th className="px-3 py-2 font-medium">Method</th>
-                    <th className="px-3 py-2 font-medium">Name / URL</th>
+                    <th className="px-3 py-2 font-medium">Type</th>
+                    <th className="px-3 py-2 font-medium">Name</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Time</th>
-                    <th className="px-3 py-2 font-medium">Size</th>
-                    <th className="px-3 py-2 font-medium">Tests</th>
-                    <th className="px-3 py-2 font-medium">Extractions</th>
+                    <th className="px-3 py-2 font-medium">Vars</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -414,11 +543,21 @@ export function RunnerPanel() {
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <span className="font-semibold">{r.request_method}</span>
+                        <span className="font-semibold text-[10px]">
+                          {mode === "flow" ? (
+                            <span className="text-cyan-400">FLOW</span>
+                          ) : (
+                            r.request_method
+                          )}
+                        </span>
                       </td>
                       <td className="px-3 py-2 max-w-[250px]">
                         <div className="truncate" title={`${r.request_name} — ${r.request_url}`}>
-                          {r.request_name || r.request_url || "—"}
+                          {mode === "flow" ? (
+                            <span>{r.request_url || "Flow Execution"}</span>
+                          ) : (
+                            r.request_name || r.request_url || "—"
+                          )}
                         </div>
                       </td>
                       <td className="px-3 py-2">
@@ -426,33 +565,12 @@ export function RunnerPanel() {
                           <span className="text-red-500 font-medium" title={r.error}>Error</span>
                         ) : (
                           <span className={cn("font-medium", statusColor(r.status_code))}>
-                            {r.status_code} {r.status_text}
+                            {r.status_code}
                           </span>
                         )}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">
                         {r.time_ms > 0 ? formatTime(r.time_ms) : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {r.size > 0 ? formatSize(r.size) : "—"}
-                      </td>
-                      <td className="px-3 py-2">
-                        {r.test_results.length > 0 ? (
-                          <div className="flex gap-1">
-                            {(() => {
-                              const passed = r.test_results.filter((t) => t.passed).length;
-                              const failed = r.test_results.filter((t) => !t.passed).length;
-                              return (
-                                <>
-                                  {passed > 0 && <span className="text-green-500">{passed}✓</span>}
-                                  {failed > 0 && <span className="text-red-500">{failed}✗</span>}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
                       </td>
                       <td className="px-3 py-2">
                         {r.extracted_variables && r.extracted_variables.length > 0 ? (

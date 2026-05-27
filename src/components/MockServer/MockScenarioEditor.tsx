@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import type { ResponseScenario, KeyValue, RequestMatcher, LatencyProfile } from "@/lib/invoke";
+import type { ResponseScenario } from "@/lib/invoke";
 import { CodeMirrorEditor } from "@/components/CodeMirrorEditor";
 import { MockLatencyEditor } from "./MockLatencyEditor";
 import { MockMatcherEditor } from "./MockMatcherEditor";
@@ -14,7 +14,7 @@ export function MockScenarioEditor({ scenario, onChange }: MockScenarioEditorPro
   const [headerKey, setHeaderKey] = useState("");
   const [headerVal, setHeaderVal] = useState("");
 
-  const handleFieldChange = (field: keyof ResponseScenario, value: any) => {
+  const handleFieldChange = (field: keyof ResponseScenario, value: unknown) => {
     onChange({
       ...scenario,
       [field]: value,

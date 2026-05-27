@@ -350,9 +350,9 @@ fn evaluate_rule(rule: &RequestMatcher, ctx: &RequestContext) -> bool {
 
     match rule.operator.as_str() {
         "exists" => val_opt.is_some(),
-        "equals" => val_opt.map_or(false, |v| v == rule.value),
-        "contains" => val_opt.map_or(false, |v| v.contains(&rule.value)),
-        "regex" => val_opt.map_or(false, |v| {
+        "equals" => val_opt.is_some_and(|v| v == rule.value),
+        "contains" => val_opt.is_some_and(|v| v.contains(&rule.value)),
+        "regex" => val_opt.is_some_and(|v| {
             if let Ok(re) = Regex::new(&rule.value) {
                 re.is_match(&v)
             } else {
@@ -385,4 +385,234 @@ fn evaluate_jsonpath(body: &str, expression: &str) -> Option<String> {
         serde_json::Value::String(s) => s,
         other => other.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mock_server::faker::RequestContext;
+
+    // ─── match_path ──────────────────────────────────────────────
+
+    #[test]
+    fn test_match_path_exact() {
+        assert!(match_path("/api/users", "/api/users"));
+    }
+
+    #[test]
+    fn test_match_path_with_colon_param() {
+        assert!(match_path("/api/users/:id", "/api/users/42"));
+    }
+
+    #[test]
+    fn test_match_path_with_brace_param() {
+        assert!(match_path("/api/users/{id}", "/api/users/42"));
+    }
+
+    #[test]
+    fn test_match_path_multiple_params() {
+        assert!(match_path("/api/:resource/:action", "/api/users/create"));
+    }
+
+    #[test]
+    fn test_match_path_different_lengths() {
+        assert!(!match_path("/api/users", "/api/users/extra"));
+    }
+
+    #[test]
+    fn test_match_path_no_match() {
+        assert!(!match_path("/api/users", "/api/items"));
+    }
+
+    #[test]
+    fn test_match_path_root() {
+        assert!(match_path("/", "/"));
+    }
+
+    #[test]
+    fn test_match_path_trailing_slashes() {
+        assert!(match_path("/api/users/", "/api/users/"));
+    }
+
+    #[test]
+    fn test_match_path_empty_segments() {
+        assert!(match_path("", ""));
+    }
+
+    #[test]
+    fn test_match_path_mixed_params() {
+        assert!(match_path("/api/:version/{resource}", "/api/v1/users"));
+    }
+
+    // ─── evaluate_rule ───────────────────────────────────────────
+
+    fn rule_ctx() -> RequestContext {
+        let mut headers = HashMap::new();
+        headers.insert("x-api-key".into(), "secret-123".into());
+        headers.insert("content-type".into(), "application/json".into());
+        let mut query_params = HashMap::new();
+        query_params.insert("page".into(), "2".into());
+        query_params.insert("status".into(), "active".into());
+        RequestContext {
+            path: "/api/data".into(),
+            headers,
+            query_params,
+            body: r#"{"name": "Alice", "age": 30}"#.into(),
+            variables: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_evaluate_rule_query_equals() {
+        let rule = RequestMatcher {
+            source: "query".into(),
+            key: "page".into(),
+            operator: "equals".into(),
+            value: "2".into(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_query_equals_no_match() {
+        let rule = RequestMatcher {
+            source: "query".into(),
+            key: "page".into(),
+            operator: "equals".into(),
+            value: "99".into(),
+        };
+        assert!(!evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_header_equals() {
+        let rule = RequestMatcher {
+            source: "header".into(),
+            key: "x-api-key".into(),
+            operator: "equals".into(),
+            value: "secret-123".into(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_header_case_insensitive() {
+        let rule = RequestMatcher {
+            source: "header".into(),
+            key: "X-Api-Key".into(),
+            operator: "equals".into(),
+            value: "secret-123".into(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_header_contains() {
+        let rule = RequestMatcher {
+            source: "header".into(),
+            key: "content-type".into(),
+            operator: "contains".into(),
+            value: "json".into(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_header_regex() {
+        let rule = RequestMatcher {
+            source: "header".into(),
+            key: "x-api-key".into(),
+            operator: "regex".into(),
+            value: "^secret-\\d{3}$".into(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_header_regex_no_match() {
+        let rule = RequestMatcher {
+            source: "header".into(),
+            key: "x-api-key".into(),
+            operator: "regex".into(),
+            value: "^public-.+$".into(),
+        };
+        assert!(!evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_exists() {
+        let rule = RequestMatcher {
+            source: "header".into(),
+            key: "x-api-key".into(),
+            operator: "exists".into(),
+            value: String::new(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_exists_false() {
+        let rule = RequestMatcher {
+            source: "header".into(),
+            key: "x-missing".into(),
+            operator: "exists".into(),
+            value: String::new(),
+        };
+        assert!(!evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_body_equals() {
+        let rule = RequestMatcher {
+            source: "body".into(),
+            key: String::new(),
+            operator: "contains".into(),
+            value: "Alice".into(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_jsonpath() {
+        let rule = RequestMatcher {
+            source: "jsonpath".into(),
+            key: "$.name".into(),
+            operator: "equals".into(),
+            value: "Alice".into(),
+        };
+        assert!(evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_unknown_source() {
+        let rule = RequestMatcher {
+            source: "unknown".into(),
+            key: String::new(),
+            operator: "equals".into(),
+            value: String::new(),
+        };
+        assert!(!evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_unknown_operator() {
+        let rule = RequestMatcher {
+            source: "query".into(),
+            key: "page".into(),
+            operator: "unknown_op".into(),
+            value: "2".into(),
+        };
+        assert!(!evaluate_rule(&rule, &rule_ctx()));
+    }
+
+    #[test]
+    fn test_evaluate_rule_query_missing_key() {
+        let rule = RequestMatcher {
+            source: "query".into(),
+            key: "nonexistent".into(),
+            operator: "equals".into(),
+            value: "val".into(),
+        };
+        assert!(!evaluate_rule(&rule, &rule_ctx()));
+    }
 }

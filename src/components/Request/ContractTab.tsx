@@ -3,7 +3,7 @@ import { useContractStore } from "@/stores/contractStore";
 import { useRequestStore } from "@/stores/requestStore";
 import { useToastStore } from "@/stores/toastStore";
 import { CodeMirrorEditor } from "@/components/CodeMirrorEditor";
-import { cn } from "@/lib/utils";
+
 
 export function ContractTab() {
   const request = useRequestStore((s) => s.request);
@@ -79,8 +79,8 @@ export function ContractTab() {
         statusCode: selectedStatusCode,
       });
       addToast("API Contract successfully bound!", "success");
-    } catch (err: any) {
-      addToast(err.message || "Failed to bind contract", "error");
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : "Failed to bind contract", "error");
     }
   };
 
