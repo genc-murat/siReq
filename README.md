@@ -483,7 +483,7 @@ Automate API testing with collection runs:
 siReq provides a state-of-the-art, GPU-accelerated **Visual Chaining Flow Editor** (Node-Graph style) to visually model, link, and automate sequential request workflows:
 
 <p align="center">
-  <img src="./docs/screenshots/flow-editor.png" alt="Visual Flow Editor showing connected Start, Request, Wait, Condition, and Console Logger nodes" width="1000" />
+  <img src="./docs/screenshots/flow-editor.svg" alt="Visual Flow Editor showing connected Start, Request, Wait, Condition, and Console Logger nodes" width="1000" />
 </p>
 
 **Interactive Canvas & Editor features:**
@@ -507,7 +507,7 @@ siReq provides a state-of-the-art, GPU-accelerated **Visual Chaining Flow Editor
 siReq features an integrated **API Contract Testing** workspace that lets you audit HTTP requests against your OpenAPI/Swagger Specifications (OAS) and run Pact-style response validations:
 
 <p align="center">
-  <img src="./docs/screenshots/contract-testing.png" alt="Contract Testing panel showing a fully compliant contract audit report with status, headers, and body checks" width="1000" />
+  <img src="./docs/screenshots/contract-testing.svg" alt="Contract Testing panel showing a fully compliant contract audit report with status, headers, and body checks" width="1000" />
 </p>
 
 **Visual Binding Wizard (Request Editor):**
