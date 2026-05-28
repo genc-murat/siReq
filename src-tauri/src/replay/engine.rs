@@ -331,7 +331,7 @@ pub async fn execute_single_step(
                 .collect();
             let has_failed = assertion_results.iter().any(|a| a.enabled && !a.passed);
             ReplayEntryResult {
-                id: result_id, run_id: run_id, entry_id: entry.id.clone(),
+                id: result_id, run_id, entry_id: entry.id.clone(),
                 status: if has_failed { EntryResultStatus::Failed } else { EntryResultStatus::Completed },
                 replayed_request: Some(request), replayed_response: Some(response),
                 diff: Some(diff), assertion_results, error: None,
@@ -339,7 +339,7 @@ pub async fn execute_single_step(
             }
         }
         Err(err) => ReplayEntryResult {
-            id: result_id, run_id: run_id, entry_id: entry.id.clone(),
+            id: result_id, run_id, entry_id: entry.id.clone(),
             status: EntryResultStatus::Failed,
             replayed_request: Some(request), replayed_response: None,
             diff: None, assertion_results: vec![], error: Some(err),

@@ -370,8 +370,11 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify the config was actually updated — use .read().await within tokio runtime
-        let servers = manager.servers.lock().unwrap();
-        let cfg = servers.get("srv-1").unwrap().config.read().await;
+        let config_arc = {
+            let servers = manager.servers.lock().unwrap();
+            servers.get("srv-1").unwrap().config.clone()
+        };
+        let cfg = config_arc.read().await;
         assert_eq!(cfg.name, "Updated Name");
         assert!(cfg.cors_enabled);
     }

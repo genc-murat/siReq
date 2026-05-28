@@ -21,12 +21,11 @@ export function ReplayInspector({ entry, entryResult }: ReplayInspectorProps) {
     );
   }
 
-  const renderHeaders = (headers: [string, string][] | any[]) => {
-    const arrayHeaders = Array.isArray(headers) ? headers : [];
-    if (arrayHeaders.length === 0) return <span className="text-[10px] text-muted-foreground italic">No headers</span>;
+  const renderHeaders = (headers: [string, string][]) => {
+    if (headers.length === 0) return <span className="text-[10px] text-muted-foreground italic">No headers</span>;
     return (
       <div className="flex flex-col gap-1 text-[11px] font-mono">
-        {arrayHeaders.map(([k, v], idx) => (
+        {headers.map(([k, v], idx) => (
           <div key={idx} className="flex gap-2">
             <span className="text-muted-foreground font-semibold shrink-0">{k}:</span>
             <span className="text-foreground/80 break-all">{v}</span>
@@ -188,7 +187,6 @@ export function ReplayInspector({ entry, entryResult }: ReplayInspectorProps) {
             <ReplayDiffViewer
               diff={diff ?? null}
               originalBody={entry.original_response.body}
-              replayedBody={replayedResp?.body ?? ""}
             />
           </div>
         )}

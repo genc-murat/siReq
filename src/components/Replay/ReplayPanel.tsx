@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { useReplayStore } from "@/stores/replayStore";
 import { ReplayTimeline } from "./ReplayTimeline";
@@ -28,7 +28,6 @@ export function ReplayPanel() {
     startReplay,
     stepReplay,
     resetReplay,
-    setActiveEntryId,
     loadSessions,
     loadEntries,
     loadRuns,
@@ -50,14 +49,14 @@ export function ReplayPanel() {
   useEffect(() => {
     loadSessions();
     getEnvironments().then(setEnvironments);
-  }, []);
+  }, [loadSessions]);
 
   useEffect(() => {
     if (activeSessionId) {
       loadEntries();
       loadRuns();
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, loadEntries, loadRuns]);
 
   useEffect(() => {
     if (importDialogOpen && importTab === "history") {
@@ -99,7 +98,7 @@ export function ReplayPanel() {
       setImportDialogOpen(false);
       setHarFileContent("");
       setHarFileName("");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("HAR import failed:", e);
     } finally {
       setHarImporting(false);

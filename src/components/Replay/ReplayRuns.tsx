@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useReplayStore } from "@/stores/replayStore";
-import { replayImportHar } from "@/lib/invoke";
-import type { ReplayRunComparison } from "@/lib/invoke";
 
 export function ReplayRuns() {
   const {

@@ -66,11 +66,11 @@ pub fn get_replay_sessions(db: &State<Db>) -> Result<Vec<ReplaySession>, String>
         Ok((id, name, description, remap_rules_json, assertions_json, chaos_config_json, created_at, updated_at))
     }).map_err(|e| e.to_string())?
     .filter_map(|r| r.ok())
-    .filter_map(|(id, name, description, rr_json, as_json, cc_json, created_at, updated_at)| {
+    .map(|(id, name, description, rr_json, as_json, cc_json, created_at, updated_at)| {
         let remap_rules: Vec<RemapRule> = serde_json::from_str(&rr_json).unwrap_or_default();
         let assertions: Vec<ReplayAssertion> = serde_json::from_str(&as_json).unwrap_or_default();
         let chaos_config: ChaosConfig = serde_json::from_str(&cc_json).unwrap_or_default();
-        Some(ReplaySession { id, name, description, remap_rules, assertions, chaos_config, created_at, updated_at })
+        ReplaySession { id, name, description, remap_rules, assertions, chaos_config, created_at, updated_at }
     })
     .collect();
     Ok(sessions)
@@ -142,7 +142,7 @@ pub fn get_replay_entries(db: &State<Db>, session_id: &str) -> Result<Vec<Replay
     Ok(entries)
 }
 
-pub fn add_replay_entries(db: &State<Db>, session_id: &str, history_entries: &Vec<super::models::HarEntry>) -> Result<Vec<ReplayEntry>, String> {
+pub fn add_replay_entries(db: &State<Db>, session_id: &str, history_entries: &[super::models::HarEntry]) -> Result<Vec<ReplayEntry>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
 
@@ -194,9 +194,9 @@ pub fn save_replay_run(db: &State<Db>, run: &ReplayRun, entry_results: &[ReplayE
     ).map_err(|e| e.to_string())?;
 
     for er in entry_results {
-        let req_json = er.replayed_request.as_ref().map(|r| serde_json::to_string(r)).transpose().map_err(|e| e.to_string())?;
-        let resp_json = er.replayed_response.as_ref().map(|r| serde_json::to_string(r)).transpose().map_err(|e| e.to_string())?;
-        let diff_json = er.diff.as_ref().map(|d| serde_json::to_string(d)).transpose().map_err(|e| e.to_string())?;
+        let req_json = er.replayed_request.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
+        let resp_json = er.replayed_response.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
+        let diff_json = er.diff.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
         let ar_json = serde_json::to_string(&er.assertion_results).map_err(|e| e.to_string())?;
         conn.execute(
             "INSERT INTO replay_entry_results (id, run_id, entry_id, status, replayed_request, replayed_response, diff, assertion_results, error, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",

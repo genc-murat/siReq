@@ -4,10 +4,9 @@ import type { ReplayDiff } from "@/lib/invoke";
 interface ReplayDiffViewerProps {
   diff: ReplayDiff | null;
   originalBody: string;
-  replayedBody: string;
 }
 
-export function ReplayDiffViewer({ diff, originalBody, replayedBody }: ReplayDiffViewerProps) {
+export function ReplayDiffViewer({ diff, originalBody }: ReplayDiffViewerProps) {
   const [tab, setTab] = useState<"body" | "headers" | "schema" | "timing">("body");
 
   if (!diff) {

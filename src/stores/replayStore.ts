@@ -81,6 +81,11 @@ interface ReplayState {
   getEntryResult: (entryId: string) => ReplayEntryResult | undefined;
 }
 
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
 export const useReplayStore = create<ReplayState>()((set, get) => ({
   sessions: [],
   activeSessionId: null,
@@ -100,8 +105,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
     try {
       const sessions = await replayGetSessions();
       set({ sessions });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -120,8 +125,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         currentRunEntryResults: new Map(),
       }));
       return session.id;
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
       return "";
     }
   },
@@ -139,8 +144,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
           runs: s.activeSessionId === id ? [] : s.runs,
         };
       });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -159,8 +164,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         set({ entries, activeEntryId: entries[0]?.id ?? null });
         const runs = await replayGetRuns(id);
         set({ runs });
-      } catch (e: any) {
-        set({ error: e.message });
+      } catch (e: unknown) {
+        set({ error: getErrorMessage(e) });
       }
     } else {
       set({ entries: [], runs: [] });
@@ -173,8 +178,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
     try {
       const entries = await replayGetEntries(activeSessionId);
       set({ entries });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -191,8 +196,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         entries: [...s.entries, ...newEntries],
         activeEntryId: s.activeEntryId ?? newEntries[0]?.id ?? null,
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -203,8 +208,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         entries: s.entries.filter((e) => e.id !== entryId),
         activeEntryId: s.activeEntryId === entryId ? null : s.activeEntryId,
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -214,8 +219,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
     try {
       await replayClearEntries(activeSessionId);
       set({ entries: [], activeEntryId: null, currentEntryIndex: -1, playbackState: "idle" });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -240,8 +245,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       set((s) => ({
         sessions: s.sessions.map((sess) => (sess.id === activeSessionId ? updated : sess)),
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -259,8 +264,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       set((s) => ({
         sessions: s.sessions.map((sess) => (sess.id === activeSessionId ? updated : sess)),
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -275,8 +280,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       set((s) => ({
         sessions: s.sessions.map((sess) => (sess.id === activeSessionId ? updated : sess)),
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -292,8 +297,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       set((s) => ({
         sessions: s.sessions.map((sess) => (sess.id === activeSessionId ? updated : sess)),
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -311,8 +316,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       set((s) => ({
         sessions: s.sessions.map((sess) => (sess.id === activeSessionId ? updated : sess)),
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -327,8 +332,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       set((s) => ({
         sessions: s.sessions.map((sess) => (sess.id === activeSessionId ? updated : sess)),
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -343,8 +348,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       set((s) => ({
         sessions: s.sessions.map((sess) => (sess.id === activeSessionId ? updated : sess)),
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -365,8 +370,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       });
       await get().loadRuns();
       return detail;
-    } catch (e: any) {
-      set({ error: e.message, loading: false, playbackState: "idle" });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e), loading: false, playbackState: "idle" });
       return null;
     }
   },
@@ -383,8 +388,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         return { currentRunEntryResults: newMap };
       });
       return result;
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
       return null;
     }
   },
@@ -410,8 +415,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
     try {
       const runs = await replayGetRuns(activeSessionId);
       set({ runs });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -426,8 +431,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         }
         set({ currentRunEntryResults: resultMap });
       }
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -438,8 +443,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         runs: s.runs.filter((r) => r.id !== runId),
         activeRunDetail: s.activeRunDetail?.run.id === runId ? null : s.activeRunDetail,
       }));
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
@@ -449,8 +454,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
     try {
       const comparison = await replayCompareRuns(selectedRunIds[0], selectedRunIds[1]);
       set({ runComparison: comparison });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
     }
   },
 
