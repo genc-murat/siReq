@@ -980,3 +980,212 @@ export async function importCollectionMock(collectionId: string, name: string, p
   return safeInvoke("import_collection_mock", { collectionId, name, port });
 }
 
+// ─── ReplayLab Types & Commands ───────────────────────────────────────────
+
+export interface RemapRule {
+  id: string;
+  pattern: string;
+  replacement: string;
+  enabled: boolean;
+}
+
+export interface ReplayAssertion {
+  id: string;
+  type: "status_code" | "response_time" | "body_contains" | "json_path";
+  expression: string;
+  expected: string;
+  passed?: boolean | null;
+  actual?: string | null;
+  enabled: boolean;
+}
+
+export interface ChaosConfig {
+  enabled: boolean;
+  timeout_probability: number;
+  timeout_min_ms: number;
+  timeout_max_ms: number;
+  delay_probability: number;
+  delay_min_ms: number;
+  delay_max_ms: number;
+  error_probability: number;
+  error_status_codes: number[];
+}
+
+export interface ReplaySession {
+  id: string;
+  name: string;
+  description: string;
+  remap_rules: RemapRule[];
+  assertions: ReplayAssertion[];
+  chaos_config: ChaosConfig;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReplayEntry {
+  id: string;
+  session_id: string;
+  position: number;
+  original_request: HttpRequest;
+  original_response: HttpResponse;
+  created_at: string;
+}
+
+export interface ReplayRun {
+  id: string;
+  session_id: string;
+  status: "completed" | "partial" | "failed";
+  duration_ms: number;
+  environment_id: string | null;
+  chaos_config: ChaosConfig;
+  created_at: string;
+}
+
+export interface ModifiedKey {
+  key: string;
+  original: string;
+  replayed: string;
+}
+
+export interface TextDiffLine {
+  type: "added" | "removed" | "unchanged" | "modified";
+  value: string;
+}
+
+export interface BodyDiff {
+  type: "json" | "text";
+  added_keys: string[];
+  removed_keys: string[];
+  modified_keys: ModifiedKey[];
+  text_diff?: TextDiffLine[] | null;
+}
+
+export interface ModifiedHeader {
+  name: string;
+  original: string;
+  replayed: string;
+}
+
+export interface HeadersDiff {
+  added: [string, string][];
+  removed: [string, string][];
+  modified: ModifiedHeader[];
+}
+
+export interface ReplayDiff {
+  body_diff: BodyDiff;
+  headers_diff: HeadersDiff;
+  timing_diff_ms: number;
+  schema_drift: string[];
+}
+
+export interface AssertionResult {
+  id: string;
+  type: "status_code" | "response_time" | "body_contains" | "json_path";
+  expression: string;
+  expected: string;
+  passed: boolean;
+  actual?: string | null;
+  enabled: boolean;
+}
+
+export interface ReplayEntryResult {
+  id: string;
+  run_id: string;
+  entry_id: string;
+  status: "completed" | "failed" | "skipped";
+  replayed_request: HttpRequest | null;
+  replayed_response: HttpResponse | null;
+  diff: ReplayDiff | null;
+  assertion_results: AssertionResult[];
+  error: string | null;
+  created_at: string;
+}
+
+export interface ReplayRunDetail {
+  run: ReplayRun;
+  entry_results: ReplayEntryResult[];
+}
+
+export interface RunEntryComparison {
+  entry_id: string;
+  status_diff: boolean;
+  timing_diff_ms: number | null;
+  status_code_diff: [number, number] | null;
+  assertions_passed_a: number;
+  assertions_passed_b: number;
+  result_a: ReplayEntryResult;
+  result_b: ReplayEntryResult;
+}
+
+export interface ReplayRunComparison {
+  run_a: ReplayRun;
+  run_b: ReplayRun;
+  comparisons: RunEntryComparison[];
+}
+
+export interface HarEntry {
+  request: HttpRequest;
+  response: HttpResponse;
+}
+
+export async function replayCreateSession(name: string, description?: string): Promise<ReplaySession> {
+  return safeInvoke("replay_create_session", { name, description: description ?? "" });
+}
+
+export async function replayGetSessions(): Promise<ReplaySession[]> {
+  return safeInvoke("replay_get_sessions", {});
+}
+
+export async function replayUpdateSession(session: ReplaySession): Promise<void> {
+  return safeInvoke("replay_update_session", { session });
+}
+
+export async function replayDeleteSession(id: string): Promise<void> {
+  return safeInvoke("replay_delete_session", { id });
+}
+
+export async function replayGetEntries(sessionId: string): Promise<ReplayEntry[]> {
+  return safeInvoke("replay_get_entries", { sessionId });
+}
+
+export async function replayAddEntries(sessionId: string, entries: HarEntry[]): Promise<ReplayEntry[]> {
+  return safeInvoke("replay_add_entries", { sessionId, entries });
+}
+
+export async function replayImportHar(sessionId: string, harJson: string): Promise<ReplayEntry[]> {
+  return safeInvoke("replay_import_har", { sessionId, harJson });
+}
+
+export async function replayRemoveEntry(id: string): Promise<void> {
+  return safeInvoke("replay_remove_entry", { id });
+}
+
+export async function replayClearEntries(sessionId: string): Promise<void> {
+  return safeInvoke("replay_clear_entries", { sessionId });
+}
+
+export async function replayExecuteRun(sessionId: string, environmentId?: string | null): Promise<ReplayRunDetail> {
+  return safeInvoke("replay_execute_run", { sessionId, environmentId: environmentId ?? null });
+}
+
+export async function replayStepEntry(sessionId: string, entryId: string, environmentId?: string | null): Promise<ReplayEntryResult> {
+  return safeInvoke("replay_step_entry", { sessionId, entryId, environmentId: environmentId ?? null });
+}
+
+export async function replayGetRuns(sessionId: string, limit?: number, offset?: number): Promise<ReplayRun[]> {
+  return safeInvoke("replay_get_runs", { sessionId, limit: limit ?? 50, offset: offset ?? 0 });
+}
+
+export async function replayGetRunDetail(runId: string): Promise<ReplayRunDetail | null> {
+  return safeInvoke("replay_get_run_detail", { runId });
+}
+
+export async function replayDeleteRun(runId: string): Promise<void> {
+  return safeInvoke("replay_delete_run", { runId });
+}
+
+export async function replayCompareRuns(runIdA: string, runIdB: string): Promise<ReplayRunComparison> {
+  return safeInvoke("replay_compare_runs", { runIdA, runIdB });
+}
+

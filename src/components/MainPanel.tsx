@@ -9,6 +9,7 @@ import { RunnerPanel } from "@/components/RunnerPanel";
 import { IntelligenceDashboard } from "@/components/Intelligence/IntelligenceDashboard";
 import MockPanel from "@/components/MockServer/MockPanel";
 import { FlowPanel } from "@/components/Flow/FlowPanel";
+import { ReplayPanel } from "@/components/Replay/ReplayPanel";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -73,6 +74,14 @@ export function MainPanel() {
     return (
       <div className="h-full flex flex-col">
         <FlowPanel />
+      </div>
+    );
+  }
+
+  if (toolMode === "replay") {
+    return (
+      <div className="h-full flex flex-col">
+        <ReplayPanel />
       </div>
     );
   }

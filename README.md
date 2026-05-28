@@ -5,7 +5,7 @@
 <div align="center">
   <h1>siReq</h1>
   <h3>A modern, high-performance desktop API client</h3>
-  <p>HTTP · GraphQL · gRPC · WebSocket · Scripting · Benchmarking · API Intelligence</p>
+  <p>HTTP · GraphQL · gRPC · WebSocket · Scripting · Benchmarking · API Intelligence · ReplayLab</p>
 </div>
 
 <p align="center">
@@ -56,6 +56,7 @@
   - [Benchmark Tool](#benchmark-tool)
   - [Collection Runner](#collection-runner)
   - [API Intelligence](#api-intelligence)
+  - [ReplayLab](#replaylab)
   - [UI / UX](#ui--ux)
 - [Tech Stack](#tech-stack)
 - [Data Persistence & Security](#data-persistence--security)
@@ -133,6 +134,7 @@
 - **Benchmark tool**: Run 1–1000 iterations, get min/max/avg/median/P95/P99 stats, distribution chart, status code analysis, result comparison
 - **Collection runner**: Sequential collection execution with configurable delay, stop-on-failure, data-driven runs (CSV/JSON)
 - **API Intelligence**: Analyze request history, endpoint insights, performance trends, schema evolution, regression detection
+- **ReplayLab**: Import HAR files, replay HTTP sessions with diff detection, chaos testing, waterfall visualization, run comparison
 
 ### UI, Themes & Productivity
 
@@ -552,6 +554,28 @@ Analyze your API behavior over time:
 - **Performance regressions** — Automatic detection of performance degradation
 - **History-driven** — All analysis is based on actual request history
 
+### ReplayLab
+
+siReq includes a **ReplayLab** module for importing, replaying, and diffing HTTP sessions — ideal for debugging, regression testing, and chaos engineering:
+
+- **HAR Import** — Drag-and-drop or file-picker import of HTTP Archive (HAR) files. All entries are parsed into replay sessions with full request/response details (URL, method, headers, body, timing, status).
+- **Session Management** — Create, rename, duplicate, and delete replay sessions. Each session contains an ordered list of entries (requests) and associated assertions.
+- **Replay Execution** — Re-execute all entries in a session sequentially. Each execution creates an immutable **ReplayRun** with per-entry results (status, timing, headers, body). Environment variable substitution (`{{variable}}`) is applied during replay.
+- **Diff Engine** — Automatically compare replay run results against the original HAR baselines:
+  - **JSON diff** — Structural key-by-key comparison with added/removed/changed detection
+  - **Text diff** — Line-by-line text comparison for non-JSON bodies
+  - **Header diff** — Compare response headers (added, removed, changed values)
+  - **Schema drift** — Detect structural changes in JSON response schemas
+- **Assertion Evaluator** — Define assertions on sessions (e.g., status code, body contains, response time threshold). Assertions are evaluated against each replay run entry with pass/fail results.
+- **Waterfall Visualization** — Chrome DevTools-style latency bar chart for each replay entry, color-coded by status (green = success, red = error, yellow = warning). Shows DNS, connect, send, wait, and receive timing phases.
+- **Run Comparison** — Select any two replay runs for side-by-side comparison. Per-entry deltas for status code, response time, and size. Highlight regressions and improvements.
+- **Chaos Replay** — Inject controlled failures into replay runs to test resilience:
+  - **Timeout injection** — Configurable probability of forcing request timeouts
+  - **Latency injection** — Add random delays to simulate slow networks
+  - **Error injection** — Configurable probability of simulating server errors
+- **URL Remapping** — Map original HAR URLs to different target URLs (e.g., production → staging) before replaying
+- **Immutable Run History** — All past replay runs are stored with full results for auditing and comparison
+
 ### UI / UX
 
 Designed for productivity:
@@ -617,6 +641,7 @@ Designed for productivity:
 | **jsonpath-rust** | JSONPath request matching and faker resolution |
 | **rquickjs** | JavaScript scripting engine (QuickJS) |
 | **aes-gcm** | AES-256-GCM encryption for secrets |
+| **serde_json** | JSON diff engine for ReplayLab response comparison |
 
 ### Storage & Security
 
@@ -642,6 +667,7 @@ siReq stores all data **locally** in a SQLite database located in the applicatio
 - Collection run history
 - gRPC request history
 - Request templates
+- ReplayLab sessions, entries, runs, and results
 - UI state (theme, sidebar, active tab, etc.)
 
 **Security features:**
@@ -685,6 +711,16 @@ siReq/
 │   │   │   ├── MockStatusBadge.tsx    # Glow status online/offline visual indicators
 │   │   │   └── MockImportDialog.tsx   # OpenAPI JSON/YAML & collection mapper dialog
 │   │   ├── RunnerPanel.tsx            # Collection runner
+│   │   ├── Replay/                    # ReplayLab components
+│   │   │   ├── ReplayPanel.tsx        # Main panel with 6 sub-tabs + HAR import
+│   │   │   ├── ReplayTimeline.tsx     # Entry timeline list
+│   │   │   ├── ReplayWaterfall.tsx    # Chrome DevTools-style latency bars
+│   │   │   ├── ReplayRuns.tsx         # Run history + 2-run comparison
+│   │   │   ├── ReplayChaos.tsx        # Chaos config with probability sliders
+│   │   │   ├── ReplayInspector.tsx    # Entry result inspector
+│   │   │   ├── ReplayDiffViewer.tsx   # JSON/text/header diff viewer
+│   │   │   ├── ReplayEnvironmentMap.tsx # URL remapping
+│   │   │   └── ReplayAssertions.tsx   # Session-level assertions
 │   │   ├── ThemeProvider.tsx / ThemeToggle.tsx  # Theme system
 │   │   └── ...                        # Other components
 │   ├── stores/             # Zustand state stores
@@ -725,6 +761,14 @@ siReq/
 │   │   ├── models.rs       # Shared data models
 │   │   ├── secrets.rs      # AES-256-GCM encryption
 │   │   └── api_intelligence.rs  # API analytics engine
+│   │   ├── replay/             # ReplayLab module
+│   │   │   ├── mod.rs          # Submodule exports
+│   │   │   ├── models.rs       # ReplaySession, ReplayEntry, ReplayRun, ChaosConfig structs
+│   │   │   ├── storage.rs      # SQLite CRUD for sessions, entries, runs, results
+│   │   │   ├── har_parser.rs   # HAR JSON → Vec<HarEntry> parser
+│   │   │   ├── diff_engine.rs  # JSON/text/header diff, schema drift, assertion evaluator
+│   │   │   ├── engine.rs       # Replay execution, chaos injection, variable substitution
+│   │   │   └── commands.rs     # 15 Tauri commands for ReplayLab
 │   └── Cargo.toml          # Rust dependencies
 ├── docs/
 │   └── screenshots/        # README screenshots

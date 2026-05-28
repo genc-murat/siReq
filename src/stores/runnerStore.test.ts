@@ -151,7 +151,7 @@ describe("runnerStore — runFlow", () => {
       expect(r.script_logs).toHaveLength(1);
       expect(r.extracted_variables).toEqual([["output", "hello"]]);
       expect(r.iteration).toBeNull(); // single iteration — no iteration number
-      expect(r.error).toBeUndefined();
+      expect(r.error).toBeNull();
     });
 
     it("passes environmentId to flowStore.runFlow", async () => {

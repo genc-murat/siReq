@@ -10,6 +10,7 @@ mod postman_parser;
 mod scripts;
 mod secrets;
 mod storage;
+mod replay;
 mod variables;
 mod websocket;
 
@@ -33,6 +34,7 @@ pub fn run() {
             let db_path = format!("{}/sireq.db", app_dir.to_string_lossy());
             let conn = rusqlite::Connection::open(&db_path).expect("Failed to open database");
             storage::init_db(&conn).expect("Failed to initialize database");
+            crate::replay::storage::init_replay_tables(&conn).expect("Failed to initialize replay tables");
 
             app.manage(Db(Mutex::new(conn)));
             app.manage(Client::new());
@@ -123,6 +125,21 @@ pub fn run() {
             commands::get_mock_server_stats,
             commands::import_openapi_mock,
             commands::import_collection_mock,
+            replay::commands::replay_create_session,
+            replay::commands::replay_get_sessions,
+            replay::commands::replay_update_session,
+            replay::commands::replay_delete_session,
+            replay::commands::replay_get_entries,
+            replay::commands::replay_add_entries,
+            replay::commands::replay_import_har,
+            replay::commands::replay_remove_entry,
+            replay::commands::replay_clear_entries,
+            replay::commands::replay_execute_run,
+            replay::commands::replay_step_entry,
+            replay::commands::replay_get_runs,
+            replay::commands::replay_get_run_detail,
+            replay::commands::replay_delete_run,
+            replay::commands::replay_compare_runs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

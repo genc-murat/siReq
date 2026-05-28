@@ -171,6 +171,22 @@ export function Layout() {
           </svg>
           <span>Visual Flow</span>
         </button>
+        <button
+          onClick={() => setToolMode("replay")}
+          className={cn(
+            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
+            toolMode === "replay"
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}
+          title="ReplayLab Studio"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>ReplayLab</span>
+        </button>
         <div className="h-4 w-px bg-border" />
         <button
           onClick={handleNew}
