@@ -7,8 +7,14 @@ import {
   replayGetEntries,
   replayAddEntries,
   replayRemoveEntry,
+  replayReorderEntries,
+  replayUpdateEntry,
   replayClearEntries,
   replayExecuteRun,
+  replayStartStreaming,
+  replayPauseRun,
+  replayResumeRun,
+  replayCancelRun,
   replayStepEntry,
   replayGetRuns,
   replayGetRunDetail,
@@ -39,6 +45,7 @@ interface ReplayState {
   runComparison: ReplayRunComparison | null;
   selectedRunIds: [string, string] | null;
   playbackState: "idle" | "playing" | "paused" | "stopped";
+  streamingRunId: string | null;
   currentEntryIndex: number;
   currentRunEntryResults: Map<string, ReplayEntryResult>;
   loading: boolean;
@@ -52,6 +59,8 @@ interface ReplayState {
   loadEntries: () => Promise<void>;
   addEntriesFromHistory: (historyEntries: { request: HttpRequest; response: HttpResponse }[]) => Promise<void>;
   removeEntry: (entryId: string) => Promise<void>;
+  reorderEntries: (entryIds: string[]) => Promise<void>;
+  updateEntry: (entryId: string, updates: Partial<ReplayEntry>) => Promise<void>;
   clearEntries: () => Promise<void>;
   setActiveEntryId: (id: string | null) => void;
 
@@ -66,6 +75,10 @@ interface ReplayState {
   updateChaosConfig: (config: ChaosConfig) => Promise<void>;
 
   startReplay: (environmentId?: string | null) => Promise<ReplayRunDetail | null>;
+  startStreamingReplay: (environmentId?: string | null) => Promise<ReplayRunDetail | null>;
+  pauseReplay: () => Promise<void>;
+  resumeReplay: () => Promise<void>;
+  cancelReplay: () => Promise<void>;
   stepReplay: (entryId: string, environmentId?: string | null) => Promise<ReplayEntryResult | null>;
   resetReplay: () => void;
   setActiveEntryIdFromIndex: (index: number) => void;
@@ -96,6 +109,7 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
   runComparison: null,
   selectedRunIds: null,
   playbackState: "idle",
+  streamingRunId: null,
   currentEntryIndex: -1,
   currentRunEntryResults: new Map(),
   loading: false,
@@ -210,6 +224,37 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       }));
     } catch (e: unknown) {
       set({ error: getErrorMessage(e) });
+    }
+  },
+
+  reorderEntries: async (entryIds) => {
+    const { activeSessionId } = get();
+    if (!activeSessionId) return;
+    const prev = get().entries;
+    const reordered = entryIds.map((id, i) => {
+      const e = prev.find((x) => x.id === id);
+      return e ? { ...e, position: i } : e;
+    }).filter(Boolean) as ReplayEntry[];
+    set({ entries: reordered });
+    try {
+      await replayReorderEntries(activeSessionId, entryIds);
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e), entries: prev });
+    }
+  },
+
+  updateEntry: async (entryId, updates) => {
+    const { entries } = get();
+    const entry = entries.find((e) => e.id === entryId);
+    if (!entry) return;
+    const updated = { ...entry, ...updates };
+    set((s) => ({
+      entries: s.entries.map((e) => (e.id === entryId ? updated : e)),
+    }));
+    try {
+      await replayUpdateEntry(updated);
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e), entries });
     }
   },
 
@@ -376,6 +421,66 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
     }
   },
 
+  startStreamingReplay: async (environmentId = null) => {
+    const { activeSessionId, entries } = get();
+    if (!activeSessionId || entries.length === 0) return null;
+    set({ loading: true, error: null, playbackState: "playing", currentRunEntryResults: new Map() });
+    try {
+      const detail = await replayStartStreaming(activeSessionId, environmentId);
+      const resultMap = new Map<string, ReplayEntryResult>();
+      for (const er of detail.entry_results) {
+        resultMap.set(er.entry_id, er);
+      }
+      set({
+        currentRunEntryResults: resultMap,
+        playbackState: "idle",
+        loading: false,
+        streamingRunId: null,
+      });
+      await get().loadRuns();
+      return detail;
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e), loading: false, playbackState: "idle", streamingRunId: null });
+      return null;
+    }
+  },
+
+  pauseReplay: async () => {
+    const { streamingRunId } = get();
+    if (!streamingRunId) return;
+    try {
+      await replayPauseRun(streamingRunId);
+      set({ playbackState: "paused" });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
+    }
+  },
+
+  resumeReplay: async () => {
+    const { streamingRunId } = get();
+    if (!streamingRunId) return;
+    try {
+      await replayResumeRun(streamingRunId);
+      set({ playbackState: "playing" });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
+    }
+  },
+
+  cancelReplay: async () => {
+    const { streamingRunId } = get();
+    if (!streamingRunId) {
+      set({ playbackState: "idle", loading: false });
+      return;
+    }
+    try {
+      await replayCancelRun(streamingRunId);
+      set({ playbackState: "idle", loading: false, streamingRunId: null });
+    } catch (e: unknown) {
+      set({ error: getErrorMessage(e) });
+    }
+  },
+
   stepReplay: async (entryId, environmentId = null) => {
     const { activeSessionId } = get();
     if (!activeSessionId) return null;
@@ -399,6 +504,7 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
       playbackState: "idle",
       currentEntryIndex: -1,
       currentRunEntryResults: new Map(),
+      streamingRunId: null,
     });
   },
 

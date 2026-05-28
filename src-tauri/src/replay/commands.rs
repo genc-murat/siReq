@@ -1,11 +1,16 @@
 use reqwest::Client;
-use tauri::State;
+use tauri::{Emitter, State};
 use crate::storage::Db;
 use crate::http::RequestHandles;
 use super::models::*;
 use super::storage;
 use super::engine;
 use super::har_parser;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::sync::Mutex;
+
+pub struct ReplayRunTokens(pub Mutex<std::collections::HashMap<String, (Arc<AtomicBool>, Arc<AtomicBool>)>>);
 
 #[tauri::command]
 pub async fn replay_create_session(
@@ -75,6 +80,23 @@ pub async fn replay_remove_entry(
 }
 
 #[tauri::command]
+pub async fn replay_reorder_entries(
+    db: State<'_, Db>,
+    session_id: String,
+    entry_ids: Vec<String>,
+) -> Result<(), String> {
+    storage::reorder_replay_entries(&db, &session_id, &entry_ids)
+}
+
+#[tauri::command]
+pub async fn replay_update_entry(
+    db: State<'_, Db>,
+    entry: ReplayEntry,
+) -> Result<(), String> {
+    storage::update_replay_entry(&db, &entry)
+}
+
+#[tauri::command]
 pub async fn replay_clear_entries(
     db: State<'_, Db>,
     session_id: String,
@@ -86,7 +108,7 @@ pub async fn replay_clear_entries(
 pub async fn replay_execute_run(
     db: State<'_, Db>,
     client: State<'_, Client>,
-    handles: State<'_, RequestHandles>,
+    _handles: State<'_, RequestHandles>,
     session_id: String,
     environment_id: Option<String>,
 ) -> Result<ReplayRunDetail, String> {
@@ -100,7 +122,7 @@ pub async fn replay_execute_run(
     }
 
     let (run, entry_results) = engine::execute_replay_run(
-        &db, &client, &handles, &session, &entries, environment_id.as_deref(),
+        &db, &client, &_handles, &session, &entries, environment_id.as_deref(),
     ).await?;
 
     let detail = ReplayRunDetail {
@@ -207,6 +229,96 @@ pub async fn replay_compare_runs(
         run_b: detail_b.run,
         comparisons,
     })
+}
+
+#[tauri::command]
+pub async fn replay_start_streaming(
+    db: State<'_, Db>,
+    client: State<'_, Client>,
+    tokens: State<'_, ReplayRunTokens>,
+    app: tauri::AppHandle,
+    session_id: String,
+    environment_id: Option<String>,
+) -> Result<ReplayRunDetail, String> {
+    let sessions = storage::get_replay_sessions(&db)?;
+    let session = sessions.into_iter().find(|s| s.id == session_id)
+        .ok_or_else(|| "Session not found".to_string())?;
+
+    let entries = storage::get_replay_entries(&db, &session_id)?;
+    if entries.is_empty() {
+        return Err("No entries in session".to_string());
+    }
+
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let cancel_token = Arc::new(AtomicBool::new(false));
+    let pause_token = Arc::new(AtomicBool::new(false));
+
+    {
+        let mut map = tokens.0.lock().map_err(|e| e.to_string())?;
+        map.insert(run_id, (cancel_token.clone(), pause_token.clone()));
+    }
+
+    let (run, entry_results) = engine::execute_replay_streaming(
+        &app, &db, &client, &session, &entries, environment_id.as_deref(),
+        &cancel_token, &pause_token, 0, vec![],
+    ).await?;
+
+    {
+        let mut map = tokens.0.lock().map_err(|e| e.to_string())?;
+        map.remove(&run.id);
+    }
+
+    let detail = ReplayRunDetail {
+        run: run.clone(),
+        entry_results: entry_results.clone(),
+    };
+
+    storage::save_replay_run(&db, &run, &entry_results)?;
+
+    let _ = app.emit("replay-run-completed", &run);
+
+    Ok(detail)
+}
+
+#[tauri::command]
+pub async fn replay_pause_run(
+    tokens: State<'_, ReplayRunTokens>,
+    run_id: String,
+) -> Result<(), String> {
+    let map = tokens.0.lock().map_err(|e| e.to_string())?;
+    if let Some((_, pause_token)) = map.get(&run_id) {
+        pause_token.store(true, Ordering::Relaxed);
+        Ok(())
+    } else {
+        Err("Run not found or already completed".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn replay_resume_run(
+    tokens: State<'_, ReplayRunTokens>,
+    run_id: String,
+) -> Result<(), String> {
+    let map = tokens.0.lock().map_err(|e| e.to_string())?;
+    if let Some((_, pause_token)) = map.get(&run_id) {
+        pause_token.store(false, Ordering::Relaxed);
+        Ok(())
+    } else {
+        Err("Run not found or already completed".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn replay_cancel_run(
+    tokens: State<'_, ReplayRunTokens>,
+    run_id: String,
+) -> Result<(), String> {
+    let mut map = tokens.0.lock().map_err(|e| e.to_string())?;
+    if let Some((cancel_token, pause_token)) = map.remove(&run_id) {
+        cancel_token.store(true, Ordering::Relaxed);
+        pause_token.store(false, Ordering::Relaxed);
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

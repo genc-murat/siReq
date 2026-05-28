@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use rand::Rng;
 use reqwest::Client;
 use crate::storage::Db;
@@ -52,18 +54,7 @@ enum ChaosAction {
     Error(u16),
 }
 
-pub async fn execute_replay_run(
-    db: &State<'_, Db>,
-    client: &State<'_, Client>,
-    _handles: &State<'_, RequestHandles>,
-    session: &ReplaySession,
-    entries: &[ReplayEntry],
-    environment_id: Option<&str>,
-) -> Result<(ReplayRun, Vec<ReplayEntryResult>), String> {
-    let run_id = uuid::Uuid::new_v4().to_string();
-    let now = chrono::Utc::now().to_rfc3339();
-    let start = Instant::now();
-
+fn build_all_vars(db: &State<'_, Db>, environment_id: Option<&str>) -> Result<HashMap<String, String>, String> {
     let env_vars: HashMap<String, String> = match environment_id {
         Some(env_id) => {
             let conn = db.0.lock().map_err(|e| e.to_string())?;
@@ -79,18 +70,31 @@ pub async fn execute_replay_run(
     };
 
     let global_vars = get_global_variables(db)?;
-    let all_vars: HashMap<String, String> = {
-        let mut m = HashMap::new();
-        for v in &global_vars.variables {
-            if v.enabled && !v.key.is_empty() {
-                m.insert(v.key.clone(), v.value.clone());
-            }
+    let mut m = HashMap::new();
+    for v in &global_vars.variables {
+        if v.enabled && !v.key.is_empty() {
+            m.insert(v.key.clone(), v.value.clone());
         }
-        for (k, v) in &env_vars {
-            m.insert(k.clone(), v.clone());
-        }
-        m
-    };
+    }
+    for (k, v) in &env_vars {
+        m.insert(k.clone(), v.clone());
+    }
+    Ok(m)
+}
+
+pub async fn execute_replay_run(
+    db: &State<'_, Db>,
+    client: &State<'_, Client>,
+    _handles: &State<'_, RequestHandles>,
+    session: &ReplaySession,
+    entries: &[ReplayEntry],
+    environment_id: Option<&str>,
+) -> Result<(ReplayRun, Vec<ReplayEntryResult>), String> {
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let start = Instant::now();
+
+    let all_vars = build_all_vars(db, environment_id)?;
 
     let mut entry_results = Vec::new();
     let mut has_failure = false;
@@ -128,6 +132,106 @@ pub async fn execute_replay_run(
     };
 
     Ok((run, entry_results))
+}
+
+pub async fn execute_replay_streaming(
+    app: &AppHandle,
+    db: &State<'_, Db>,
+    client: &State<'_, Client>,
+    session: &ReplaySession,
+    entries: &[ReplayEntry],
+    environment_id: Option<&str>,
+    cancel_token: &Arc<AtomicBool>,
+    pause_token: &Arc<AtomicBool>,
+    start_index: usize,
+    existing_results: Vec<ReplayEntryResult>,
+) -> Result<(ReplayRun, Vec<ReplayEntryResult>), String> {
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let start = Instant::now();
+
+    let all_vars = build_all_vars(db, environment_id)?;
+
+    let mut entry_results = existing_results;
+    let mut has_failure = entry_results.iter().any(|r| r.status == EntryResultStatus::Failed);
+
+    for entry in &entries[start_index..] {
+        if cancel_token.load(Ordering::Relaxed) {
+            let skipped = make_skipped_result(&run_id, entry);
+            let _ = app.emit("replay-entry-progress", &skipped);
+            entry_results.push(skipped);
+            continue;
+        }
+
+        while pause_token.load(Ordering::Relaxed) {
+            if cancel_token.load(Ordering::Relaxed) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
+        if cancel_token.load(Ordering::Relaxed) {
+            let skipped = make_skipped_result(&run_id, entry);
+            let _ = app.emit("replay-entry-progress", &skipped);
+            entry_results.push(skipped);
+            continue;
+        }
+
+        let er = execute_single_entry(
+            db, client, entry, session, &all_vars, &run_id,
+        ).await;
+
+        if er.status == EntryResultStatus::Failed {
+            has_failure = true;
+        }
+
+        let _ = app.emit("replay-entry-progress", &er);
+
+        entry_results.push(er);
+    }
+
+    let was_cancelled = cancel_token.load(Ordering::Relaxed);
+    let duration_ms = start.elapsed().as_millis() as i64;
+
+    let status = if was_cancelled {
+        ReplayRunStatus::Partial
+    } else if has_failure {
+        if entry_results.iter().all(|r| r.status == EntryResultStatus::Failed) {
+            ReplayRunStatus::Failed
+        } else {
+            ReplayRunStatus::Partial
+        }
+    } else {
+        ReplayRunStatus::Completed
+    };
+
+    let run = ReplayRun {
+        id: run_id,
+        session_id: session.id.clone(),
+        status,
+        duration_ms,
+        environment_id: environment_id.map(|s| s.to_string()),
+        chaos_config: session.chaos_config.clone(),
+        created_at: now,
+    };
+
+    Ok((run, entry_results))
+}
+
+fn make_skipped_result(run_id: &str, entry: &ReplayEntry) -> ReplayEntryResult {
+    let now = chrono::Utc::now().to_rfc3339();
+    ReplayEntryResult {
+        id: uuid::Uuid::new_v4().to_string(),
+        run_id: run_id.to_string(),
+        entry_id: entry.id.clone(),
+        status: EntryResultStatus::Skipped,
+        replayed_request: None,
+        replayed_response: None,
+        diff: None,
+        assertion_results: vec![],
+        error: Some("Cancelled".to_string()),
+        created_at: now,
+    }
 }
 
 async fn execute_single_entry(

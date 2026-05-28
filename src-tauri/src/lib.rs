@@ -41,6 +41,7 @@ pub fn run() {
             app.manage(GrpcState(Arc::new(Mutex::new(HashMap::new()))));
             app.manage(WsState(Arc::new(Mutex::new(HashMap::new()))));
             app.manage(http::RequestHandles(Mutex::new(HashMap::new())));
+            app.manage(replay::commands::ReplayRunTokens(Mutex::new(HashMap::new())));
             app.manage(MockServerManager::new());
 
             Ok(())
@@ -133,8 +134,14 @@ pub fn run() {
             replay::commands::replay_add_entries,
             replay::commands::replay_import_har,
             replay::commands::replay_remove_entry,
+            replay::commands::replay_reorder_entries,
+            replay::commands::replay_update_entry,
             replay::commands::replay_clear_entries,
             replay::commands::replay_execute_run,
+            replay::commands::replay_start_streaming,
+            replay::commands::replay_pause_run,
+            replay::commands::replay_resume_run,
+            replay::commands::replay_cancel_run,
             replay::commands::replay_step_entry,
             replay::commands::replay_get_runs,
             replay::commands::replay_get_run_detail,

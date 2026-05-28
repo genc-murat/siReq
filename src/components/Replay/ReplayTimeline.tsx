@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { useReplayStore } from "@/stores/replayStore";
 import type { ReplayEntryResult } from "@/lib/invoke";
 
@@ -13,7 +14,45 @@ const methodColors: Record<string, string> = {
 };
 
 export function ReplayTimeline() {
-  const { entries, activeEntryId, setActiveEntryId, removeEntry, getEntryResult } = useReplayStore();
+  const { entries, activeEntryId, setActiveEntryId, removeEntry, reorderEntries, getEntryResult, playbackState } = useReplayStore();
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+    const el = e.currentTarget as HTMLElement;
+    el.style.opacity = "0.5";
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    const el = e.currentTarget as HTMLElement;
+    el.style.opacity = "1";
+    setDragIndex(null);
+    setDropTargetIndex(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragIndex !== null && dragIndex !== index) {
+      setDropTargetIndex(index);
+    }
+  }, [dragIndex]);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === dropIndex) return;
+
+    const reordered = [...entries];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(dropIndex, 0, moved);
+    const ids = reordered.map((entry) => entry.id);
+    reorderEntries(ids);
+    setDragIndex(null);
+    setDropTargetIndex(null);
+  }, [dragIndex, entries, reorderEntries]);
 
   if (entries.length === 0) {
     return (
@@ -27,8 +66,10 @@ export function ReplayTimeline() {
     );
   }
 
+  const isRunning = playbackState === "playing" || playbackState === "paused";
+
   return (
-    <div className="flex-1 flex flex-col gap-2 p-1 overflow-auto min-h-0 select-none">
+    <div className="flex-1 flex flex-col gap-1.5 p-1 overflow-auto min-h-0 select-none">
       {entries.map((entry, index) => {
         const isActive = activeEntryId === entry.id;
         const entryResult: ReplayEntryResult | undefined = getEntryResult(entry.id);
@@ -36,20 +77,31 @@ export function ReplayTimeline() {
         const status = entryResult?.status;
         const replayedResponse = entryResult?.replayed_response;
         const diff = entryResult?.diff;
+        const isDragOver = dropTargetIndex === index && dragIndex !== null && dragIndex !== index;
 
         return (
           <div
             key={entry.id}
+            draggable={!isRunning}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragEnd={handleDragEnd}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={(e) => handleDrop(e, index)}
             onClick={() => setActiveEntryId(entry.id)}
             className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all duration-150 ${
-              isActive
+              isDragOver
+                ? "border-primary/60 bg-primary/5 ring-1 ring-primary/20"
+                : isActive
                 ? "bg-primary/5 border-primary/45 shadow-sm ring-1 ring-primary/10"
                 : status === "running"
                 ? "bg-primary/5 border-primary/25 animate-pulse"
                 : "bg-card border-border hover:border-foreground/20"
-            }`}
+            } ${isRunning ? "" : "hover:cursor-grab active:cursor-grabbing"}`}
           >
-            {/* Playback indicator */}
+            {isDragOver && (
+              <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-full" />
+            )}
+
             <div className="shrink-0 flex items-center justify-center">
               {status === "running" ? (
                 <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -65,17 +117,34 @@ export function ReplayTimeline() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
+              ) : status === "skipped" ? (
+                <div className="h-4 w-4 bg-muted border border-border rounded-full flex items-center justify-center text-muted-foreground">
+                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
+                  </svg>
+                </div>
               ) : (
                 <div className="h-2 w-2 rounded-full bg-muted-foreground/35 ring-4 ring-muted-foreground/5 ml-1" />
               )}
             </div>
 
-            {/* Index count */}
             <span className="text-[10px] font-bold text-muted-foreground/60 font-mono w-4 text-center shrink-0">
               {index + 1}
             </span>
 
-            {/* Method Badge */}
+            {!isRunning && (
+              <div className="shrink-0 opacity-0 group-hover:opacity-40 text-muted-foreground cursor-grab">
+                <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="9" cy="6" r="1.5" />
+                  <circle cx="15" cy="6" r="1.5" />
+                  <circle cx="9" cy="12" r="1.5" />
+                  <circle cx="15" cy="12" r="1.5" />
+                  <circle cx="9" cy="18" r="1.5" />
+                  <circle cx="15" cy="18" r="1.5" />
+                </svg>
+              </div>
+            )}
+
             <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border tracking-wider shrink-0 ${methodColor}`}>
               {entry.original_request.method}
             </span>

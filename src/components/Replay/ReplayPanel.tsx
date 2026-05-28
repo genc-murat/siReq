@@ -25,7 +25,10 @@ export function ReplayPanel() {
     getEntryResult,
     playbackState,
     loading,
-    startReplay,
+    startStreamingReplay,
+    pauseReplay,
+    resumeReplay,
+    cancelReplay,
     stepReplay,
     resetReplay,
     loadSessions,
@@ -250,18 +253,51 @@ export function ReplayPanel() {
 
                 <div className="flex items-center gap-1.5 bg-background ring-1 ring-border p-1 rounded-xl shrink-0 shadow-sm">
                   <button
-                    onClick={() => startReplay(selectedEnvId)}
-                    disabled={playbackState === "playing" || entries.length === 0}
+                    onClick={() => startStreamingReplay(selectedEnvId)}
+                    disabled={playbackState === "playing" || playbackState === "paused" || entries.length === 0}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-150 ${
-                      playbackState === "playing" || loading
+                      playbackState === "playing" || playbackState === "paused" || loading
                         ? "text-muted-foreground bg-transparent"
                         : "text-green-500 hover:bg-green-500/10"
                     }`}
-                    title="Start automated replay run"
+                    title="Start streaming replay run"
                   >
                     <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                     <span>{loading ? "Running..." : "Replay"}</span>
                   </button>
+
+                  {playbackState === "playing" && (
+                    <button
+                      onClick={pauseReplay}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-yellow-500 hover:bg-yellow-500/10 transition-all duration-150 flex items-center gap-1.5"
+                      title="Pause replay"
+                    >
+                      <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                      <span>Pause</span>
+                    </button>
+                  )}
+
+                  {playbackState === "paused" && (
+                    <button
+                      onClick={resumeReplay}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 transition-all duration-150 flex items-center gap-1.5"
+                      title="Resume replay"
+                    >
+                      <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                      <span>Resume</span>
+                    </button>
+                  )}
+
+                  {(playbackState === "playing" || playbackState === "paused") && (
+                    <button
+                      onClick={cancelReplay}
+                      className="px-2 py-1.5 rounded-lg text-xs font-semibold text-destructive hover:bg-destructive/10 transition-all duration-150 flex items-center gap-1"
+                      title="Cancel replay"
+                    >
+                      <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" /></svg>
+                      <span>Stop</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -269,7 +305,7 @@ export function ReplayPanel() {
                         stepReplay(activeEntryId, selectedEnvId);
                       }
                     }}
-                    disabled={playbackState === "playing" || entries.length === 0 || !activeEntryId}
+                    disabled={playbackState === "playing" || playbackState === "paused" || entries.length === 0 || !activeEntryId}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 disabled:text-muted-foreground disabled:hover:bg-transparent transition-all duration-150 flex items-center gap-1.5"
                     title="Step execute selected request"
                   >
@@ -357,7 +393,7 @@ export function ReplayPanel() {
                     <Panel>
                       <div className="h-full flex flex-col p-4 overflow-auto min-h-0">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 px-1 block shrink-0">Studio Inspector</span>
-                        <ReplayInspector entry={selectedEntry} entryResult={selectedEntryResult} />
+                        <ReplayInspector key={activeEntryId ?? "none"} entry={selectedEntry} entryResult={selectedEntryResult} />
                       </div>
                     </Panel>
                   </Group>

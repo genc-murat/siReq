@@ -177,6 +177,28 @@ pub fn delete_replay_entry(db: &State<Db>, id: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn reorder_replay_entries(db: &State<Db>, session_id: &str, ordered_ids: &[String]) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    for (pos, id) in ordered_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE replay_entries SET position = ?1 WHERE id = ?2 AND session_id = ?3",
+            params![pos as i32, id, session_id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+pub fn update_replay_entry(db: &State<Db>, entry: &ReplayEntry) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let req_json = serde_json::to_string(&entry.original_request).map_err(|e| e.to_string())?;
+    let resp_json = serde_json::to_string(&entry.original_response).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE replay_entries SET position = ?1, original_request = ?2, original_response = ?3 WHERE id = ?4",
+        params![entry.position, req_json, resp_json, entry.id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn clear_replay_entries(db: &State<Db>, session_id: &str) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM replay_entries WHERE session_id = ?1", params![session_id]).map_err(|e| e.to_string())?;
@@ -294,5 +316,19 @@ pub fn delete_replay_run(db: &State<Db>, id: &str) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM replay_entry_results WHERE run_id = ?1", params![id]).map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM replay_runs WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[allow(dead_code)]
+pub fn save_single_entry_result(db: &State<Db>, er: &ReplayEntryResult) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let req_json = er.replayed_request.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
+    let resp_json = er.replayed_response.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
+    let diff_json = er.diff.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
+    let ar_json = serde_json::to_string(&er.assertion_results).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO replay_entry_results (id, run_id, entry_id, status, replayed_request, replayed_response, diff, assertion_results, error, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![er.id, er.run_id, er.entry_id, serde_json::to_string(&er.status).map_err(|e| e.to_string())?, req_json, resp_json, diff_json, ar_json, er.error, er.created_at],
+    ).map_err(|e| e.to_string())?;
     Ok(())
 }

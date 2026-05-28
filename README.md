@@ -134,7 +134,7 @@
 - **Benchmark tool**: Run 1–1000 iterations, get min/max/avg/median/P95/P99 stats, distribution chart, status code analysis, result comparison
 - **Collection runner**: Sequential collection execution with configurable delay, stop-on-failure, data-driven runs (CSV/JSON)
 - **API Intelligence**: Analyze request history, endpoint insights, performance trends, schema evolution, regression detection
-- **ReplayLab**: Import HAR files, replay HTTP sessions with diff detection, chaos testing, waterfall visualization, run comparison
+- **ReplayLab**: Import HAR files, replay HTTP sessions with diff detection, chaos testing, waterfall visualization, run comparison, drag-and-drop entry reordering, streaming execution with pause/resume/cancel, and full entry editing
 
 ### UI, Themes & Productivity
 
@@ -560,7 +560,14 @@ siReq includes a **ReplayLab** module for importing, replaying, and diffing HTTP
 
 - **HAR Import** — Drag-and-drop or file-picker import of HTTP Archive (HAR) files. All entries are parsed into replay sessions with full request/response details (URL, method, headers, body, timing, status).
 - **Session Management** — Create, rename, duplicate, and delete replay sessions. Each session contains an ordered list of entries (requests) and associated assertions.
-- **Replay Execution** — Re-execute all entries in a session sequentially. Each execution creates an immutable **ReplayRun** with per-entry results (status, timing, headers, body). Environment variable substitution (`{{variable}}`) is applied during replay.
+- **Drag-and-Drop Reordering** — Reorder entries in the timeline by dragging and dropping. Visual feedback with drop target highlighting and grip handle indicators. Optimistic UI updates with backend sync.
+- **Full Entry Editing** — Edit any imported entry's request (method, URL, headers, body, name) and response baseline (status code, body) directly in the Inspector panel. Modify baselines for accurate diff comparison.
+- **Streaming Replay Execution** — Re-execute all entries with real-time progress streaming via Tauri events. Each entry result is broadcast as it completes, enabling live timeline updates.
+- **Pause / Resume / Cancel** — Full playback control during replay runs:
+  - **Pause** — Suspend execution between entries; the engine waits until resumed
+  - **Resume** — Continue a paused replay from where it stopped
+  - **Cancel** — Abort the replay run immediately; remaining entries are marked as *Skipped*
+- **Environment Substitution** — `{{variable}}` and `{%variable%}` template syntax is resolved using global and environment-specific variables during replay.
 - **Diff Engine** — Automatically compare replay run results against the original HAR baselines:
   - **JSON diff** — Structural key-by-key comparison with added/removed/changed detection
   - **Text diff** — Line-by-line text comparison for non-JSON bodies
@@ -712,12 +719,12 @@ siReq/
 │   │   │   └── MockImportDialog.tsx   # OpenAPI JSON/YAML & collection mapper dialog
 │   │   ├── RunnerPanel.tsx            # Collection runner
 │   │   ├── Replay/                    # ReplayLab components
-│   │   │   ├── ReplayPanel.tsx        # Main panel with 6 sub-tabs + HAR import
-│   │   │   ├── ReplayTimeline.tsx     # Entry timeline list
+│   │   │   ├── ReplayPanel.tsx        # Main panel with 6 sub-tabs, streaming controls (pause/resume/cancel), HAR import
+│   │   │   ├── ReplayTimeline.tsx     # Entry timeline list with drag-and-drop reordering
 │   │   │   ├── ReplayWaterfall.tsx    # Chrome DevTools-style latency bars
 │   │   │   ├── ReplayRuns.tsx         # Run history + 2-run comparison
 │   │   │   ├── ReplayChaos.tsx        # Chaos config with probability sliders
-│   │   │   ├── ReplayInspector.tsx    # Entry result inspector
+│   │   │   ├── ReplayInspector.tsx    # Entry result inspector with full editing support
 │   │   │   ├── ReplayDiffViewer.tsx   # JSON/text/header diff viewer
 │   │   │   ├── ReplayEnvironmentMap.tsx # URL remapping
 │   │   │   └── ReplayAssertions.tsx   # Session-level assertions
@@ -767,8 +774,8 @@ siReq/
 │   │   │   ├── storage.rs      # SQLite CRUD for sessions, entries, runs, results
 │   │   │   ├── har_parser.rs   # HAR JSON → Vec<HarEntry> parser
 │   │   │   ├── diff_engine.rs  # JSON/text/header diff, schema drift, assertion evaluator
-│   │   │   ├── engine.rs       # Replay execution, chaos injection, variable substitution
-│   │   │   └── commands.rs     # 15 Tauri commands for ReplayLab
+│   │   │   ├── engine.rs       # Replay execution, streaming, chaos injection, cancel/pause tokens, variable substitution
+│   │   │   └── commands.rs     # 19 Tauri commands for ReplayLab (CRUD, reorder, edit, streaming, pause, resume, cancel)
 │   └── Cargo.toml          # Rust dependencies
 ├── docs/
 │   └── screenshots/        # README screenshots
