@@ -121,6 +121,25 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
         );"
     )?;
 
+    // Migrate collections table: add description, variables, auth columns
+    {
+        let cols: Vec<String> = conn
+            .prepare("SELECT * FROM collections LIMIT 0")?
+            .column_names()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        if !cols.contains(&"description".to_string()) {
+            conn.execute_batch("ALTER TABLE collections ADD COLUMN description TEXT DEFAULT '';")?;
+        }
+        if !cols.contains(&"variables".to_string()) {
+            conn.execute_batch("ALTER TABLE collections ADD COLUMN variables TEXT DEFAULT '[]';")?;
+        }
+        if !cols.contains(&"auth".to_string()) {
+            conn.execute_batch("ALTER TABLE collections ADD COLUMN auth TEXT DEFAULT NULL;")?;
+        }
+    }
+
     Ok(())
 }
 
@@ -172,7 +191,7 @@ pub fn clear_all_history(db: &State<Db>) -> Result<(), String> {
 pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, requests, created_at, updated_at FROM collections ORDER BY updated_at DESC"
+        "SELECT id, name, requests, created_at, updated_at, description, variables, auth FROM collections ORDER BY updated_at DESC"
     ).map_err(|e| e.to_string())?;
     let collections = stmt.query_map([], |row| {
         let id: String = row.get(0)?;
@@ -180,11 +199,13 @@ pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
         let requests_json: String = row.get(2)?;
         let created_at: String = row.get(3)?;
         let updated_at: String = row.get(4)?;
-        Ok((id, name, requests_json, created_at, updated_at))
+        let description: String = row.get(5)?;
+        let variables_json: String = row.get(6)?;
+        let auth_json: Option<String> = row.get(7)?;
+        Ok((id, name, requests_json, created_at, updated_at, description, variables_json, auth_json))
     }).map_err(|e| e.to_string())?
     .filter_map(|r| r.ok())
-    .map(|(id, name, req_json, created_at, updated_at)| {
-        // Try new format (Vec<CollectionItem>) first, fall back to legacy Vec<HttpRequest>
+    .map(|(id, name, req_json, created_at, updated_at, description, vars_json, auth_json)| {
         let items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
             serde_json::from_str::<Vec<HttpRequest>>(&req_json)
                 .unwrap_or_default()
@@ -192,12 +213,14 @@ pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
                 .map(CollectionItem::Request)
                 .collect()
         });
+        let variables: Vec<KeyValue> = serde_json::from_str(&vars_json).unwrap_or_default();
+        let auth: Option<AuthConfig> = auth_json.and_then(|j| serde_json::from_str(&j).ok());
         Collection {
             id, name, items,
             created_at, updated_at,
-            variables: vec![],
-            auth: None,
-            description: String::new(),
+            variables,
+            auth,
+            description,
         }
     })
     .collect();
@@ -207,9 +230,11 @@ pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
 pub fn insert_collection(db: &State<Db>, collection: &Collection) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let items_json = serde_json::to_string(&collection.items).map_err(|e| e.to_string())?;
+    let vars_json = serde_json::to_string(&collection.variables).map_err(|e| e.to_string())?;
+    let auth_json = collection.auth.as_ref().map(|a| serde_json::to_string(a)).transpose().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO collections (id, name, requests, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![collection.id, collection.name, items_json, collection.created_at, collection.updated_at],
+        "INSERT INTO collections (id, name, requests, created_at, updated_at, description, variables, auth) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![collection.id, collection.name, items_json, collection.created_at, collection.updated_at, collection.description, vars_json, auth_json],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -219,9 +244,10 @@ pub fn create_new_collection(db: &State<Db>, name: &str) -> Result<Collection, S
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let items_json = serde_json::to_string(&Vec::<CollectionItem>::new()).map_err(|e| e.to_string())?;
+    let vars_json = serde_json::to_string(&Vec::<KeyValue>::new()).map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO collections (id, name, requests, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, name, items_json, now, now],
+        "INSERT INTO collections (id, name, requests, created_at, updated_at, description, variables, auth) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![id, name, items_json, now, now, "", vars_json, Option::<String>::None],
     ).map_err(|e| e.to_string())?;
     Ok(Collection {
         id,
@@ -239,14 +265,63 @@ pub fn update_existing_collection(db: &State<Db>, collection: &Collection) -> Re
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
     let items_json = serde_json::to_string(&collection.items).map_err(|e| e.to_string())?;
+    let vars_json = serde_json::to_string(&collection.variables).map_err(|e| e.to_string())?;
+    let auth_json = collection.auth.as_ref().map(|a| serde_json::to_string(a)).transpose().map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE collections SET name = ?1, requests = ?2, updated_at = ?3 WHERE id = ?4",
-        params![collection.name, items_json, now, collection.id],
+        "UPDATE collections SET name = ?1, requests = ?2, updated_at = ?3, description = ?4, variables = ?5, auth = ?6 WHERE id = ?7",
+        params![collection.name, items_json, now, collection.description, vars_json, auth_json, collection.id],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 // ─── Tree manipulation functions ───────────────────────────────────────
+
+struct CollectionRow {
+    id: String,
+    name: String,
+    items: Vec<CollectionItem>,
+    created_at: String,
+    variables: Vec<KeyValue>,
+    auth: Option<AuthConfig>,
+    description: String,
+}
+
+fn read_collection_row(conn: &Connection, collection_id: &str) -> Result<CollectionRow, String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, requests, created_at, updated_at, description, variables, auth FROM collections WHERE id = ?1"
+    ).map_err(|e| e.to_string())?;
+    let row = stmt.query_row(params![collection_id], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let requests_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        let _updated_at: String = row.get(4)?;
+        let description: String = row.get(5)?;
+        let variables_json: String = row.get(6)?;
+        let auth_json: Option<String> = row.get(7)?;
+        Ok((id, name, requests_json, created_at, description, variables_json, auth_json))
+    }).map_err(|e| e.to_string())?;
+    let (id, name, req_json, created_at, description, vars_json, auth_json) = row;
+    let items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
+        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
+            .unwrap_or_default()
+            .into_iter()
+            .map(CollectionItem::Request)
+            .collect()
+    });
+    let variables: Vec<KeyValue> = serde_json::from_str(&vars_json).unwrap_or_default();
+    let auth: Option<AuthConfig> = auth_json.and_then(|j| serde_json::from_str(&j).ok());
+    Ok(CollectionRow { id, name, items, created_at, variables, auth, description })
+}
+
+fn save_collection_items(conn: &Connection, collection_id: &str, items: &[CollectionItem], now: &str) -> Result<(), String> {
+    let items_json = serde_json::to_string(items).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
+        params![items_json, now, collection_id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
 
 /// Add a folder to a collection (optionally inside a parent folder).
 pub fn add_collection_folder(
@@ -257,28 +332,8 @@ pub fn add_collection_folder(
 ) -> Result<Collection, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
-    let mut stmt = conn.prepare(
-        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
-    ).map_err(|e| e.to_string())?;
-
-    let row = stmt.query_row(params![collection_id], |row| {
-        let id: String = row.get(0)?;
-        let name: String = row.get(1)?;
-        let requests_json: String = row.get(2)?;
-        let created_at: String = row.get(3)?;
-        let _updated_at: String = row.get(4)?;
-        Ok((id, name, requests_json, created_at, _updated_at))
-    }).map_err(|e| e.to_string())?;
-
-    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
-
-    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
-        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
-            .unwrap_or_default()
-            .into_iter()
-            .map(CollectionItem::Request)
-            .collect()
-    });
+    let row = read_collection_row(&conn, collection_id)?;
+    let mut items = row.items;
 
     let folder = CollectionItem::Folder(CollectionFolder {
         id: uuid::Uuid::new_v4().to_string(),
@@ -302,21 +357,17 @@ pub fn add_collection_folder(
         None => items.push(folder),
     }
 
-    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
-        params![items_json, now, collection_id],
-    ).map_err(|e| e.to_string())?;
+    save_collection_items(&conn, collection_id, &items, &now)?;
 
     Ok(Collection {
-        id: c_id,
-        name: c_name,
+        id: row.id,
+        name: row.name,
         items,
-        created_at: c_created_at,
+        created_at: row.created_at,
         updated_at: now,
-        variables: vec![],
-        auth: None,
-        description: String::new(),
+        variables: row.variables,
+        auth: row.auth,
+        description: row.description,
     })
 }
 
@@ -330,27 +381,8 @@ pub fn add_collection_request(
 ) -> Result<Collection, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
-    let mut stmt = conn.prepare(
-        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
-    ).map_err(|e| e.to_string())?;
-
-    let row = stmt.query_row(params![collection_id], |row| {
-        let id: String = row.get(0)?;
-        let name: String = row.get(1)?;
-        let requests_json: String = row.get(2)?;
-        let created_at: String = row.get(3)?;
-        let updated_at: String = row.get(4)?;
-        Ok((id, name, requests_json, created_at, updated_at))
-    }).map_err(|e| e.to_string())?;
-    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
-
-    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
-        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
-            .unwrap_or_default()
-            .into_iter()
-            .map(CollectionItem::Request)
-            .collect()
-    });
+    let row = read_collection_row(&conn, collection_id)?;
+    let mut items = row.items;
 
     let new_item = CollectionItem::Request(request);
 
@@ -376,21 +408,17 @@ pub fn add_collection_request(
         }
     }
 
-    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
-        params![items_json, now, collection_id],
-    ).map_err(|e| e.to_string())?;
+    save_collection_items(&conn, collection_id, &items, &now)?;
 
     Ok(Collection {
-        id: c_id,
-        name: c_name,
+        id: row.id,
+        name: row.name,
         items,
-        created_at: c_created_at,
+        created_at: row.created_at,
         updated_at: now,
-        variables: vec![],
-        auth: None,
-        description: String::new(),
+        variables: row.variables,
+        auth: row.auth,
+        description: row.description,
     })
 }
 
@@ -402,47 +430,24 @@ pub fn delete_collection_item_by_id(
 ) -> Result<Collection, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
-    let mut stmt = conn.prepare(
-        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
-    ).map_err(|e| e.to_string())?;
-
-    let row = stmt.query_row(params![collection_id], |row| {
-        let id: String = row.get(0)?;
-        let name: String = row.get(1)?;
-        let requests_json: String = row.get(2)?;
-        let created_at: String = row.get(3)?;
-        let updated_at: String = row.get(4)?;
-        Ok((id, name, requests_json, created_at, updated_at))
-    }).map_err(|e| e.to_string())?;
-    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
-
-    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
-        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
-            .unwrap_or_default()
-            .into_iter()
-            .map(CollectionItem::Request)
-            .collect()
-    });
+    let row = read_collection_row(&conn, collection_id)?;
+    let mut items = row.items;
 
     if remove_item_by_id(&mut items, item_id).is_none() {
         return Err("Item not found".to_string());
     }
 
-    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
-        params![items_json, now, collection_id],
-    ).map_err(|e| e.to_string())?;
+    save_collection_items(&conn, collection_id, &items, &now)?;
 
     Ok(Collection {
-        id: c_id,
-        name: c_name,
+        id: row.id,
+        name: row.name,
         items,
-        created_at: c_created_at,
+        created_at: row.created_at,
         updated_at: now,
-        variables: vec![],
-        auth: None,
-        description: String::new(),
+        variables: row.variables,
+        auth: row.auth,
+        description: row.description,
     })
 }
 
@@ -456,33 +461,12 @@ pub fn move_collection_item_in_tree(
 ) -> Result<Collection, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
-    let mut stmt = conn.prepare(
-        "SELECT id, name, requests, created_at, updated_at FROM collections WHERE id = ?1"
-    ).map_err(|e| e.to_string())?;
+    let row = read_collection_row(&conn, collection_id)?;
+    let mut items = row.items;
 
-    let row = stmt.query_row(params![collection_id], |row| {
-        let id: String = row.get(0)?;
-        let name: String = row.get(1)?;
-        let requests_json: String = row.get(2)?;
-        let created_at: String = row.get(3)?;
-        let updated_at: String = row.get(4)?;
-        Ok((id, name, requests_json, created_at, updated_at))
-    }).map_err(|e| e.to_string())?;
-    let (c_id, c_name, req_json, c_created_at, _c_updated_at) = row;
-
-    let mut items: Vec<CollectionItem> = serde_json::from_str(&req_json).unwrap_or_else(|_| {
-        serde_json::from_str::<Vec<HttpRequest>>(&req_json)
-            .unwrap_or_default()
-            .into_iter()
-            .map(CollectionItem::Request)
-            .collect()
-    });
-
-    // Remove the item from its current position
     let removed = remove_item_by_id(&mut items, item_id)
         .ok_or_else(|| "Item not found".to_string())?;
 
-    // Insert at the new position
     match target_folder_id {
         Some(tfid) => {
             if let Some(CollectionItem::Folder(f)) = find_item_by_id_mut(&mut items, tfid) {
@@ -499,21 +483,17 @@ pub fn move_collection_item_in_tree(
         }
     }
 
-    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE collections SET requests = ?1, updated_at = ?2 WHERE id = ?3",
-        params![items_json, now, collection_id],
-    ).map_err(|e| e.to_string())?;
+    save_collection_items(&conn, collection_id, &items, &now)?;
 
     Ok(Collection {
-        id: c_id,
-        name: c_name,
+        id: row.id,
+        name: row.name,
         items,
-        created_at: c_created_at,
+        created_at: row.created_at,
         updated_at: now,
-        variables: vec![],
-        auth: None,
-        description: String::new(),
+        variables: row.variables,
+        auth: row.auth,
+        description: row.description,
     })
 }
 

@@ -93,7 +93,7 @@ export function ReplayTimeline() {
                 ? "border-primary/60 bg-primary/5 ring-1 ring-primary/20"
                 : isActive
                 ? "bg-primary/5 border-primary/45 shadow-sm ring-1 ring-primary/10"
-                : status === "running"
+                : status === undefined && isRunning
                 ? "bg-primary/5 border-primary/25 animate-pulse"
                 : "bg-card border-border hover:border-foreground/20"
             } ${isRunning ? "" : "hover:cursor-grab active:cursor-grabbing"}`}
@@ -103,7 +103,7 @@ export function ReplayTimeline() {
             )}
 
             <div className="shrink-0 flex items-center justify-center">
-              {status === "running" ? (
+              {status === undefined && isRunning ? (
                 <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               ) : status === "completed" ? (
                 <div className="h-4 w-4 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center text-green-500">

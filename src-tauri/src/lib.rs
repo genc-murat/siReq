@@ -79,7 +79,6 @@ pub fn run() {
             commands::save_global_variables_cmd,
             commands::encrypt_secret_value,
             commands::decrypt_secret_value,
-            commands::export_postman_collection,
             commands::run_collection,
             commands::run_collection_data_driven,
             commands::get_run_history,

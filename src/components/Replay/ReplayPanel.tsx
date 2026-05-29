@@ -393,7 +393,7 @@ export function ReplayPanel() {
                     <Panel>
                       <div className="h-full flex flex-col p-4 overflow-auto min-h-0">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 px-1 block shrink-0">Studio Inspector</span>
-                        <ReplayInspector key={activeEntryId ?? "none"} entry={selectedEntry} entryResult={selectedEntryResult} />
+                        <ReplayInspector key={activeEntryId ?? "none"} entry={selectedEntry ?? null} entryResult={selectedEntryResult} />
                       </div>
                     </Panel>
                   </Group>

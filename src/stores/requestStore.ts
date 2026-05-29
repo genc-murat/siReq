@@ -127,14 +127,14 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     }
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  runBenchmark: async (count: number, _environmentId?: string | null) => {
+  runBenchmark: async (count: number, environmentId?: string | null) => {
     const { request } = get();
     set({ benchmarkLoading: true, error: null, benchmarkResult: null });
     try {
       const result = await benchmarkRequest(
         { ...request, id: generateId() },
-        count
+        count,
+        environmentId
       );
       set({ benchmarkResult: result, benchmarkLoading: false });
       // Refresh history list

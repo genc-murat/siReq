@@ -281,6 +281,7 @@ pub fn import_openapi(
 pub async fn benchmark_request(
     request: HttpRequest,
     count: u64,
+    environment_id: Option<String>,
     client: State<'_, Client>,
     db: State<'_, Db>,
 ) -> Result<BenchmarkResult, String> {
@@ -289,6 +290,23 @@ pub async fn benchmark_request(
     if count == 0 || count > 1000 {
         return Err("Count must be between 1 and 1000".to_string());
     }
+
+    // Resolve environment variables
+    let global_vars = crate::storage::get_global_variables(&db)?;
+    let env_vars: HashMap<String, String> = match environment_id {
+        Some(ref env_id) => {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            let env = get_environment_by_id(&conn, env_id)?;
+            drop(conn);
+            env.map(|e| e.variables.into_iter()
+                .filter(|v| v.enabled && !v.key.is_empty())
+                .map(|v| (v.key, v.value))
+                .collect()
+            ).unwrap_or_default()
+        }
+        None => HashMap::new()
+    };
+    let resolved = apply_variables(&request, &global_vars.variables, &[], &env_vars, &[]);
 
     let owned_client = (*client).clone();
     let stored_cookies: Vec<StoredCookie> = vec![];
@@ -300,7 +318,7 @@ pub async fn benchmark_request(
 
     for _ in 0..count {
         let start = Instant::now();
-        match execute_request(&owned_client, &request, &stored_cookies).await {
+        match execute_request(&owned_client, &resolved, &stored_cookies).await {
             Ok((resp, _)) => {
                 times_ms.push(start.elapsed().as_millis() as u64);
                 statuses.push(resp.status);
@@ -499,10 +517,23 @@ pub async fn run_collection(
     let total = flat_requests.len();
 
     for (idx, request) in flat_requests.iter().enumerate() {
+        // Inherit collection auth if request has none
+        let effective_request = if request.auth.auth_type == AuthType::none {
+            if let Some(ref col_auth) = collection.auth {
+                let mut r = (*request).clone();
+                r.auth = col_auth.clone();
+                r
+            } else {
+                (*request).clone()
+            }
+        } else {
+            (*request).clone()
+        };
+
         // Step 1: Execute pre-request script
         let (modified_request, pre_script_results) = execute_pre_request(
-            &request.pre_script,
-            request,
+            &effective_request.pre_script,
+            &effective_request,
             &env_vars,
         )?;
 
@@ -727,10 +758,23 @@ pub async fn run_collection_data_driven(
         }
 
         for (idx, request) in flat_requests.iter().enumerate() {
+            // Inherit collection auth if request has none
+            let effective_request = if request.auth.auth_type == AuthType::none {
+                if let Some(ref col_auth) = collection.auth {
+                    let mut r = (*request).clone();
+                    r.auth = col_auth.clone();
+                    r
+                } else {
+                    (*request).clone()
+                }
+            } else {
+                (*request).clone()
+            };
+
             // Pre-request script
             let (modified_request, pre_script_results) = execute_pre_request(
-                &request.pre_script,
-                request,
+                &effective_request.pre_script,
+                &effective_request,
                 &iteration_env,
             )?;
 

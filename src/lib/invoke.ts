@@ -398,8 +398,8 @@ export async function cancelRequest(requestId: string): Promise<void> {
   return safeInvoke("cancel_request", { requestId });
 }
 
-export async function benchmarkRequest(request: HttpRequest, count: number): Promise<BenchmarkResult> {
-  return safeInvoke("benchmark_request", { request, count });
+export async function benchmarkRequest(request: HttpRequest, count: number, environmentId?: string | null): Promise<BenchmarkResult> {
+  return safeInvoke("benchmark_request", { request, count, environmentId: environmentId ?? null });
 }
 
 export async function getBenchmarkHistory(limit?: number, offset?: number): Promise<BenchmarkHistoryEntry[]> {

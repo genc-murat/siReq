@@ -424,7 +424,8 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
   startStreamingReplay: async (environmentId = null) => {
     const { activeSessionId, entries } = get();
     if (!activeSessionId || entries.length === 0) return null;
-    set({ loading: true, error: null, playbackState: "playing", currentRunEntryResults: new Map() });
+    const pendingRunId = crypto.randomUUID();
+    set({ loading: true, error: null, playbackState: "playing", currentRunEntryResults: new Map(), streamingRunId: pendingRunId });
     try {
       const detail = await replayStartStreaming(activeSessionId, environmentId);
       const resultMap = new Map<string, ReplayEntryResult>();

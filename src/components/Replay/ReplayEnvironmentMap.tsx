@@ -71,15 +71,15 @@ export function ReplayEnvironmentMap() {
 
         {/* Rules List */}
         <div className="flex flex-col gap-3">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Active Rules ({session.remapRules.length})</span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Active Rules ({session.remap_rules.length})</span>
           
-          {session.remapRules.length === 0 ? (
+          {session.remap_rules.length === 0 ? (
             <div className="border border-dashed border-border rounded-xl p-8 text-center text-muted-foreground text-xs">
               No URL remapping rules configured. Requests will be replayed exactly as captured.
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {session.remapRules.map((rule) => (
+              {session.remap_rules.map((rule) => (
                 <div
                   key={rule.id}
                   className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between gap-4 group hover:border-primary/25 hover:shadow-sm transition-all duration-150"
