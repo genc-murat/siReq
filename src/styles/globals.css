@@ -314,13 +314,205 @@ body {
   overflow: hidden;
 }
 
-.cm-editor {
+/* ─── CodeMirror 6 Theme ────────────────────────────────────────────
+   Uses app CSS variables so every theme (dark, nordic, sunset, etc.)
+   automatically applies consistent styling to CodeMirror editors.
+
+   Uses `html` prefix to ensure specificity > `oneDark`'s injected
+   theme styles (which use a single base-theme class).
+   ──────────────────────────────────────────────────────────────────── */
+
+html .cm-editor {
   height: 100%;
   font-size: 13px;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
 }
 
-.cm-editor .cm-scroller {
+html .cm-editor.cm-focused {
+  outline: none;
+}
+
+html .cm-editor .cm-scroller {
   font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+}
+
+/* Content area */
+html .cm-editor .cm-content {
+  caret-color: var(--color-foreground);
+}
+
+/* Cursor */
+html .cm-editor .cm-cursor {
+  border-left-color: var(--color-foreground);
+}
+html .cm-editor .cm-cursor-secondary {
+  border-left-color: var(--color-muted-foreground);
+}
+
+/* Selection */
+html .cm-editor .cm-selectionBackground {
+  background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+html .cm-editor.cm-focused .cm-selectionBackground {
+  background-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+html .cm-editor .cm-selectionMatch {
+  background-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+/* Active line */
+html .cm-editor .cm-activeLine {
+  background-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+html .cm-editor .cm-activeLineGutter {
+  background-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+/* Gutters */
+html .cm-editor .cm-gutters {
+  background-color: var(--color-muted);
+  color: var(--color-muted-foreground);
+  border-right: 1px solid var(--color-border);
+}
+html .cm-editor .cm-lineNumbers .cm-gutterElement {
+  padding: 0 8px 0 4px;
+}
+
+/* Bracket matching */
+html .cm-editor .cm-matchingBracket {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+html .cm-editor .cm-nonmatchingBracket {
+  background-color: color-mix(in srgb, var(--color-destructive) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--color-destructive) 40%, transparent);
+}
+
+/* Search panel */
+html .cm-editor .cm-panel.cm-search {
+  background-color: var(--color-card);
+  color: var(--color-card-foreground);
+  border-bottom: 1px solid var(--color-border);
+  padding: 6px 8px;
+}
+html .cm-editor .cm-panel.cm-search label {
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: 6px;
+}
+html .cm-editor .cm-panel.cm-search input {
+  background-color: var(--color-input);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: inherit;
+}
+html .cm-editor .cm-panel.cm-search input:focus {
+  outline: none;
+  border-color: var(--color-ring);
+  box-shadow: 0 0 0 1px var(--color-ring);
+}
+html .cm-editor .cm-panel.cm-search button {
+  background-color: var(--color-secondary);
+  color: var(--color-secondary-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+html .cm-editor .cm-panel.cm-search button:hover {
+  background-color: var(--color-accent);
+}
+
+/* Autocomplete tooltip */
+html .cm-editor .cm-tooltip {
+  background-color: var(--color-popover);
+  color: var(--color-popover-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+html .cm-editor .cm-tooltip-autocomplete {
+  font-family: inherit;
+  font-size: 13px;
+}
+html .cm-editor .cm-tooltip-autocomplete ul li[aria-selected] {
+  background-color: var(--color-accent);
+  color: var(--color-accent-foreground);
+}
+html .cm-editor .cm-tooltip-autocomplete .cm-completionLabel {
+  font-weight: 500;
+}
+html .cm-editor .cm-tooltip-autocomplete .cm-completionDetail {
+  color: var(--color-muted-foreground);
+  font-style: italic;
+  font-size: 11px;
+  margin-left: 8px;
+}
+html .cm-editor .cm-tooltip-autocomplete .cm-completionMatchedText {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+}
+
+/* Lint gutter markers */
+html .cm-editor .cm-lintRange-error {
+  background-color: color-mix(in srgb, var(--color-destructive) 20%, transparent);
+}
+html .cm-editor .cm-lintRange-warning {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+html .cm-editor .cm-lintRange-active {
+  background-color: color-mix(in srgb, var(--color-destructive) 10%, transparent);
+}
+html .cm-editor .cm-lint-marker-error {
+  color: var(--color-destructive);
+}
+html .cm-editor .cm-lint-marker-warning {
+  color: var(--color-primary);
+}
+html .cm-editor .cm-lintRange {
+  background-color: transparent;
+}
+
+/* Fold gutter */
+html .cm-editor .cm-foldGutter .cm-gutterElement {
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+}
+html .cm-editor .cm-foldPlaceholder {
+  background-color: var(--color-muted);
+  color: var(--color-muted-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 0 4px;
+  margin: 0 2px;
+}
+
+/* Highlight special chars */
+html .cm-editor .cm-highlightSpace::before {
+  color: var(--color-muted-foreground);
+  opacity: 0.4;
+}
+
+/* Placeholder text */
+html .cm-editor .cm-placeholder {
+  color: var(--color-muted-foreground);
+  opacity: 0.6;
+}
+
+/* Smooth transitions for theme changes on the editor container */
+html .cm-editor {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+html .cm-editor .cm-gutters {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 ::-webkit-scrollbar {

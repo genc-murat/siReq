@@ -14,6 +14,7 @@ import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
 import { searchKeymap, highlightSelectionMatches, openSearchPanel } from "@codemirror/search";
 import { foldKeymap } from "@codemirror/language";
 import * as acorn from "acorn";
+import { useUIStore } from "@/stores/uiStore";
 
 export interface CodeMirrorEditorHandle {
   openSearch: () => void;
@@ -46,7 +47,19 @@ function getLanguageExtension(lang?: string) {
   }
 }
 
-function isDarkMode() {
+/**
+ * CSS-based dark mode detection: reads the computed --color-background
+ * lightness from CSS variables. If lightness is below 40%, treat as dark.
+ * This works automatically with ALL themes without hardcoding theme names.
+ */
+function isDarkMode(): boolean {
+  const bg = getComputedStyle(document.documentElement)
+    .getPropertyValue("--color-background").trim();
+  const match = bg.match(/hsl\(\s*[\d.]+\s+[\d.]+%\s+([\d.]+)%/);
+  if (match) {
+    return parseFloat(match[1]) < 40;
+  }
+  // Fallback: check for .dark class
   return document.documentElement.classList.contains("dark");
 }
 
@@ -156,6 +169,7 @@ export function CodeMirrorEditor({
   completions,
   editorRef,
 }: CodeMirrorEditorProps & { editorRef?: React.RefObject<CodeMirrorEditorHandle | null> }) {
+  const theme = useUIStore((s) => s.theme);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -177,7 +191,6 @@ export function CodeMirrorEditor({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const isDark = isDarkMode();
     const langExt = getLanguageExtension(language);
 
     const extensions = [
@@ -193,6 +206,7 @@ export function CodeMirrorEditor({
       highlightActiveLine(),
       highlightSelectionMatches(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      isDarkMode() ? oneDark : [],
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,
@@ -243,10 +257,6 @@ export function CodeMirrorEditor({
       );
     }
 
-    if (isDark) {
-      extensions.push(oneDark);
-    }
-
     const state = EditorState.create({
       doc: value,
       extensions,
@@ -267,7 +277,7 @@ export function CodeMirrorEditor({
       viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, readOnly, extraCompletions]);
+  }, [language, readOnly, extraCompletions, theme]);
 
   useImperativeHandle(editorRef, () => ({
     openSearch: () => {

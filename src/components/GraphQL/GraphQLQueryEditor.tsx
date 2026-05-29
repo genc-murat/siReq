@@ -31,6 +31,7 @@ import {
   validate as gqlValidate,
   GraphQLError,
 } from "graphql";
+import { useUIStore } from "@/stores/uiStore";
 
 // ─── Minimal GraphQL tokenizer for StreamLanguage ────────────────────────────
 
@@ -159,9 +160,15 @@ function makeGraphQLCompletions(schema: GraphQLSchema | null) {
   return completions;
 }
 
-// ─── isDarkMode helper ────────────────────────────────────────────────────────
+// ─── CSS-based dark mode detection ────────────────────────────────────────────
 
-function isDarkMode() {
+function isDarkMode(): boolean {
+  const bg = getComputedStyle(document.documentElement)
+    .getPropertyValue("--color-background").trim();
+  const match = bg.match(/hsl\(\s*[\d.]+\s+[\d.]+%\s+([\d.]+)%/);
+  if (match) {
+    return parseFloat(match[1]) < 40;
+  }
   return document.documentElement.classList.contains("dark");
 }
 
@@ -180,6 +187,7 @@ export function GraphQLQueryEditor({
   schema,
   readOnly = false,
 }: GraphQLQueryEditorProps) {
+  const theme = useUIStore((s) => s.theme);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -190,8 +198,6 @@ export function GraphQLQueryEditor({
 
   useEffect(() => {
     if (!containerRef.current) return;
-
-    const isDark = isDarkMode();
 
     const schemaCompletions = makeGraphQLCompletions(schema);
 
@@ -208,6 +214,7 @@ export function GraphQLQueryEditor({
       highlightActiveLine(),
       highlightSelectionMatches(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      isDarkMode() ? oneDark : [],
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,
@@ -251,8 +258,6 @@ export function GraphQLQueryEditor({
       );
     }
 
-    if (isDark) extensions.push(oneDark);
-
     const state = EditorState.create({ doc: value, extensions });
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
@@ -261,9 +266,9 @@ export function GraphQLQueryEditor({
       view.destroy();
       viewRef.current = null;
     };
-    // Re-create editor when schema changes (affects linter + completions)
+    // Re-create editor when schema or theme changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema, readOnly]);
+  }, [schema, readOnly, theme]);
 
   // Sync external value changes
   useEffect(() => {
