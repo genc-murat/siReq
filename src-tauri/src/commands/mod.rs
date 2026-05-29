@@ -513,6 +513,10 @@ pub async fn run_collection(
     let mut passed: u32 = 0;
     let mut failed: u32 = 0;
 
+    // ── Request Chaining: accumulated vars extracted during the run ──
+    // These flow from one request to the next, at env-var priority level.
+    let mut run_vars: HashMap<String, String> = HashMap::new();
+
     let flat_requests = flatten_collection_items(&collection.items);
     let total = flat_requests.len();
 
@@ -530,22 +534,32 @@ pub async fn run_collection(
             (*request).clone()
         };
 
-        // Step 1: Execute pre-request script
+        // Merge run_vars into env so extracted variables from previous
+        // requests are available as {{variable}} in subsequent requests.
+        let merged_env: HashMap<String, String> = {
+            let mut m = env_vars.clone();
+            for (k, v) in &run_vars {
+                m.insert(k.clone(), v.clone());
+            }
+            m
+        };
+
+        // Step 1: Execute pre-request script (gets access to chained vars)
         let (modified_request, pre_script_results) = execute_pre_request(
             &effective_request.pre_script,
             &effective_request,
-            &env_vars,
+            &merged_env,
         )?;
 
-        // Script variables
+        // Script variables (from pre-script pm.variables.set())
         let script_vars = pre_script_results.modified_variables.clone();
 
-        // Step 2: Apply full variable resolution (dynamic -> global -> collection -> env -> script)
+        // Step 2: Apply full variable resolution (dynamic -> global -> collection -> env -> run_vars -> script)
         let resolved = apply_variables(
             &modified_request,
             &global_vars.variables,
             &collection_vars,
-            &env_vars,
+            &merged_env,
             &script_vars,
         );
 
@@ -568,7 +582,7 @@ pub async fn run_collection(
                     &request.post_script,
                     &modified_request,
                     &response,
-                    &env_vars,
+                    &merged_env,
                 )?;
 
                 // Step 5: Collect all script results
@@ -586,11 +600,22 @@ pub async fn run_collection(
                     });
                 }
 
-                // Step 5a: Execute variable extractions
+                // Step 6: Execute variable extractions
                 let extracted_vars = execute_extractions(
                     &request.extractions,
                     &response.body,
                 ).unwrap_or_default();
+
+                // ── Chain extracted vars to next request ──
+                // Include both post-script modified vars and JSONPath extractions
+                for kv in &post_script_results.modified_variables {
+                    if kv.enabled && !kv.key.is_empty() {
+                        run_vars.insert(kv.key.clone(), kv.value.clone());
+                    }
+                }
+                for (var_name, var_value) in &extracted_vars {
+                    run_vars.insert(var_name.clone(), var_value.clone());
+                }
 
                 let run_req = RunRequestResult {
                     request_name: request.name.clone(),
@@ -661,6 +686,9 @@ pub async fn run_collection(
     let total_time_ms = start_instant.elapsed().as_millis() as u64;
     let completed_at = chrono::Utc::now().to_rfc3339();
 
+    // Flatten accumulated run_vars for the result summary
+    let all_extracted: Vec<(String, String)> = run_vars.into_iter().collect();
+
     let result = CollectionRunResult {
         id: uuid::Uuid::new_v4().to_string(),
         collection_id,
@@ -675,7 +703,7 @@ pub async fn run_collection(
         passed,
         failed,
         total_time_ms,
-        extracted_variables: vec![],
+        extracted_variables: all_extracted,
     };
 
     // Save to run history
@@ -751,7 +779,11 @@ pub async fn run_collection_data_driven(
 
     // For each dataset row, run through the collection
     for (row_idx, row) in dataset.rows.iter().enumerate() {
-        // Merge dataset variables into base env
+        // ── Request Chaining: per-iteration accumulator ──
+        // Reset for each new iteration, but accumulates across requests within it.
+        let mut run_vars: HashMap<String, String> = HashMap::new();
+
+        // Merge dataset variables into base env (base env is constant across iterations)
         let mut iteration_env: HashMap<String, String> = env_vars.clone();
         for (k, v) in &row.values {
             iteration_env.insert(k.clone(), v.clone());
@@ -771,21 +803,31 @@ pub async fn run_collection_data_driven(
                 (*request).clone()
             };
 
+            // Merge run_vars into iteration_env so extracted variables from
+            // previous requests are available as {{variable}} in subsequent ones.
+            let merged_env: HashMap<String, String> = {
+                let mut m = iteration_env.clone();
+                for (k, v) in &run_vars {
+                    m.insert(k.clone(), v.clone());
+                }
+                m
+            };
+
             // Pre-request script
             let (modified_request, pre_script_results) = execute_pre_request(
                 &effective_request.pre_script,
                 &effective_request,
-                &iteration_env,
+                &merged_env,
             )?;
 
             let script_vars = pre_script_results.modified_variables.clone();
 
-            // Variable resolution (includes dataset vars via iteration_env)
+            // Variable resolution (includes dataset vars + chained vars via merged_env)
             let resolved = apply_variables(
                 &modified_request,
                 &global_vars.variables,
                 &collection_vars,
-                &iteration_env,
+                &merged_env,
                 &script_vars,
             );
 
@@ -805,13 +847,23 @@ pub async fn run_collection_data_driven(
                         &request.post_script,
                         &modified_request,
                         &response,
-                        &iteration_env,
+                        &merged_env,
                     )?;
 
                     let extracted_vars = execute_extractions(
                         &request.extractions,
                         &response.body,
                     ).unwrap_or_default();
+
+                    // ── Chain extracted vars to next request within this iteration ──
+                    for kv in &post_script_results.modified_variables {
+                        if kv.enabled && !kv.key.is_empty() {
+                            run_vars.insert(kv.key.clone(), kv.value.clone());
+                        }
+                    }
+                    for (var_name, var_value) in &extracted_vars {
+                        run_vars.insert(var_name.clone(), var_value.clone());
+                    }
 
                     let mut all_logs = pre_script_results.logs.clone();
                     all_logs.extend(post_script_results.logs.clone());
@@ -897,6 +949,15 @@ pub async fn run_collection_data_driven(
     let total_time_ms = start_instant.elapsed().as_millis() as u64;
     let completed_at = chrono::Utc::now().to_rfc3339();
 
+    // Collect all unique extracted variables across results for the summary
+    let all_extracted: Vec<(String, String)> = {
+        let mut seen = std::collections::HashSet::new();
+        results.iter()
+            .flat_map(|r| r.extracted_variables.clone())
+            .filter(|(k, _)| seen.insert(k.clone()))
+            .collect()
+    };
+
     let result = CollectionRunResult {
         id: uuid::Uuid::new_v4().to_string(),
         collection_id,
@@ -911,7 +972,7 @@ pub async fn run_collection_data_driven(
         passed,
         failed,
         total_time_ms,
-        extracted_variables: vec![],
+        extracted_variables: all_extracted,
     };
 
     let _ = save_run_result(&db, &result);

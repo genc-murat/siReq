@@ -1,6 +1,6 @@
 [package]
 name = "siReq"
-version = "0.5.6"
+version = "0.7.0"
 description = "Postman-like HTTP client"
 authors = ["you"]
 license = ""

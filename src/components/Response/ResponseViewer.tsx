@@ -8,14 +8,26 @@ import { SchemaViewer } from "./SchemaViewer";
 import { ContractViewer } from "./ContractViewer";
 import { useContractStore } from "@/stores/contractStore";
 import { StatsBar } from "./StatsBar";
+import { VariablesViewer } from "./VariablesViewer";
 import { Tabs, type Tab } from "@/components/Tabs";
 
-function getTabs(showDiff: boolean, hasSchema: boolean, hasContract: boolean): Tab[] {
+function getTabs(showDiff: boolean, hasSchema: boolean, hasContract: boolean, hasVariables: boolean): Tab[] {
   const base: Tab[] = [
     { id: "body", label: "Body" },
     { id: "headers", label: "Headers" },
     { id: "cookies", label: "Cookies" },
   ];
+  if (hasVariables) {
+    base.push({
+      id: "variables",
+      label: "Vars",
+      badge: (
+        <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-cyan-500/15 text-cyan-500 text-[9px] font-semibold leading-none">
+          V
+        </span>
+      ),
+    });
+  }
   if (showDiff) {
     base.push({ id: "diff", label: "Diff", badge: <svg className="h-3 w-3 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6h18M9 12h6m-7 6h8" /></svg> });
   }
@@ -44,6 +56,7 @@ export function ResponseViewer() {
   const showDiff = compareResponse !== null;
   const hasSchema = (jsonSchema ?? "").trim().length > 0;
   const hasContract = !!contract;
+  const hasVariables = (response?.modified_variables?.length ?? 0) > 0;
 
   if (!response && !loading) {
     return (
@@ -85,7 +98,7 @@ export function ResponseViewer() {
     <div className="flex flex-col h-full">
       <StatsBar />
       <Tabs
-        tabs={getTabs(showDiff, hasSchema, hasContract)}
+        tabs={getTabs(showDiff, hasSchema, hasContract, hasVariables)}
         activeTab={responseTab}
         onChange={setResponseTab}
         className="shrink-0 px-3"
@@ -94,6 +107,7 @@ export function ResponseViewer() {
         {responseTab === "body" && <BodyViewer />}
         {responseTab === "headers" && <HeadersViewer />}
         {responseTab === "cookies" && <CookiesViewer />}
+        {responseTab === "variables" && hasVariables && response && <VariablesViewer variables={response.modified_variables ?? []} />}
         {responseTab === "diff" && showDiff && <DiffViewer />}
         {responseTab === "schema" && hasSchema && <SchemaViewer />}
         {responseTab === "contract" && <ContractViewer />}

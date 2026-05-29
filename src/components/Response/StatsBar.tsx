@@ -109,6 +109,20 @@ export function StatsBar() {
           </button>
         )}
 
+        {/* Extracted variables badge */}
+        {response.modified_variables && response.modified_variables.length > 0 && (
+          <button
+            onClick={() => useUIStore.getState().setResponseTab("variables")}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium text-cyan-500 bg-cyan-500/10 hover:bg-cyan-500/20 transition-all duration-150"
+            title="View extracted variables"
+          >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+            </svg>
+            {response.modified_variables.length} var{response.modified_variables.length > 1 ? "s" : ""}
+          </button>
+        )}
+
         <div className="flex-1" />
 
         {/* Right side */}

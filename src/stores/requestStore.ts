@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { HttpMethod, BodyType, KeyValue, AuthConfig, HttpRequest, HttpResponse, FormField, RequestSettings } from "@/lib/invoke";
 import { sendRequest, cancelRequest, benchmarkRequest, getBenchmarkHistory, deleteBenchmarkHistory } from "@/lib/invoke";
 import type { BenchmarkResult, BenchmarkHistoryEntry } from "@/lib/invoke";
+import { useToastStore } from "./toastStore";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -111,6 +112,20 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       );
       // Save previous response as lastResponse before overwriting
       set({ lastResponse: currentResponse, response, loading: false });
+
+      // Toast notification when variables are extracted
+      const vars = response.modified_variables;
+      if (vars && vars.length > 0) {
+        const names = vars.map((v) => v.key);
+        const display =
+          names.length <= 3
+            ? names.join(", ")
+            : names.slice(0, 3).join(", ") + ` +${names.length - 3} more`;
+        useToastStore.getState().addToast(
+          `${vars.length} variable${vars.length > 1 ? "s" : ""} extracted: ${display}`,
+          "success"
+        );
+      }
     } catch (e: unknown) {
       const errMsg = e instanceof Error ? e.message : e?.toString() ?? "Request failed";
       set({ error: errMsg, loading: false });

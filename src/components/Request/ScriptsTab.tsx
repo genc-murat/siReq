@@ -307,6 +307,63 @@ export function ScriptsTab() {
 
       {showExtractions && (
         <div className="flex-1 min-h-0 overflow-auto">
+          {/* Quick-add extraction helpers */}
+          {extractions.length === 0 && (
+            <div className="mb-3 border border-cyan-500/20 bg-cyan-500/5 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-cyan-500">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+                Quick-add extraction patterns
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Extract values from JSON responses into variables. Click a pattern below to add it instantly.
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { label: "Extract ID", expression: "$.id", variable: "id" },
+                  { label: "Extract Token", expression: "$.access_token", variable: "auth_token" },
+                  { label: "Extract Data", expression: "$.data", variable: "data" },
+                  { label: "Extract Email", expression: "$.email", variable: "email" },
+                  { label: "Extract User ID", expression: "$.user.id", variable: "user_id" },
+                  { label: "First Item", expression: "$.results[0]", variable: "first_result" },
+                ].map((pattern) => (
+                  <button
+                    key={pattern.variable}
+                    onClick={() => {
+                      const newExt: VariableExtraction = {
+                        id: crypto.randomUUID(),
+                        name: pattern.label,
+                        expression: pattern.expression,
+                        target_variable: pattern.variable,
+                        enabled: true,
+                      };
+                      setExtractions([...extractions, newExt]);
+                    }}
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-cyan-500/20 hover:border-cyan-500/50 bg-background hover:bg-cyan-500/5 transition-all duration-150 text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-medium text-foreground">{pattern.label}</div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <code className="text-[9px] font-mono text-cyan-500 truncate">{pattern.expression}</code>
+                        <span className="text-[9px] text-muted-foreground/40">→</span>
+                        <code className="text-[9px] font-mono text-green-500 truncate">{`{{${pattern.variable}}}`}</code>
+                      </div>
+                    </div>
+                    <svg className="h-3 w-3 shrink-0 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60 pt-1 border-t border-cyan-500/10">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Use <code className="text-cyan-500 font-mono">{"{{variable_name}}"}</code> in any request field to reference extracted values.</span>
+              </div>
+            </div>
+          )}
           <ExtractionEditor
             extractions={extractions}
             onChange={setExtractions}

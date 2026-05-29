@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRunnerStore } from "@/stores/runnerStore";
 import { useFlowStore } from "@/stores/flowStore";
 import { useUIStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
+import { buildRunnerChainData } from "@/lib/runnerChainUtils";
 
 function statusColor(status: number): string {
   if (status === 0) return "text-red-500";
@@ -135,10 +136,9 @@ export function RunnerPanel() {
     ? Math.round((runResult?.results.length ?? 0) / totalRequests * 100)
     : 0;
 
-  // Collect all extracted variables from results
-  const allExtractions = runResult?.results.flatMap(
-    (r) => r.extracted_variables ?? []
-  ) ?? [];
+  const [expandedVarsRow, setExpandedVarsRow] = useState<number | null>(null);
+
+  const { extractionGroups, chainFlow, totalExtractions } = buildRunnerChainData(runResult);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -447,24 +447,83 @@ export function RunnerPanel() {
           </div>
         )}
 
-        {/* Extracted variables summary */}
-        {completed && allExtractions.length > 0 && (
+        {/* Extracted variables summary — grouped by request */}
+        {completed && totalExtractions > 0 && (
           <div className="border rounded-lg overflow-hidden">
             <div className="text-[10px] font-medium text-muted-foreground px-3 py-1.5 border-b bg-muted/30 flex items-center gap-1.5">
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
               </svg>
-              Extracted Variables ({allExtractions.length})
+              Extracted Variables ({totalExtractions} from {extractionGroups.length} request{extractionGroups.length > 1 ? "s" : ""})
             </div>
-            <div className="text-[10px] font-mono divide-y divide-border/40">
-              {allExtractions.map(([key, value], i) => (
-                <div key={i} className="px-3 py-1.5 flex items-center gap-2 hover:bg-accent/20 transition-all duration-150">
-                  <span className="font-semibold text-foreground shrink-0">{key}</span>
-                  <span className="text-muted-foreground/40">=</span>
-                  <span className="text-primary truncate">{value}</span>
+            <div className="divide-y divide-border/40">
+              {extractionGroups.map((group) => (
+                <div key={group.index}>
+                  {/* Request header */}
+                  <div className="px-3 py-1.5 flex items-center gap-2 bg-muted/20 text-[10px] font-medium">
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded font-bold",
+                      group.hasError ? "bg-red-950/20 text-red-500" :
+                      group.statusCode >= 200 && group.statusCode < 300 ? "bg-green-950/20 text-green-500" :
+                      "bg-yellow-950/20 text-yellow-500"
+                    )}>
+                      #{group.index + 1}
+                    </span>
+                    <span className="font-mono text-muted-foreground">{group.requestMethod}</span>
+                    <span className="text-foreground truncate" title={group.requestName}>{group.requestName}</span>
+                    <span className="ml-auto text-primary font-semibold">{group.variables.length} var{group.variables.length > 1 ? "s" : ""}</span>
+                  </div>
+                  {/* Variables list */}
+                  <div className="text-[10px] font-mono">
+                    {group.variables.map(([key, value], vi) => (
+                      <div key={vi} className="px-6 py-1.5 flex items-center gap-2 hover:bg-accent/20 transition-all duration-150 border-t border-border/20">
+                        <svg className="h-2.5 w-2.5 text-cyan-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="font-semibold text-foreground shrink-0">{key}</span>
+                        <span className="text-muted-foreground/40">=</span>
+                        <span className="text-primary truncate" title={value}>{value}</span>
+                        {/* Show chain indicator if this var flows to a later request */}
+                        {chainFlow.filter(f => f.varName === key && f.fromIndex === group.index).length > 0 && (
+                          <span className="ml-auto text-[8px] text-cyan-500 font-medium flex items-center gap-1">
+                            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                            chained
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
+            {/* Chain flow summary */}
+            {chainFlow.length > 0 && (
+              <div className="border-t border-border/40 px-3 py-2 bg-muted/10">
+                <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Chain Flow
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {chainFlow.map((flow, fi) => (
+                    <div key={fi} className="flex items-center gap-1 text-[9px] bg-cyan-950/15 text-cyan-400 rounded px-1.5 py-0.5 font-medium">
+                      <span>#{flow.fromIndex + 1}</span>
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                      <span className="font-semibold text-cyan-200">{flow.varName}</span>
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                      <span>#{flow.toIndex + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -525,63 +584,97 @@ export function RunnerPanel() {
                 </thead>
                 <tbody>
                   {runResult.results.map((r, i) => (
-                    <tr
-                      key={i}
-                      className={cn(
-                        "border-t border-border/40 hover:bg-muted/20 transition-all duration-150",
-                        r.error && "bg-destructive/5"
+                    <Fragment key={i}>
+                      <tr
+                        className={cn(
+                          "border-t border-border/40 hover:bg-muted/20 transition-all duration-150",
+                          r.error && "bg-destructive/5"
+                        )}
+                      >
+                        <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
+                        <td className="px-3 py-2">
+                          {r.iteration !== null && r.iteration !== undefined ? (
+                            <span className="text-[10px] bg-muted rounded px-1.5 py-0.5 font-medium">
+                              #{r.iteration + 1}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="font-semibold text-[10px]">
+                            {mode === "flow" ? (
+                              <span className="text-cyan-400">FLOW</span>
+                            ) : (
+                              r.request_method
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 max-w-[250px]">
+                          <div className="truncate" title={`${r.request_name} — ${r.request_url}`}>
+                            {mode === "flow" ? (
+                              <span>{r.request_url || "Flow Execution"}</span>
+                            ) : (
+                              r.request_name || r.request_url || "—"
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          {r.error ? (
+                            <span className="text-red-500 font-medium" title={r.error}>Error</span>
+                          ) : (
+                            <span className={cn("font-medium", statusColor(r.status_code))}>
+                              {r.status_code}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {r.time_ms > 0 ? formatTime(r.time_ms) : "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {r.extracted_variables && r.extracted_variables.length > 0 ? (
+                            <button
+                              onClick={() => setExpandedVarsRow(expandedVarsRow === i ? null : i)}
+                              className="text-[10px] text-primary font-medium hover:text-primary/80 transition-all duration-150 flex items-center gap-1"
+                            >
+                              <svg className={cn(
+                                "h-3 w-3 transition-transform duration-150",
+                                expandedVarsRow === i && "rotate-90"
+                              )} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                              {r.extracted_variables.length} var{r.extracted_variables.length > 1 ? "s" : ""}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedVarsRow === i && r.extracted_variables && r.extracted_variables.length > 0 && (
+                        <tr className="bg-cyan-950/5">
+                          <td colSpan={7} className="px-6 py-2">
+                            <div className="text-[10px] font-mono space-y-1">
+                              {r.extracted_variables.map(([key, value], vi) => (
+                                <div key={vi} className="flex items-center gap-2 hover:bg-accent/20 px-2 py-0.5 rounded transition-all duration-150">
+                                  <svg className="h-2.5 w-2.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                  </svg>
+                                  <span className="font-bold text-foreground">{key}</span>
+                                  <span className="text-muted-foreground/40">=</span>
+                                  <span className="text-primary truncate max-w-[300px]" title={value}>{value}</span>
+                                  {chainFlow.some(f => f.varName === key && f.fromIndex === i) && (
+                                    <span className="ml-auto text-[8px] text-cyan-500 font-medium">→ chained to request #{chainFlow.filter(f => f.varName === key && f.fromIndex === i).map(f => f.toIndex + 1).join(", ")}</span>
+                                  )}
+                                  {chainFlow.some(f => f.varName === key && f.toIndex === i) && (
+                                    <span className="ml-auto text-[8px] text-yellow-500 font-medium">← from request #{chainFlow.filter(f => f.varName === key && f.toIndex === i).map(f => f.fromIndex + 1).join(", ")}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    >
-                      <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
-                      <td className="px-3 py-2">
-                        {r.iteration !== null && r.iteration !== undefined ? (
-                          <span className="text-[10px] bg-muted rounded px-1.5 py-0.5 font-medium">
-                            #{r.iteration + 1}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/30">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="font-semibold text-[10px]">
-                          {mode === "flow" ? (
-                            <span className="text-cyan-400">FLOW</span>
-                          ) : (
-                            r.request_method
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 max-w-[250px]">
-                        <div className="truncate" title={`${r.request_name} — ${r.request_url}`}>
-                          {mode === "flow" ? (
-                            <span>{r.request_url || "Flow Execution"}</span>
-                          ) : (
-                            r.request_name || r.request_url || "—"
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        {r.error ? (
-                          <span className="text-red-500 font-medium" title={r.error}>Error</span>
-                        ) : (
-                          <span className={cn("font-medium", statusColor(r.status_code))}>
-                            {r.status_code}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {r.time_ms > 0 ? formatTime(r.time_ms) : "—"}
-                      </td>
-                      <td className="px-3 py-2">
-                        {r.extracted_variables && r.extracted_variables.length > 0 ? (
-                          <span className="text-[10px] text-primary font-medium">
-                            {r.extracted_variables.length} vars
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                    </tr>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

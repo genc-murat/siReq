@@ -92,7 +92,8 @@
 - **Pre-request scripts** — Modify requests before sending, set variables, log output
 - **Post-response scripts** — Test assertions, extract data, write tests
 - **Postman-like API** — Familiar `pm.*` scripting interface
-- **Variable extraction** — Extract values from responses via JSONPath
+- **Request chaining / Variable extraction** — Extract values from JSON responses via JSONPath expressions. Configure extractions with quick-add pattern buttons in the Scripts tab. Extracted variables are automatically stored in the active environment and available as `{{variable_name}}` in subsequent requests.
+- **Extraction pipeline** — Response → Extract with JSONPath → Variable stored → Toast notification → Vars tab in response viewer → Use `{{variable}}` in next request
 - **Dynamic variables** — `{{$timestamp}}`, `{{$uuid}}`, and custom `{{variable}}` resolution
 
 ### Imports & Interoperability
@@ -178,6 +179,16 @@ Here are some screenshots of siReq in action across its various features and pan
   <img src="./docs/screenshots/scripts-variables.png" alt="Pre-request and post-response scripting with variable extraction" width="1000" />
 </p>
 
+### Request Chaining / Variable Extraction
+
+<p align="center">
+  <img src="./docs/screenshots/request-chaining-scripts.png" alt="Quick-add extraction pattern buttons in the Scripts tab — Extract ID, Token, Data, Email, User ID, and First Item" width="1000" />
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/response-vars-tab.png" alt="Vars tab showing extracted variables with copy-to-clipboard and usage guidance" width="1000" />
+</p>
+
 ### Import Tools
 
 <p align="center">
@@ -206,6 +217,14 @@ Here are some screenshots of siReq in action across its various features and pan
 
 <p align="center">
   <img src="./docs/screenshots/collection-runner.png" alt="Collection runner with configuration options, results table, and run history" width="1000" />
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/collection-runner-extracted-vars.png" alt="Collection runner — extracted variables grouped by request with chain flow visualization" width="1000" />
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/collection-runner-chain-vars.png" alt="Collection runner — expanded inline chain variable details showing request-to-request variable flow" width="1000" />
 </p>
 
 ### API Intelligence
@@ -326,6 +345,7 @@ After sending a request, the response panel displays:
 - **Cookies** — Parsed cookies from `Set-Cookie` headers
 - **Diff** — Compare current response with the previous response (line-by-line diff)
 - **Schema** — JSON schema viewer for API responses
+- **Extracted Variables** — "Vars" tab displays all variables extracted/modified by post-response scripts, with copy-to-clipboard for `{{variable_name}}` syntax and usage guidance. A cyan badge in the stats bar shows the variable count for quick access.
 - **Copy** — Copy response body to clipboard
 - **Save** — Download binary responses (images, PDFs)
 
@@ -378,7 +398,8 @@ siReq embeds a **QuickJS** JavaScript engine for request and response scripting:
   - `pm.variables` — Get and set variables
   - `pm.test()` — Define test cases
   - `console.log()` — Output debugging logs
-- **Variable extraction** — Configure JSONPath expressions to automatically extract values from responses into variables
+- **Variable extraction** — Configure JSONPath expressions to automatically extract values from responses into variables. Use quick-add pattern buttons (Extract ID, Token, Data, Email, User ID, First Item) for common extraction scenarios.
+- **Extraction pipeline** — When a response contains extracted variables, a success toast notification shows the variable names (truncated if >3). The response viewer's "Vars" tab displays all extracted values with `{{variable_name}}` copy support, enabling seamless request-to-request data chaining.
 
 ### Import / Export
 
@@ -479,7 +500,9 @@ Automate API testing with collection runs:
   - Extracted variables
   - Error details
 - **Summary cards** — Passed, failed, total time, average time
-- **Extracted variables view** — All variables extracted during the run
+- **Extracted variables view** — All variables extracted during the run, grouped per request with variable names, values, and chain indicators showing which variables flow between requests
+- **Chain flow visualization** — Visual flow diagram showing variable movement between requests (e.g., `#1 → auth_token → #2`)
+- **Interactive variable details** — Click the "N vars" badge in the results table to expand inline variable details with chaining direction indicators (`→ chained to request #X`, `← from request #X`)
 - **Run history** — Full history of all collection runs with dates, pass/fail stats, and delete/clear
 
 ### Visual Chaining Flow Editor
@@ -696,7 +719,7 @@ siReq/
 │   │   ├── Request/        # Request builder (URL, headers, body, auth, scripts, schema, OAuth 2.0)
 │   │   │   ├── OauthPanel.tsx # Enterprise OAuth 2.0 config & token HUD
 │   │   │   └── ...
-│   │   ├── Response/       # Response viewer (body, headers, cookies, diff, schema)
+│   │   ├── Response/       # Response viewer (body, headers, cookies, diff, schema, variables)
 │   │   ├── Sidebar/        # Sidebar (history, collections, environment)
 │   │   ├── Intelligence/   # API Intelligence dashboard
 │   │   ├── GrpcPanel.tsx / Grpc*.tsx  # gRPC client
