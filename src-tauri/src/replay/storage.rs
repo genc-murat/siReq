@@ -319,16 +319,4 @@ pub fn delete_replay_run(db: &State<Db>, id: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[allow(dead_code)]
-pub fn save_single_entry_result(db: &State<Db>, er: &ReplayEntryResult) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let req_json = er.replayed_request.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
-    let resp_json = er.replayed_response.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
-    let diff_json = er.diff.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
-    let ar_json = serde_json::to_string(&er.assertion_results).map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT OR REPLACE INTO replay_entry_results (id, run_id, entry_id, status, replayed_request, replayed_response, diff, assertion_results, error, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![er.id, er.run_id, er.entry_id, serde_json::to_string(&er.status).map_err(|e| e.to_string())?, req_json, resp_json, diff_json, ar_json, er.error, er.created_at],
-    ).map_err(|e| e.to_string())?;
-    Ok(())
-}
+

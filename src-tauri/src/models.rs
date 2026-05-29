@@ -160,26 +160,11 @@ pub enum CollectionItem {
     Request(HttpRequest),
 }
 
-#[allow(dead_code)]
 impl CollectionItem {
     pub fn id(&self) -> &str {
         match self {
             CollectionItem::Folder(f) => &f.id,
             CollectionItem::Request(r) => &r.id,
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        match self {
-            CollectionItem::Folder(f) => &f.name,
-            CollectionItem::Request(r) => &r.name,
-        }
-    }
-
-    pub fn name_mut(&mut self) -> &mut String {
-        match self {
-            CollectionItem::Folder(f) => &mut f.name,
-            CollectionItem::Request(r) => &mut r.name,
         }
     }
 }
@@ -290,22 +275,6 @@ pub fn flatten_collection_items(items: &[CollectionItem]) -> Vec<&HttpRequest> {
         }
     }
     result
-}
-
-/// Find an item by ID in the tree (recursive).
-#[allow(dead_code)]
-pub fn find_item_by_id<'a>(items: &'a [CollectionItem], id: &str) -> Option<&'a CollectionItem> {
-    for item in items {
-        if item.id() == id {
-            return Some(item);
-        }
-        if let CollectionItem::Folder(f) = item {
-            if let found @ Some(_) = find_item_by_id(&f.items, id) {
-                return found;
-            }
-        }
-    }
-    None
 }
 
 /// Find an item by ID in the tree (mutable, recursive).

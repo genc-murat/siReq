@@ -408,7 +408,6 @@ export const useFlowStore = create<FlowState>()(
         set((s) => ({
           logs: [...s.logs, { id, timestamp, level, message }].slice(-150), // Cap logs at 150 entries
         }));
-        console.log(`[Flow ${level.toUpperCase()}] ${message}`);
       },
 
       clearLogs: () => set({ logs: [] }),

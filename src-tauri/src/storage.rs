@@ -963,17 +963,6 @@ pub fn get_all_mock_configs(db: &State<Db>) -> Result<Vec<MockServerConfig>, Str
     Ok(entries)
 }
 
-#[allow(dead_code)]
-pub fn get_mock_config_by_id(db: &State<Db>, id: &str) -> Result<MockServerConfig, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare(
-        "SELECT config FROM mock_servers WHERE id = ?1"
-    ).map_err(|e| e.to_string())?;
-    let config_json: String = stmt.query_row(params![id], |row| row.get(0)).map_err(|e| e.to_string())?;
-    let config: MockServerConfig = serde_json::from_str(&config_json).map_err(|e| e.to_string())?;
-    Ok(config)
-}
-
 pub fn insert_mock_config(db: &State<Db>, config: &MockServerConfig) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();

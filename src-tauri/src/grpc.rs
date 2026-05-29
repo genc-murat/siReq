@@ -208,20 +208,26 @@ fn parse_grpc_frame(data: &[u8]) -> Result<(Vec<u8>, &[u8]), String> {
 
 /// Connect to a gRPC server via HTTP/2 and send a request.
 /// Uses hyper directly for full HTTP/2 trailer support.
+/// Supports both plaintext (h2c) and TLS (h2) connections.
+
+// Helper trait to unify TcpStream and TlsStream in a single trait object
+use tokio::io::{AsyncRead, AsyncWrite};
+
+trait IoReadWrite: AsyncRead + AsyncWrite + Send + Unpin {}
+impl<T: AsyncRead + AsyncWrite + Send + Unpin> IoReadWrite for T {}
+
 async fn send_grpc_request(
     address: &str,
     tls: bool,
     path: &str,
     frame_bytes: Vec<u8>,
 ) -> Result<(http::StatusCode, Vec<(String, String)>, Vec<u8>), String> {
-    // TLS not yet supported via hyper transport (TODO: wrap with tokio-rustls)
-    if tls {
-        return Err("TLS for gRPC is not yet supported. Use non-TLS (http://) instead.".to_string());
-    }
+    // Clone address to owned so ServerName can borrow safely in the TLS branch
+    let address = address.to_owned();
 
     // Address must include port
     let addr = if address.contains(':') {
-        address
+        &*address
     } else {
         return Err(format!("Address must include port (e.g., localhost:8080), got: {}", address));
     };
@@ -231,8 +237,52 @@ async fn send_grpc_request(
         .await
         .map_err(|e| format!("Failed to connect to {}: {}", addr, e))?;
 
-    // Wrap in TokioIo for hyper compatibility
-    let io = TokioIo::new(stream);
+    // If TLS is requested, wrap the TCP stream with TLS before HTTP/2 handshake
+    // Use Pin<Box<dyn IoReadWrite>> so both branches produce the same type for TokioIo
+    use std::pin::Pin;
+
+    let io: TokioIo<Pin<Box<dyn IoReadWrite>>> = if tls {
+        use std::sync::Arc;
+        use rustls::pki_types::ServerName;
+        use tokio_rustls::TlsConnector;
+
+        let domain_owned = address.split(':').next()
+            .ok_or_else(|| "Invalid address: cannot extract hostname".to_string())?
+            .to_owned();
+
+        // Leak to get &'static str — tokio-rustls requires ServerName<'static>
+        let domain: &'static str = Box::leak(domain_owned.into_boxed_str());
+
+        let server_name = if let Ok(ip) = domain.parse::<std::net::IpAddr>() {
+            ServerName::IpAddress(rustls::pki_types::IpAddr::from(ip))
+        } else {
+            ServerName::try_from(domain)
+                .map_err(|e| format!("Invalid domain name '{}': {}", domain, e))?
+        };
+
+        let mut root_store = rustls::RootCertStore::empty();
+
+        // load_native_certs() returns CertificateResult { certs, errors } — not a Result
+        let native_certs = rustls_native_certs::load_native_certs();
+        for cert in native_certs.certs {
+            // Ignore individual cert errors silently (cert may just be expired/malformed)
+            let _ = root_store.add(cert);
+        }
+
+        let config = rustls::ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+
+        let connector = TlsConnector::from(Arc::new(config));
+        let tls_stream = connector
+            .connect(server_name, stream)
+            .await
+            .map_err(|e| format!("TLS handshake failed: {}", e))?;
+
+        TokioIo::new(Box::pin(tls_stream))
+    } else {
+        TokioIo::new(Box::pin(stream))
+    };
 
     // Perform HTTP/2 handshake (prior knowledge = no upgrade, no TLS)
     let (mut send_request, connection) = http2::Builder::new(TokioExecutor::new())

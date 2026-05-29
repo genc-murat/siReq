@@ -41,8 +41,7 @@ struct HarResponse {
     #[serde(default)]
     content: HarContent,
     #[serde(default)]
-    #[allow(dead_code)]
-    timings: Value,
+    _timings: Value,
 }
 
 #[derive(serde::Deserialize)]

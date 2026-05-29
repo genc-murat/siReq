@@ -107,30 +107,6 @@ pub struct PerformanceRegression {
 
 // ─── Internal DB row ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
-struct ApiIntelligenceRow {
-    id: String,
-    endpoint_key: String,
-    method: String,
-    first_seen: String,
-    last_seen: String,
-    request_count: u64,
-    avg_time_ms: f64,
-    p95_time_ms: f64,
-    min_time_ms: f64,
-    max_time_ms: f64,
-    status_200_count: u64,
-    status_400_count: u64,
-    status_500_count: u64,
-    status_other_count: u64,
-    total_size_bytes: u64,
-    schema_versions: String,      // JSON
-    performance_history: String,  // JSON
-    created_at: String,
-    updated_at: String,
-}
-
 // ─── Schema fingerprinting ───────────────────────────────────────────────────
 
 /// Extract a structural fingerprint from a JSON body.

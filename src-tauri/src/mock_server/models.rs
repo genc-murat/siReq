@@ -108,9 +108,4 @@ pub struct MockStats {
     pub average_latency_ms: f64,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ImportSummary {
-    pub imported_endpoints_count: usize,
-    pub config: MockServerConfig,
-}
+
