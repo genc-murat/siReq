@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/screenshots/hero-overview.png" alt="siReq — Modern API Client" width="1200" />
+  <img src="./docs/logo.svg" alt="siReq Logo" width="160" />
 </p>
 
 <div align="center">
@@ -7,6 +7,10 @@
   <h3>A modern, high-performance desktop API client</h3>
   <p>HTTP · GraphQL · gRPC · WebSocket · Scripting · Benchmarking · API Intelligence · ReplayLab</p>
 </div>
+
+<p align="center">
+  <img src="./docs/screenshots/hero-overview.png" alt="siReq — Modern API Client" width="1200" />
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white" alt="Tauri v2" />

@@ -14,6 +14,8 @@ import { useWebSocketStore } from "@/stores/websocketStore";
 import { useEffect } from "react";
 import { generateCurl } from "@/lib/curlGenerator";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
+
 
 export function Layout() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
@@ -67,7 +69,8 @@ export function Layout() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
         </button>
-        <span className="font-semibold text-sm text-primary ml-1 mr-2">siReq</span>
+        <Logo size={18} className="ml-1" />
+        <span className="font-semibold text-sm text-primary ml-1.5 mr-2">siReq</span>
         <div className="h-4 w-px bg-border" />
         <span className="text-[10px] text-muted-foreground/50 font-mono uppercase tracking-wider ml-2">HTTP Client</span>
         <div className="flex-1" />
