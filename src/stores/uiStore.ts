@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { HttpResponse } from "@/lib/invoke";
 
 interface UIState {
-  theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord";
+  theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether";
   toolMode: "http" | "websocket" | "grpc" | "mock" | "graphql" | "flow" | "replay";
   sidebarOpen: boolean;
   settingsOpen: boolean;
@@ -16,7 +16,7 @@ interface UIState {
   runnerCollectionId: string | null;
   showIntelligence: boolean;
   compareResponse: HttpResponse | null;
-  setTheme: (theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord") => void;
+  setTheme: (theme: "light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether") => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSettingsOpen: (open: boolean) => void;

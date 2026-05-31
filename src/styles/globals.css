@@ -303,6 +303,33 @@
   --color-sidebar-accent-foreground: hsl(193 43% 55%);
 }
 
+.aether {
+  --color-background: hsl(260 55% 4.5%);
+  --color-foreground: hsl(260 20% 95%);
+  --color-card: hsl(260 48% 8%);
+  --color-card-foreground: hsl(260 20% 95%);
+  --color-popover: hsl(260 48% 9%);
+  --color-popover-foreground: hsl(260 20% 95%);
+  --color-primary: hsl(295 90% 60%);
+  --color-primary-foreground: hsl(260 55% 4.5%);
+  --color-secondary: hsl(250 60% 18%);
+  --color-secondary-foreground: hsl(260 20% 95%);
+  --color-muted: hsl(260 30% 12%);
+  --color-muted-foreground: hsl(260 20% 60%);
+  --color-accent: hsl(260 50% 15%);
+  --color-accent-foreground: hsl(260 10% 98%);
+  --color-destructive: hsl(340 85% 55%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(260 40% 14%);
+  --color-input: hsl(260 40% 14%);
+  --color-ring: hsl(295 90% 60%);
+  --color-sidebar: hsl(260 65% 3.5%);
+  --color-sidebar-foreground: hsl(260 20% 95%);
+  --color-sidebar-border: hsl(260 40% 10%);
+  --color-sidebar-accent: hsl(260 40% 10%);
+  --color-sidebar-accent-foreground: hsl(295 90% 60%);
+}
+
 * {
   border-color: var(--color-border);
 }

@@ -189,7 +189,7 @@ export function SettingsDrawer() {
 }
 
 const THEMES: {
-  id: "light" | "dark" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "system";
+  id: "light" | "dark" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether" | "system";
   name: string;
   swatches: string[];
 }[] = [
@@ -247,6 +247,11 @@ const THEMES: {
     id: "nord",
     name: "Nord",
     swatches: ["#f0f4fa", "#81b9cb", "#e8eef6", "#6e7b8f", "#d5dee8"],
+  },
+  {
+    id: "aether",
+    name: "Aether Purple",
+    swatches: ["#0b0617", "#d946ef", "#1a0e33", "#c084fc", "#2a164d"],
   },
   {
     id: "system",
