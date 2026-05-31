@@ -219,14 +219,6 @@ Here are some screenshots of siReq in action across its various features and pan
   <img src="./docs/screenshots/collection-runner.png" alt="Collection runner with configuration options, results table, and run history" width="1000" />
 </p>
 
-<p align="center">
-  <img src="./docs/screenshots/collection-runner-extracted-vars.png" alt="Collection runner — extracted variables grouped by request with chain flow visualization" width="1000" />
-</p>
-
-<p align="center">
-  <img src="./docs/screenshots/collection-runner-chain-vars.png" alt="Collection runner — expanded inline chain variable details showing request-to-request variable flow" width="1000" />
-</p>
-
 ### API Intelligence
 
 <p align="center">
