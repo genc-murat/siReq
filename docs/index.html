@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- SEO Meta Tags -->
+  <title>siReq — Modern, High-Performance Desktop API Client</title>
+  <meta name="description" content="A lightweight, local-first, native API client for HTTP, GraphQL, gRPC, and WebSocket requests. Built with Rust and React 19 for maximum speed and security.">
+  <meta name="keywords" content="API client, gRPC client, GraphQL client, WebSocket testing, postman alternative, tauri api client, rust api client, local first api, replaylab">
+  <meta name="author" content="siReq Team">
+  <meta name="robots" content="index, follow">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="siReq — Modern, High-Performance Desktop API Client">
+  <meta property="og:description" content="A lightweight, local-first, native API client for HTTP, GraphQL, gRPC, and WebSocket requests. No cloud bloat, pure native performance.">
+  <meta property="og:image" content="./screenshots/hero-overview.png">
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="siReq — Modern, High-Performance Desktop API Client">
+  <meta property="twitter:description" content="Lightweight, local-first native API client built with Rust and React. HTTP, gRPC, GraphQL, WebSocket, benchmarking, and visual request chaining.">
+  <meta property="twitter:image" content="./screenshots/hero-overview.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="./logo.svg">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* CSS CSS Reset & Custom Properties */
+    :root {
+      /* Theme: Reactor Dark (Default) */
+      --bg-primary: #0b0f19;
+      --bg-secondary: #131926;
+      --bg-card: rgba(19, 25, 38, 0.6);
+      --bg-header: rgba(11, 15, 25, 0.75);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-active: rgba(6, 182, 212, 0.4);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-inverse: #0b0f19;
+      
+      --accent-cyan: #06b6d4;
+      --accent-cyan-glow: rgba(6, 182, 212, 0.15);
+      --accent-purple: #a855f7;
+      --accent-purple-glow: rgba(168, 85, 247, 0.15);
+      --accent-pink: #ec4899;
+      --accent-pink-glow: rgba(236, 72, 153, 0.15);
+      
+      --gradient-primary: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-purple) 50%, var(--accent-pink) 100%);
+      --gradient-text: linear-gradient(to right, #22d3ee, #a78bfa, #f472b6);
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.15);
+      --shadow-neon-cyan: 0 0 20px rgba(6, 182, 212, 0.25);
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      
+      --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Theme: Cyber Light */
+    [data-theme="light"] {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-card: rgba(255, 255, 255, 0.7);
+      --bg-header: rgba(248, 250, 252, 0.8);
+      --border-color: rgba(15, 23, 42, 0.08);
+      --border-active: rgba(59, 130, 246, 0.4);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-inverse: #ffffff;
+      
+      --accent-cyan: #0284c7;
+      --accent-cyan-glow: rgba(2, 132, 199, 0.1);
+      --accent-purple: #7c3aed;
+      --accent-purple-glow: rgba(124, 58, 237, 0.1);
+      --accent-pink: #db2777;
+      --accent-pink-glow: rgba(219, 39, 119, 0.1);
+      
+      --gradient-primary: linear-gradient(135deg, #0284c7 0%, #7c3aed 50%, #db2777 100%);
+      --gradient-text: linear-gradient(to right, #0284c7, #7c3aed, #db2777);
+      --shadow-neon-cyan: 0 0 20px rgba(2, 132, 199, 0.15);
+    }
+
+    /* Theme: Aether Purple */
+    [data-theme="aether"] {
+      --bg-primary: #120924;
+      --bg-secondary: #1a0e33;
+      --bg-card: rgba(26, 14, 51, 0.65);
+      --bg-header: rgba(18, 9, 36, 0.8);
+      --border-color: rgba(168, 85, 247, 0.15);
+      --border-active: rgba(217, 70, 239, 0.5);
+      --text-main: #f5f3ff;
+      --text-muted: #c084fc;
+      --text-inverse: #120924;
+      
+      --accent-cyan: #38bdf8;
+      --accent-cyan-glow: rgba(56, 189, 248, 0.15);
+      --accent-purple: #d946ef;
+      --accent-purple-glow: rgba(217, 70, 239, 0.2);
+      --accent-pink: #f43f5e;
+      --accent-pink-glow: rgba(244, 63, 94, 0.15);
+      
+      --gradient-primary: linear-gradient(135deg, #38bdf8 0%, #d946ef 50%, #f43f5e 100%);
+      --gradient-text: linear-gradient(to right, #38bdf8, #d946ef, #f43f5e);
+      --shadow-neon-cyan: 0 0 20px rgba(217, 70, 239, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: var(--radius-full);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+      transition: background-color var(--transition-normal), color var(--transition-normal);
+    }
+
+    h1, h2, h3, h4, .font-heading {
+      font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* Ambient Background Effects */
+    .ambient-glow {
+      position: absolute;
+      border-radius: var(--radius-full);
+      filter: blur(100px);
+      z-index: -1;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .glow-1 {
+      top: -10%;
+      right: 10%;
+      width: 400px;
+      height: 400px;
+      background: var(--accent-cyan-glow);
+      animation: drift 15s infinite alternate ease-in-out;
+    }
+
+    .glow-2 {
+      top: 30%;
+      left: -10%;
+      width: 500px;
+      height: 500px;
+      background: var(--accent-purple-glow);
+      animation: drift 20s infinite alternate-reverse ease-in-out;
+    }
+
+    .glow-3 {
+      bottom: 10%;
+      right: -5%;
+      width: 450px;
+      height: 450px;
+      background: var(--accent-pink-glow);
+      animation: drift 18s infinite alternate ease-in-out;
+    }
+
+    @keyframes drift {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(50px, 30px) scale(1.15); }
+    }
+
+    /* Container Utility */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header & Navigation */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      background: var(--bg-header);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-b: 1px solid var(--border-color);
+      z-index: 100;
+      transition: background var(--transition-normal), border-bottom var(--transition-normal);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .brand img {
+      width: 28px;
+      height: 28px;
+      transition: transform var(--transition-normal);
+    }
+
+    .brand:hover img {
+      transform: rotate(15deg) scale(1.1);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: color var(--transition-fast);
+      position: relative;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: var(--text-main);
+    }
+
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--gradient-primary);
+      transition: width var(--transition-fast);
+    }
+
+    .nav-link:hover::after {
+      width: 100%;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* Theme Selector Pill */
+    .theme-selector {
+      display: flex;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-full);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .theme-btn {
+      background: transparent;
+      border: none;
+      width: 26px;
+      height: 26px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: all var(--transition-fast);
+    }
+
+    .theme-btn:hover {
+      color: var(--text-main);
+    }
+
+    .theme-btn.active {
+      background: var(--bg-primary);
+      color: var(--accent-cyan);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-download-sm {
+      background: var(--gradient-primary);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: var(--radius-full);
+      border: none;
+      cursor: pointer;
+      box-shadow: var(--shadow-neon-cyan);
+      transition: opacity var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .btn-download-sm:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    /* Hero Section */
+    .hero {
+      position: relative;
+      padding: 160px 0 100px 0;
+      text-align: center;
+    }
+
+    .badge-hero {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: var(--radius-full);
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      margin-bottom: 24px;
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .badge-hero span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: var(--radius-full);
+      background-color: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: pulse 1.5s infinite alternate;
+    }
+
+    .hero-title {
+      font-size: 64px;
+      line-height: 1.1;
+      font-weight: 800;
+      max-width: 900px;
+      margin: 0 auto 24px auto;
+      animation: fadeInUp 0.8s ease-out;
+    }
+
+    .hero-title span {
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-desc {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 36px auto;
+      animation: fadeInUp 1s ease-out;
+    }
+
+    .hero-cta {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 64px;
+      animation: fadeInUp 1.2s ease-out;
+    }
+
+    .btn-primary {
+      background: var(--gradient-primary);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 28px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-neon-cyan);
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 28px;
+      border-radius: var(--radius-md);
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+      border-color: var(--border-active);
+    }
+
+    /* Product Mockup Showcase */
+    .hero-mockup-wrapper {
+      position: relative;
+      margin-top: 20px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+      padding: 16px;
+      box-shadow: var(--shadow-lg);
+      max-width: 1050px;
+      margin-left: auto;
+      margin-right: auto;
+      border: 1px solid var(--border-color);
+      animation: fadeInUp 1.4s ease-out;
+    }
+
+    .mockup-header-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 12px;
+    }
+
+    .mockup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: var(--radius-full);
+    }
+    .mockup-dot.red { background: #ef4444; }
+    .mockup-dot.yellow { background: #f59e0b; }
+    .mockup-dot.green { background: #10b981; }
+
+    .mockup-title-bar {
+      flex: 1;
+      text-align: center;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+
+    .hero-mockup {
+      width: 100%;
+      border-radius: var(--radius-md);
+      display: block;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Tech Stack Banner */
+    .tech-banner {
+      padding: 60px 0;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-card);
+      overflow: hidden;
+      margin-bottom: 100px;
+    }
+
+    .tech-banner-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .tech-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+    }
+
+    .tech-grid {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 48px;
+    }
+
+    .tech-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0.65;
+      transition: opacity var(--transition-fast), transform var(--transition-fast);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .tech-item:hover {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+
+    .tech-item svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Features Grid */
+    .features {
+      padding: 40px 0 100px 0;
+      scroll-margin-top: 100px;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .section-tag {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent-cyan);
+      margin-bottom: 12px;
+      display: inline-block;
+    }
+
+    .section-title {
+      font-size: 38px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+      font-size: 16px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 968px) {
+      .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      transition: all var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--border-active);
+      box-shadow: var(--shadow-neon-cyan);
+    }
+
+    .feature-icon-wrapper {
+      width: 48px;
+      height: 48px;
+      background: rgba(6, 182, 212, 0.06);
+      border: 1px solid rgba(6, 182, 212, 0.15);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-cyan);
+      margin-bottom: 24px;
+      transition: background var(--transition-fast), color var(--transition-fast);
+    }
+
+    .feature-card:hover .feature-icon-wrapper {
+      background: var(--gradient-primary);
+      color: #ffffff;
+    }
+
+    .feature-card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .feature-card-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Live Interactive Client Simulator Section */
+    .simulator-section {
+      padding: 80px 0 100px 0;
+      background: radial-gradient(circle at center, rgba(99, 102, 241, 0.05) 0%, transparent 60%);
+    }
+
+    .simulator-box {
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      max-width: 800px;
+      margin: 40px auto 0 auto;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .simulator-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-md);
+      padding: 6px 12px;
+      margin-bottom: 20px;
+    }
+
+    .sim-method {
+      background: var(--accent-cyan);
+      color: #ffffff;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+    }
+
+    .sim-url {
+      flex: 1;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #22d3ee;
+      background: transparent;
+      border: none;
+      outline: none;
+    }
+
+    .sim-btn-send {
+      background: var(--gradient-primary);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 8px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sim-btn-send:hover {
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+    }
+
+    .sim-window-content {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 20px;
+      min-height: 280px;
+    }
+
+    @media (max-width: 640px) {
+      .sim-window-content {
+        grid-template-columns: 1fr;
+      }
+      .sim-sidebar {
+        display: none;
+      }
+    }
+
+    .sim-sidebar {
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      padding-right: 16px;
+    }
+
+    .sim-sidebar-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .sim-sidebar-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sim-sidebar-item {
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 1px solid transparent;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sim-sidebar-item:hover, .sim-sidebar-item.active {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: var(--accent-cyan);
+    }
+
+    .sim-sidebar-item span.badge {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+      color: #fff;
+    }
+    .sim-sidebar-item span.badge.get { background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); }
+    .sim-sidebar-item span.badge.post { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
+
+    .sim-workspace {
+      display: flex;
+      flex-direction: column;
+      background: #060910;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      position: relative;
+    }
+
+    .sim-tabs {
+      display: flex;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+
+    .sim-tab {
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 11px;
+      transition: color var(--transition-fast);
+    }
+
+    .sim-tab.active {
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+
+    .sim-code-panel {
+      flex: 1;
+      white-space: pre-wrap;
+      color: #a78bfa;
+    }
+
+    .sim-response-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      padding-top: 8px;
+      margin-top: 12px;
+    }
+
+    .sim-toast {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: #1e1b4b;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      font-size: 11px;
+      color: #c084fc;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all var(--transition-normal);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .sim-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .sim-loading-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 2px;
+      width: 0;
+      background: var(--gradient-primary);
+      transition: width var(--transition-fast);
+    }
+
+    /* Screenshots Gallery / Carousel */
+    .screenshots-section {
+      padding: 80px 0 100px 0;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      scroll-margin-top: 100px;
+    }
+
+    .gallery-container {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+      margin-top: 40px;
+    }
+
+    .gallery-nav {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .gallery-nav-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      padding: 8px 16px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all var(--transition-fast);
+    }
+
+    .gallery-nav-btn:hover, .gallery-nav-btn.active {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-active);
+      color: var(--text-main);
+    }
+
+    .gallery-viewports {
+      position: relative;
+      border-radius: var(--radius-lg);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 16px;
+      border: 1px solid var(--border-color);
+      max-width: 950px;
+      margin: 0 auto;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .gallery-img {
+      width: 100%;
+      border-radius: var(--radius-md);
+      display: none;
+      transition: opacity var(--transition-slow);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .gallery-img.active {
+      display: block;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    /* Downloads and Platform Cards */
+    .download-section {
+      padding: 100px 0;
+      text-align: center;
+      scroll-margin-top: 100px;
+    }
+
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 900px;
+      margin: 48px auto 0 auto;
+    }
+
+    @media (max-width: 768px) {
+      .download-grid {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+      }
+    }
+
+    .download-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 40px 24px;
+      transition: all var(--transition-normal);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .download-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-active);
+      box-shadow: var(--shadow-neon-cyan);
+    }
+
+    .download-card svg.platform-icon {
+      width: 48px;
+      height: 48px;
+      color: var(--text-muted);
+      transition: color var(--transition-fast);
+    }
+
+    .download-card:hover svg.platform-icon {
+      color: var(--accent-cyan);
+    }
+
+    .platform-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+
+    .platform-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .btn-download-plat {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      padding: 10px 24px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 14px;
+      width: 100%;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .download-card:hover .btn-download-plat {
+      background: var(--gradient-primary);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: var(--shadow-neon-cyan);
+    }
+
+    /* Footer Section */
+    .footer {
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      padding: 48px 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    @media (max-width: 640px) {
+      .footer-content {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+      }
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .footer-brand img {
+      width: 20px;
+      height: 20px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-link:hover {
+      color: var(--text-main);
+    }
+
+    /* Animation Utilities */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.5; transform: scale(0.95); }
+      100% { opacity: 1; transform: scale(1.05); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow Elements -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Header Navigation -->
+  <header class="header">
+    <div class="container header-content">
+      <a href="#" class="brand">
+        <img src="./logo.svg" alt="siReq Logo">
+        <span>siReq</span>
+      </a>
+      
+      <nav class="nav-links">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#screenshots" class="nav-link">Screenshots</a>
+        <a href="#download" class="nav-link">Download</a>
+        <a href="https://github.com/genc-murat/siReq" target="_blank" rel="noopener" class="nav-link">GitHub</a>
+      </nav>
+
+      <div class="header-actions">
+        <!-- Theme Selector -->
+        <div class="theme-selector" id="themeSelector">
+          <button class="theme-btn active" data-val="dark" title="Reactor Dark">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c.132 0 .263 0 .393.007a7.5 7.5 0 0 0 7.92 12.446A9 9 0 1 1 12 3zm0-2a11 11 0 1 0 11 11 10.957 10.957 0 0 0-11-11z"/></svg>
+          </button>
+          <button class="theme-btn" data-val="light" title="Cyber Light">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-2a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0-3a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0v-1a1 1 0 0 1 1-1zm8.485-13.071a1 1 0 0 1 0 1.414l-.707.707a1 1 0 1 1-1.414-1.414l.707-.707a1 1 0 0 1 1.414 0zm-14.142 14.142a1 1 0 0 1 0 1.414l-.707.707a1 1 0 0 1-1.414-1.414l.707-.707a1 1 0 0 1 1.414 0zM21 11a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0v-1a1 1 0 0 1 1-1zM3 11a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0v-1a1 1 0 0 1 1-1zm15.485 5.071a1 1 0 0 1 1.414 0l.707.707a1 1 0 0 1-1.414 1.414l-.707-.707a1 1 0 0 1 0-1.414zm-14.142-14.14a1 1 0 0 1 1.414 0l.707.707a1 1 0 0 1-1.414 1.414l-.707-.707a1 1 0 0 1 0-1.414z"/></svg>
+          </button>
+          <button class="theme-btn" data-val="aether" title="Aether Purple">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm0-14a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg>
+          </button>
+        </div>
+        <a href="#download" class="btn-download-sm">Download</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="badge-hero">
+        <span></span> siReq Desktop Client v0.7.0 is Live
+      </div>
+      <h1 class="hero-title">
+        The Native API Client<br><span>You've Been Waiting For</span>
+      </h1>
+      <p class="hero-desc">
+        A fast, local-first API client built with Rust and React 19. Manage HTTP, GraphQL, gRPC, and WebSocket workflows without cloud bloated overhead.
+      </p>
+      <div class="hero-cta">
+        <a href="#download" class="btn-primary">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm-1 11H7l5 5 5-5h-4V7h-2v6z"/></svg>
+          Get Desktop App
+        </a>
+        <a href="https://github.com/genc-murat/siReq" target="_blank" rel="noopener" class="btn-secondary">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <!-- App Mockup -->
+      <div class="hero-mockup-wrapper">
+        <div class="mockup-header-bar">
+          <div class="mockup-dot red"></div>
+          <div class="mockup-dot yellow"></div>
+          <div class="mockup-dot green"></div>
+          <div class="mockup-title-bar">siReq Desktop — workspace_default</div>
+        </div>
+        <img src="./screenshots/hero-overview.png" alt="siReq API Client UI Screenshot" class="hero-mockup">
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical Banner -->
+  <section class="tech-banner">
+    <div class="container tech-banner-content">
+      <h4 class="tech-title">Powered by Modern Engineering</h4>
+      <div class="tech-grid">
+        <div class="tech-item" title="Tauri Framework">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+          <span>Tauri v2 (Rust)</span>
+        </div>
+        <div class="tech-item" title="React UI Core">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><circle cx="12" cy="12" r="10"></circle><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"></path></svg>
+          <span>React 19</span>
+        </div>
+        <div class="tech-item" title="TypeScript Language">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"></path></svg>
+          <span>TypeScript 6.0</span>
+        </div>
+        <div class="tech-item" title="Vite Fast Build Tool">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>Vite & Tailwind 4</span>
+        </div>
+        <div class="tech-item" title="SQLite Database">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v6c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><path d="M3 11v6c0 1.66 4 3 9 3s9-1.34 9-3v-6"></path></svg>
+          <span>Encrypted SQLite</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Core Strengths</span>
+        <h2 class="section-title">Designed for API Developers</h2>
+        <p class="section-desc">Get the productivity of bloated commercial tools with the speed and reliability of a fully local-first desktop application.</p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="feature-card-title">⚡ Rust-Powered Speed</h3>
+          <p class="feature-card-desc">Unlike traditional heavy Electron-based API clients, siReq runs on Tauri and Rust, providing immediate launch and a minimal RAM footprint.</p>
+        </div>
+        
+        <!-- Feature 2 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <h3 class="feature-card-title">🔒 Local-First Security</h3>
+          <p class="feature-card-desc">No forced cloud syncing. All collections, environment data, and logs are persisted locally inside an AES-256-GCM encrypted SQLite database.</p>
+        </div>
+        
+        <!-- Feature 3 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <h3 class="feature-card-title">🔧 Unified API Protocol</h3>
+          <p class="feature-card-desc">Connect to any modern endpoint seamlessly. Dedicated, fine-tuned builders for standard REST/HTTP, GraphQL, gRPC proto, and WebSocket streams.</p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          </div>
+          <h3 class="feature-card-title">🤖 Scripts & Auto-Chaining</h3>
+          <p class="feature-card-desc">Write pre-request setups or post-response tests in JS. Extract variables easily with integrated JSONPath pattern helpers to chain complex request flows.</p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </div>
+          <h3 class="feature-card-title">📊 Visual Benchmarking</h3>
+          <p class="feature-card-desc">Measure endpoint stability and response curves under load. Run concurrency runs and view professional latency histograms inside a clean chart panel.</p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 01.3-.7l7-7a1 1 0 011.4 0l7 7A1 1 0 0120 5v14a1 1 0 01-.3.7l-7 7a1 1 0 01-1.4 0l-7-7A1 1 0 014 19V5z"/></svg>
+          </div>
+          <h3 class="feature-card-title">🎨 12 Cyber Themes</h3>
+          <p class="feature-card-desc">Find your visual comfort zone. Toggle between 12 distinct custom themes (including Reactor Dark, Cyber Light, Neon Tech, and Aether Purple) on the fly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live Simulator Section -->
+  <section class="simulator-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Interactive Preview</span>
+        <h2 class="section-title">Experience the Chaining Pipeline</h2>
+        <p class="section-desc">Click "Send Request" to watch how siReq automatically extracts variables from JSON payloads to feed subsequent requests.</p>
+      </div>
+
+      <!-- Simulator Interactive UI -->
+      <div class="simulator-box">
+        <!-- Request Input Bar -->
+        <div class="simulator-bar">
+          <span class="sim-method" id="simMethod">POST</span>
+          <input type="text" class="sim-url" id="simUrl" value="https://api.sireq.dev/v1/auth/login" readonly>
+          <button class="sim-btn-send" id="simSendBtn">
+            <span>Send Request</span>
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="m21.4 11.6-18-9A1 1 0 0 0 2 3.5v7a1 1 0 0 0 .9 1L14 12l-11.1.5A1 1 0 0 0 2 13.5v7a1 1 0 0 0 1.4.9l18-9a1 1 0 0 0 0-1.8z"/></svg>
+          </button>
+        </div>
+
+        <!-- Simulator Interface Main Window -->
+        <div class="sim-window-content">
+          <!-- Sidebar Mockup -->
+          <div class="sim-sidebar">
+            <div class="sim-sidebar-title">Pipeline Chain</div>
+            <ul class="sim-sidebar-list">
+              <li class="sim-sidebar-item active" data-req="login">
+                <span>1. User Login</span>
+                <span class="badge post">POST</span>
+              </li>
+              <li class="sim-sidebar-item" data-req="profile">
+                <span>2. User Profile</span>
+                <span class="badge get">GET</span>
+              </li>
+              <li class="sim-sidebar-item" data-req="projects">
+                <span>3. List Projects</span>
+                <span class="badge get">GET</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Workspace / Code View -->
+          <div class="sim-workspace" id="simWorkspace">
+            <!-- Simulated Loading Bar -->
+            <div class="sim-loading-bar" id="simLoadingBar"></div>
+            
+            <div class="sim-tabs">
+              <span class="sim-tab active" id="simTabHeader">Response JSON</span>
+              <span class="sim-tab" id="simTabScripts">Scripts Pipeline</span>
+            </div>
+
+            <!-- JSON Output code area -->
+            <div class="sim-code-panel" id="simCodePanel">{
+  "status": "success",
+  "message": "Authenticated successfully",
+  "data": {
+    "token": "sireq_tkn_873fa8e29a1c7",
+    "expires_in": 3600,
+    "user": {
+      "id": "usr_99",
+      "email": "dev@sireq.dev"
+    }
+  }
+}</div>
+
+            <div class="sim-response-meta">
+              <span style="color: #10b981;">● 200 OK</span>
+              <span>Size: 248 B</span>
+              <span>Time: <span id="simTime">45 ms</span></span>
+            </div>
+
+            <!-- Variable Extraction Simulated Toast -->
+            <div class="sim-toast" id="simToast">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Extracted <strong>{{token}}</strong> from JSONPath</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshots Gallery Section -->
+  <section class="screenshots-section" id="screenshots">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Visual Walkthrough</span>
+        <h2 class="section-title">Designed for Visual Clarity</h2>
+        <p class="section-desc">Take a tour through siReq's high-productivity workspaces and benchmarking analytics interfaces.</p>
+      </div>
+
+      <div class="gallery-container">
+        <!-- Gallery Navigation Pills -->
+        <div class="gallery-nav" id="galleryNav">
+          <button class="gallery-nav-btn active" data-img="overview">Workspace Overview</button>
+          <button class="gallery-nav-btn" data-img="flow">Visual Flow Editor</button>
+          <button class="gallery-nav-btn" data-img="benchmark">Benchmark Tool</button>
+          <button class="gallery-nav-btn" data-img="grpc">gRPC Panel</button>
+          <button class="gallery-nav-btn" data-img="websocket">WebSocket Tool</button>
+        </div>
+
+        <!-- Gallery Image Viewer -->
+        <div class="gallery-viewports">
+          <img src="./screenshots/hero-overview.png" alt="siReq Workspace Overview" class="gallery-img active" id="img-overview">
+          <img src="./screenshots/flow-editor.png" alt="siReq Visual Request Flow Graph Editor" class="gallery-img" id="img-flow">
+          <img src="./screenshots/benchmark-results.png" alt="siReq Endpoint Benchmark Load Tester" class="gallery-img" id="img-benchmark">
+          <img src="./screenshots/grpc-panel.png" alt="siReq gRPC Client Panel" class="gallery-img" id="img-grpc">
+          <img src="./screenshots/websocket-panel.png" alt="siReq WebSocket Stream Client" class="gallery-img" id="img-websocket">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Downloads & Multi-Platform Cards -->
+  <section class="download-section" id="download">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Cross Platform</span>
+        <h2 class="section-title">Get siReq Today</h2>
+        <p class="section-desc">Download the latest native binary package for your operating system and enjoy cloud-free REST and RPC client excellence.</p>
+      </div>
+
+      <div class="download-grid">
+        <!-- Windows -->
+        <div class="download-card">
+          <svg class="platform-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.45H0V3.449zM0 12.45h9.75v9.45L0 20.551v-8.1zM10.8 1.95L24 0v11.55H10.8V1.95zM10.8 12.45H24v11.55l-13.2-1.95v-9.6z"/></svg>
+          <h3 class="platform-name">Windows</h3>
+          <p class="platform-meta">Windows 10 / 11 (x64, ARM64)</p>
+          <button class="btn-download-plat" onclick="window.open('https://github.com/genc-murat/siReq/releases')">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm-1 11H7l5 5 5-5h-4V7h-2v6z"/></svg>
+            Download .exe
+          </button>
+        </div>
+
+        <!-- macOS -->
+        <div class="download-card">
+          <svg class="platform-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.2.67-2.92 1.49-.62.71-1.16 1.85-1.01 2.96 1.1.09 2.22-.55 2.94-1.39z"/></svg>
+          <h3 class="platform-name">macOS</h3>
+          <p class="platform-meta">macOS 12+ (Intel & Apple Silicon)</p>
+          <button class="btn-download-plat" onclick="window.open('https://github.com/genc-murat/siReq/releases')">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm-1 11H7l5 5 5-5h-4V7h-2v6z"/></svg>
+            Download .dmg
+          </button>
+        </div>
+
+        <!-- Linux -->
+        <div class="download-card">
+          <svg class="platform-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .007c-.15 0-.29.027-.424.08C7.14.774 4.545 4.793 4.545 8.907c0 3.02 1.127 5.253 2.686 6.84 1.173-1.12 2.767-1.807 4.526-1.807 1.76 0 3.353.687 4.527 1.807 1.558-1.587 2.686-3.82 2.686-6.84 0-4.114-2.596-8.133-7.032-8.82A1.854 1.854 0 0 0 12 .007zm-4.7 16.51c-2.4 1.434-3.5 3.36-3.5 5.214 0 1.253.94 2.26 2.14 2.26h12.12c1.2 0 2.14-1.007 2.14-2.26 0-1.853-1.1-3.78-3.5-5.213-.8.767-1.88 1.247-3.06 1.247-1.18 0-2.26-.48-3.06-1.247z"/></svg>
+          <h3 class="platform-name">Linux</h3>
+          <p class="platform-meta">Debian, Ubuntu, Arch (AppImage, deb)</p>
+          <button class="btn-download-plat" onclick="window.open('https://github.com/genc-murat/siReq/releases')">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm-1 11H7l5 5 5-5h-4V7h-2v6z"/></svg>
+            Download .AppImage
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img src="./logo.svg" alt="siReq Logo">
+        <span>siReq — High-Performance API Client</span>
+      </div>
+      
+      <div class="footer-links">
+        <a href="https://github.com/genc-murat/siReq" target="_blank" rel="noopener" class="footer-link">GitHub Repository</a>
+        <a href="https://github.com/genc-murat/siReq/blob/main/LICENSE" target="_blank" rel="noopener" class="footer-link">License</a>
+      </div>
+
+      <div>
+        &copy; 2026 siReq. Local-First Desktop Engineering.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Interactive JavaScript Engine -->
+  <script>
+    // 1. Multi-Theme Switching Logic
+    const themeButtons = document.querySelectorAll('#themeSelector .theme-btn');
+    themeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Toggle Active Class
+        themeButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Apply data attribute to HTML tag
+        const themeVal = btn.getAttribute('data-val');
+        if (themeVal === 'dark') {
+          document.documentElement.removeAttribute('data-theme');
+        } else {
+          document.documentElement.setAttribute('data-theme', themeVal);
+        }
+      });
+    });
+
+    // 2. Interactive Screenshot Gallery Switcher
+    const galleryButtons = document.querySelectorAll('#galleryNav .gallery-nav-btn');
+    const galleryImages = document.querySelectorAll('.gallery-viewports .gallery-img');
+    
+    galleryButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        galleryButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const targetImageId = 'img-' + btn.getAttribute('data-img');
+        galleryImages.forEach(img => {
+          if (img.id === targetImageId) {
+            img.classList.add('active');
+          } else {
+            img.classList.remove('active');
+          }
+        });
+      });
+    });
+
+    // 3. Interactive API Request Simulator Logic
+    const simSendBtn = document.getElementById('simSendBtn');
+    const simLoadingBar = document.getElementById('simLoadingBar');
+    const simCodePanel = document.getElementById('simCodePanel');
+    const simTime = document.getElementById('simTime');
+    const simToast = document.getElementById('simToast');
+    const simSidebarItems = document.querySelectorAll('.sim-sidebar-item');
+    const simMethod = document.getElementById('simMethod');
+    const simUrl = document.getElementById('simUrl');
+
+    let currentReq = 'login';
+    let isRequesting = false;
+
+    // Database of Mock requests
+    const simDatabase = {
+      login: {
+        method: 'POST',
+        url: 'https://api.sireq.dev/v1/auth/login',
+        time: '34 ms',
+        extractKey: 'token',
+        response: `{
+  "status": "success",
+  "message": "Authenticated successfully",
+  "data": {
+    "token": "sireq_tkn_873fa8e29a1c7",
+    "expires_in": 3600,
+    "user": {
+      "id": "usr_99",
+      "email": "dev@sireq.dev"
+    }
+  }
+}`
+      },
+      profile: {
+        method: 'GET',
+        url: 'https://api.sireq.dev/v1/users/profile',
+        time: '28 ms',
+        extractKey: 'user_id',
+        response: `{
+  "status": "success",
+  "data": {
+    "id": "usr_99",
+    "username": "sireq_dev",
+    "roles": ["developer", "admin"],
+    "preferences": {
+      "theme": "Reactor Dark",
+      "font_size": 13
+    }
+  }
+}`
+      },
+      projects: {
+        method: 'GET',
+        url: 'https://api.sireq.dev/v1/projects?limit=5',
+        time: '42 ms',
+        extractKey: 'active_project',
+        response: `{
+  "status": "success",
+  "results": 3,
+  "data": [
+    { "id": "proj_01", "name": "API Gateway Redesign" },
+    { "id": "proj_02", "name": "GraphQL Core Migration" },
+    { "id": "proj_03", "name": "ReplayLab Logs" }
+  ]
+}`
+      }
+    };
+
+    // Handle Request Sidebar Clicks
+    simSidebarItems.forEach(item => {
+      item.addEventListener('click', () => {
+        if (isRequesting) return;
+        simSidebarItems.forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        
+        currentReq = item.getAttribute('data-req');
+        const dbData = simDatabase[currentReq];
+        
+        // Reset code panel quickly
+        simMethod.innerText = dbData.method;
+        
+        // Update method badge colors in url bar
+        if (dbData.method === 'POST') {
+          simMethod.style.backgroundColor = 'var(--accent-purple)';
+        } else {
+          simMethod.style.backgroundColor = 'var(--accent-cyan)';
+        }
+        
+        simUrl.value = dbData.url;
+        simCodePanel.innerText = '// Click Send Request to load data...';
+        simTime.innerText = '--';
+        simToast.classList.remove('show');
+      });
+    });
+
+    // Run Send Simulation
+    simSendBtn.addEventListener('click', () => {
+      if (isRequesting) return;
+      isRequesting = true;
+      simSendBtn.disabled = true;
+      simSendBtn.style.opacity = '0.6';
+      
+      const dbData = simDatabase[currentReq];
+      
+      // Animate Loading Bar
+      simLoadingBar.style.width = '0%';
+      simLoadingBar.style.transition = 'none';
+      
+      setTimeout(() => {
+        simLoadingBar.style.transition = 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+        simLoadingBar.style.width = '100%';
+      }, 50);
+
+      setTimeout(() => {
+        // Show Response
+        simCodePanel.innerText = dbData.response;
+        simTime.innerText = dbData.time;
+        
+        // Show Toast Extraction
+        const toastSpan = simToast.querySelector('span');
+        if (currentReq === 'login') {
+          toastSpan.innerHTML = `Extracted variable <strong>{{token}}</strong> from JSONPath`;
+        } else if (currentReq === 'profile') {
+          toastSpan.innerHTML = `Extracted variable <strong>{{user_id}}</strong> from JSONPath`;
+        } else {
+          toastSpan.innerHTML = `Extracted variable <strong>{{active_project}}</strong> from JSONPath`;
+        }
+        
+        simToast.classList.add('show');
+        
+        // Reset loading bar and send button
+        setTimeout(() => {
+          simLoadingBar.style.width = '0%';
+          simLoadingBar.style.transition = 'none';
+        }, 300);
+
+        setTimeout(() => {
+          simToast.classList.remove('show');
+        }, 3500);
+
+        isRequesting = false;
+        simSendBtn.disabled = false;
+        simSendBtn.style.opacity = '1';
+      }, 900);
+    });
+  </script>
+</body>
+</html>
