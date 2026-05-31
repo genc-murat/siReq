@@ -5,13 +5,17 @@ export function ThemeToggle() {
   const setTheme = useUIStore((s) => s.setTheme);
 
   const next = () => {
-    const themes: ("light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether")[] = ["light", "dark", "nordic", "sunset", "midnight", "monochrome", "terminal", "true-dark", "matrix", "solarized", "nord", "aether", "system"];
+    const themes: ("light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether" | "ambertech")[] = ["light", "dark", "nordic", "sunset", "midnight", "monochrome", "terminal", "true-dark", "matrix", "solarized", "nord", "aether", "ambertech", "system"];
     const idx = themes.indexOf(theme);
     setTheme(themes[(idx + 1) % themes.length]);
   };
 
   const icon =
-    theme === "aether" ? (
+    theme === "ambertech" ? (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+      </svg>
+    ) : theme === "aether" ? (
       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9s-2.015-9-4.5-9-4.5 4.03-4.5 9 2.015 9 4.5 9z" />
       </svg>

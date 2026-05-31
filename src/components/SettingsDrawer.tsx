@@ -189,7 +189,7 @@ export function SettingsDrawer() {
 }
 
 const THEMES: {
-  id: "light" | "dark" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether" | "system";
+  id: "light" | "dark" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether" | "ambertech" | "system";
   name: string;
   swatches: string[];
 }[] = [
@@ -252,6 +252,11 @@ const THEMES: {
     id: "aether",
     name: "Aether Purple",
     swatches: ["#0b0617", "#d946ef", "#1a0e33", "#c084fc", "#2a164d"],
+  },
+  {
+    id: "ambertech",
+    name: "Amber Tech",
+    swatches: ["#0f0b07", "#ff6b00", "#1c140e", "#ffab73", "#332214"],
   },
   {
     id: "system",

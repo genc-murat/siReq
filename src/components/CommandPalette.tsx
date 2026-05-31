@@ -73,7 +73,7 @@ function buildActions(close: () => void): Action[] {
       category: "View",
       action: () => {
         const { theme, setTheme } = useUIStore.getState();
-        const themes: ("light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether")[] = [
+        const themes: ("light" | "dark" | "system" | "nordic" | "sunset" | "midnight" | "monochrome" | "terminal" | "true-dark" | "matrix" | "solarized" | "nord" | "aether" | "ambertech")[] = [
           "light",
           "dark",
           "nordic",
@@ -86,6 +86,7 @@ function buildActions(close: () => void): Action[] {
           "solarized",
           "nord",
           "aether",
+          "ambertech",
           "system"
         ];
         const idx = themes.indexOf(theme);

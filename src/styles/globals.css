@@ -330,6 +330,33 @@
   --color-sidebar-accent-foreground: hsl(295 90% 60%);
 }
 
+.ambertech {
+  --color-background: hsl(20 10% 6%);
+  --color-foreground: hsl(20 20% 92%);
+  --color-card: hsl(20 8% 9.5%);
+  --color-card-foreground: hsl(20 20% 92%);
+  --color-popover: hsl(20 8% 11%);
+  --color-popover-foreground: hsl(20 20% 92%);
+  --color-primary: hsl(24 100% 50%);
+  --color-primary-foreground: hsl(20 10% 6%);
+  --color-secondary: hsl(24 25% 14%);
+  --color-secondary-foreground: hsl(20 20% 92%);
+  --color-muted: hsl(20 6% 12%);
+  --color-muted-foreground: hsl(20 12% 52%);
+  --color-accent: hsl(24 35% 12%);
+  --color-accent-foreground: hsl(24 100% 70%);
+  --color-destructive: hsl(0 85% 50%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(20 10% 14%);
+  --color-input: hsl(20 10% 14%);
+  --color-ring: hsl(24 100% 50%);
+  --color-sidebar: hsl(20 10% 4.5%);
+  --color-sidebar-foreground: hsl(20 20% 92%);
+  --color-sidebar-border: hsl(20 10% 10%);
+  --color-sidebar-accent: hsl(20 8% 8%);
+  --color-sidebar-accent-foreground: hsl(24 100% 50%);
+}
+
 * {
   border-color: var(--color-border);
 }

@@ -6,7 +6,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("light", "dark", "nordic", "sunset", "midnight", "monochrome", "terminal", "true-dark", "matrix", "solarized", "nord", "aether");
+    root.classList.remove("light", "dark", "nordic", "sunset", "midnight", "monochrome", "terminal", "true-dark", "matrix", "solarized", "nord", "aether", "ambertech");
 
     if (theme === "system") {
       const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
