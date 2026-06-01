@@ -134,6 +134,7 @@ pub async fn execute_replay_run(
     Ok((run, entry_results))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn execute_replay_streaming(
     app: &AppHandle,
     db: &State<'_, Db>,

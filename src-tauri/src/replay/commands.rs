@@ -10,7 +10,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 
-pub struct ReplayRunTokens(pub Mutex<std::collections::HashMap<String, (Arc<AtomicBool>, Arc<AtomicBool>)>>);
+pub type ReplayTokenTuple = (Arc<AtomicBool>, Arc<AtomicBool>);
+pub struct ReplayRunTokens(pub Mutex<std::collections::HashMap<String, ReplayTokenTuple>>);
 
 #[tauri::command]
 pub async fn replay_create_session(

@@ -231,7 +231,7 @@ pub fn insert_collection(db: &State<Db>, collection: &Collection) -> Result<(), 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let items_json = serde_json::to_string(&collection.items).map_err(|e| e.to_string())?;
     let vars_json = serde_json::to_string(&collection.variables).map_err(|e| e.to_string())?;
-    let auth_json = collection.auth.as_ref().map(|a| serde_json::to_string(a)).transpose().map_err(|e| e.to_string())?;
+    let auth_json = collection.auth.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO collections (id, name, requests, created_at, updated_at, description, variables, auth) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![collection.id, collection.name, items_json, collection.created_at, collection.updated_at, collection.description, vars_json, auth_json],
@@ -266,7 +266,7 @@ pub fn update_existing_collection(db: &State<Db>, collection: &Collection) -> Re
     let now = chrono::Utc::now().to_rfc3339();
     let items_json = serde_json::to_string(&collection.items).map_err(|e| e.to_string())?;
     let vars_json = serde_json::to_string(&collection.variables).map_err(|e| e.to_string())?;
-    let auth_json = collection.auth.as_ref().map(|a| serde_json::to_string(a)).transpose().map_err(|e| e.to_string())?;
+    let auth_json = collection.auth.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE collections SET name = ?1, requests = ?2, updated_at = ?3, description = ?4, variables = ?5, auth = ?6 WHERE id = ?7",
         params![collection.name, items_json, now, collection.description, vars_json, auth_json, collection.id],

@@ -206,16 +206,15 @@ fn parse_grpc_frame(data: &[u8]) -> Result<(Vec<u8>, &[u8]), String> {
     Ok((message, &data[end..]))
 }
 
-/// Connect to a gRPC server via HTTP/2 and send a request.
-/// Uses hyper directly for full HTTP/2 trailer support.
-/// Supports both plaintext (h2c) and TLS (h2) connections.
-
 // Helper trait to unify TcpStream and TlsStream in a single trait object
 use tokio::io::{AsyncRead, AsyncWrite};
 
 trait IoReadWrite: AsyncRead + AsyncWrite + Send + Unpin {}
 impl<T: AsyncRead + AsyncWrite + Send + Unpin> IoReadWrite for T {}
 
+/// Connect to a gRPC server via HTTP/2 and send a request.
+/// Uses hyper directly for full HTTP/2 trailer support.
+/// Supports both plaintext (h2c) and TLS (h2) connections.
 async fn send_grpc_request(
     address: &str,
     tls: bool,
