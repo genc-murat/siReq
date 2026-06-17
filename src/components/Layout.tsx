@@ -15,7 +15,30 @@ import { useEffect } from "react";
 import { generateCurl } from "@/lib/curlGenerator";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
+import {
+  PanelLeft,
+  Zap,
+  Workflow,
+  Play,
+  Plus,
+  ClipboardCopy,
+  Globe,
+  Plug,
+  Braces,
+  Server,
+} from "lucide-react";
 
+type ToolMode = "http" | "websocket" | "grpc" | "mock" | "graphql" | "flow" | "replay";
+
+const toolModes: { id: ToolMode; label: string; icon: typeof Globe; shortcut?: string }[] = [
+  { id: "http", label: "HTTP", icon: Globe, shortcut: "⌘⌥H" },
+  { id: "websocket", label: "WS", icon: Plug, shortcut: "⌘⌥W" },
+  { id: "grpc", label: "gRPC", icon: Zap },
+  { id: "graphql", label: "GraphQL", icon: Braces },
+  { id: "mock", label: "Mock", icon: Server },
+  { id: "flow", label: "Flow", icon: Workflow },
+  { id: "replay", label: "Replay", icon: Play },
+];
 
 export function Layout() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
@@ -36,7 +59,6 @@ export function Layout() {
     addToast("Copied as cURL", "success");
   };
 
-  // Global keyboard shortcuts for tool mode switching
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
@@ -57,160 +79,72 @@ export function Layout() {
     return () => window.removeEventListener("keydown", handler);
   }, [setToolMode, wsDisconnected]);
 
+  const handleToolSwitch = (mode: ToolMode) => {
+    if (mode === "websocket" && !wsDisconnected) {
+      useWebSocketStore.getState().reset();
+    }
+    setToolMode(mode);
+  };
+
   return (
     <div className="h-screen w-screen flex flex-col">
-      <header className="h-10 border-b flex items-center px-3 bg-card shrink-0 gap-1.5">
-        <button
-          onClick={toggleSidebar}
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
-          title="Toggle sidebar (Ctrl+B)"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-          </svg>
-        </button>
-        <Logo size={18} className="ml-1" />
-        <span className="font-semibold text-sm text-primary ml-1.5 mr-2">siReq</span>
-        <div className="h-4 w-px bg-border" />
-        <span className="text-[10px] text-muted-foreground/50 font-mono uppercase tracking-wider ml-2">HTTP Client</span>
-        <div className="flex-1" />
-        {/* Tool switcher */}
-        <button
-          onClick={() => setToolMode("http")}
-          className={cn(
-            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
-            toolMode === "http"
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          title="HTTP Request"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-          </svg>
-          <span>HTTP</span>
-        </button>
-        <button
-          onClick={() => {
-            if (!wsDisconnected) {
-              useWebSocketStore.getState().reset();
-            }
-            setToolMode("websocket");
-          }}
-          className={cn(
-            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
-            toolMode === "websocket"
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          title="WebSocket Test"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.07a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L3.67 9.976" />
-          </svg>
-          <span>WebSocket</span>
-        </button>
-        <button
-          onClick={() => setToolMode("grpc")}
-          className={cn(
-            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
-            toolMode === "grpc"
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          title="gRPC Client"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span>gRPC</span>
-        </button>
-        <button
-          onClick={() => setToolMode("graphql")}
-          className={cn(
-            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
-            toolMode === "graphql"
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          title="GraphQL Client"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-          </svg>
-          <span>GraphQL</span>
-        </button>
+      <header className="h-11 border-b flex items-center px-2.5 bg-card shrink-0">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Toggle sidebar (Ctrl+B)"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+          <div className="h-5 w-px bg-border mx-0.5" />
+          <Logo size={20} />
+          <span className="font-bold text-sm tracking-tight">siReq</span>
+        </div>
 
-        <button
-          onClick={() => setToolMode("mock")}
-          className={cn(
-            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
-            toolMode === "mock"
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          title="Smart Mock Server"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-          </svg>
-          <span>Mock</span>
-        </button>
-        <button
-          onClick={() => setToolMode("flow")}
-          className={cn(
-            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
-            toolMode === "flow"
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          title="Visual Request Chaining Flow"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <circle cx="6" cy="6" r="3" />
-            <circle cx="18" cy="18" r="3" />
-            <circle cx="18" cy="6" r="3" />
-            <path d="M6 9v7a3 3 0 0 0 3 3h6M18 9v6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Visual Flow</span>
-        </button>
-        <button
-          onClick={() => setToolMode("replay")}
-          className={cn(
-            "px-2 py-1 rounded-lg text-xs transition-all duration-150 flex items-center gap-1",
-            toolMode === "replay"
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          title="ReplayLab Studio"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>ReplayLab</span>
-        </button>
-        <div className="h-4 w-px bg-border" />
-        <button
-          onClick={handleNew}
-          className="px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 flex items-center gap-1"
-          title="New tab (Ctrl+T)"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          <span>New</span>
-        </button>
-        <button
-          onClick={handleCopyCurl}
-          className="px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 flex items-center gap-1"
-          title="Copy as cURL"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9-3.664A2.251 2.251 0 0015 2.25h-1.5a2.251 2.251 0 00-2.15 1.586m5.8 0c.065.21.1.433.1.664v.75h-6V4.5c0-.231.035-.454.1-.664M6.75 7.5H4.875c-.621 0-1.125.504-1.125 1.125v12c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V16.5a9 9 0 00-9-9z" />
-          </svg>
-          <span>cURL</span>
-        </button>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/50">
+            {toolModes.map((tool) => {
+              const Icon = tool.icon;
+              const isActive = toolMode === tool.id;
+              return (
+                <button
+                  key={tool.id}
+                  onClick={() => handleToolSwitch(tool.id)}
+                  title={tool.shortcut ? `${tool.label} (${tool.shortcut})` : tool.label}
+                  className={cn(
+                    "relative flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-200",
+                    isActive
+                      ? "bg-background text-foreground shadow-sm border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{tool.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleNew}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="New tab (Ctrl+T)"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">New</span>
+          </button>
+          <button
+            onClick={handleCopyCurl}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Copy as cURL"
+          >
+            <ClipboardCopy className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">cURL</span>
+          </button>
+        </div>
       </header>
       <TabBar />
       <Group orientation="horizontal" className="flex-1">
