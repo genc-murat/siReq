@@ -390,8 +390,8 @@ export interface Environment {
   updated_at: string;
 }
 
-export async function sendRequest(request: HttpRequest, timeout?: number, environmentId?: string | null): Promise<HttpResponse> {
-  return safeInvoke("send_request", { request, timeout: timeout ?? 30, environmentId: environmentId ?? null });
+export async function sendRequest(request: HttpRequest, environmentId?: string | null): Promise<HttpResponse> {
+  return safeInvoke("send_request", { request, environmentId: environmentId ?? null });
 }
 
 export async function cancelRequest(requestId: string): Promise<void> {

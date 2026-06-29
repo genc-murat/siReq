@@ -92,13 +92,52 @@ pub fn parse_set_cookie(set_cookie: &str, default_domain: &str) -> Option<Stored
     })
 }
 
+/// Build a `reqwest::Client` honoring per-request settings (timeout, redirect policy,
+/// TLS verification, and proxy). Constructed once per request because every request
+/// can carry different settings. The returned client should be reused across iterations
+/// when issuing multiple requests with identical settings (e.g. benchmark runs).
+pub fn build_client_for_settings(settings: &RequestSettings) -> Result<Client, String> {
+    let timeout = if settings.timeout > 0 {
+        Duration::from_secs(settings.timeout)
+    } else {
+        Duration::from_secs(30)
+    };
+
+    let mut builder = Client::builder().timeout(timeout);
+
+    if !settings.follow_redirects {
+        builder = builder.redirect(reqwest::redirect::Policy::none());
+    }
+
+    if !settings.ssl_verify {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+
+    if let Some(ref proxy_config) = settings.proxy {
+        if proxy_config.enabled && !proxy_config.url.is_empty() {
+            let mut proxy = reqwest::Proxy::all(&proxy_config.url)
+                .map_err(|e| format!("Invalid proxy URL: {}", e))?;
+            if !proxy_config.username.is_empty() {
+                proxy = proxy.basic_auth(&proxy_config.username, &proxy_config.password);
+            }
+            builder = builder.proxy(proxy);
+        }
+    }
+
+    builder.build().map_err(|e| e.to_string())
+}
+
 /// Execute an HTTP request with cookie support.
 ///
 /// `stored_cookies` are previously saved cookies loaded from the database.
 /// On success, returns `(HttpResponse, Vec<StoredCookie>)` where the second
 /// element contains cookies parsed from Set-Cookie headers.
+///
+/// The caller is expected to pass a client built via `build_client_for_settings`
+/// so that connection pooling and keep-alive can be reused across iterations
+/// (e.g. benchmark runs).
 pub async fn execute_request(
-    _client: &Client,
+    client: &Client,
     request: &HttpRequest,
     stored_cookies: &[StoredCookie],
 ) -> Result<(HttpResponse, Vec<StoredCookie>), String> {
@@ -113,38 +152,7 @@ pub async fn execute_request(
         HttpMethod::TRACE => reqwest::Method::TRACE,
     };
 
-    let timeout = if request.settings.timeout > 0 {
-        Duration::from_secs(request.settings.timeout)
-    } else {
-        Duration::from_secs(30)
-    };
-
-    let mut client_builder = Client::builder()
-        .timeout(timeout);
-
-    if !request.settings.follow_redirects {
-        client_builder = client_builder.redirect(reqwest::redirect::Policy::none());
-    }
-
-    if !request.settings.ssl_verify {
-        client_builder = client_builder.danger_accept_invalid_certs(true);
-    }
-
-    // Configure proxy if enabled
-    if let Some(ref proxy_config) = request.settings.proxy {
-        if proxy_config.enabled && !proxy_config.url.is_empty() {
-            let mut proxy = reqwest::Proxy::all(&proxy_config.url)
-                .map_err(|e| format!("Invalid proxy URL: {}", e))?;
-            if !proxy_config.username.is_empty() {
-                proxy = proxy.basic_auth(&proxy_config.username, &proxy_config.password);
-            }
-            client_builder = client_builder.proxy(proxy);
-        }
-    }
-
-    let per_request_client = client_builder.build().map_err(|e| e.to_string())?;
-
-    let mut req_builder = per_request_client
+    let mut req_builder = client
         .request(method, &request.url);
 
     for kv in &request.headers {
@@ -205,14 +213,32 @@ pub async fn execute_request(
             }
         }
         BodyType::form_urlencoded => {
-            let mut pairs: Vec<(String, String)> = vec![];
-            if let Ok(map) = serde_json::from_str::<serde_json::Value>(&request.body) {
+            // Resolution priority for form_urlencoded pairs:
+            //   1. `form_fields` (structured editor — preferred)
+            //   2. `body` as JSON object (legacy/manual entry)
+            //   3. `body` as url-encoded string `k=v&k2=v2` (cURL/Postman imports, OAuth store)
+            //   4. `body` as single `key=value` (no `&`)
+            let pairs: Vec<(String, String)> = if !request.form_fields.is_empty() {
+                request.form_fields.iter()
+                    .filter(|f| f.enabled && !f.key.is_empty())
+                    .map(|f| (f.key.clone(), f.value.clone()))
+                    .collect()
+            } else if let Ok(map) = serde_json::from_str::<serde_json::Value>(&request.body) {
                 if let Some(obj) = map.as_object() {
-                    for (k, v) in obj {
-                        pairs.push((k.clone(), v.as_str().unwrap_or("").to_string()));
-                    }
+                    obj.into_iter()
+                        .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
+                        .collect()
+                } else {
+                    Vec::new()
                 }
-            }
+            } else if !request.body.is_empty() {
+                // Parse url-encoded body string (handles "k=v&k2=v2" and single "k=v")
+                url::form_urlencoded::parse(request.body.as_bytes())
+                    .into_owned()
+                    .collect()
+            } else {
+                Vec::new()
+            };
             req_builder = req_builder.form(&pairs);
         }
         BodyType::form => {
@@ -463,6 +489,98 @@ mod unit_tests {
         let result = cancel_request(&handles, "nonexistent");
         assert!(result.is_ok());
     }
+
+    // ── build_client_for_settings tests ──────────────────────────────────
+
+    fn test_settings() -> RequestSettings {
+        RequestSettings {
+            timeout: 5,
+            follow_redirects: false,
+            ssl_verify: false,
+            proxy: None,
+        }
+    }
+
+    #[test]
+    fn test_build_client_for_settings_succeeds_with_defaults() {
+        let settings = RequestSettings {
+            timeout: 0,
+            follow_redirects: true,
+            ssl_verify: true,
+            proxy: None,
+        };
+        assert!(build_client_for_settings(&settings).is_ok());
+    }
+
+    #[test]
+    fn test_build_client_for_settings_no_redirect() {
+        let settings = RequestSettings {
+            timeout: 0,
+            follow_redirects: false,
+            ssl_verify: true,
+            proxy: None,
+        };
+        assert!(build_client_for_settings(&settings).is_ok());
+    }
+
+    #[test]
+    fn test_build_client_for_settings_invalid_ssl_verify_off() {
+        let settings = RequestSettings {
+            timeout: 0,
+            follow_redirects: true,
+            ssl_verify: false,
+            proxy: None,
+        };
+        assert!(build_client_for_settings(&settings).is_ok());
+    }
+
+    #[test]
+    fn test_build_client_for_settings_with_valid_proxy_succeeds() {
+        let settings = RequestSettings {
+            timeout: 0,
+            follow_redirects: true,
+            ssl_verify: true,
+            proxy: Some(ProxyConfig {
+                enabled: true,
+                url: "http://127.0.0.1:8888".into(),
+                username: String::new(),
+                password: String::new(),
+            }),
+        };
+        assert!(build_client_for_settings(&settings).is_ok());
+    }
+
+    #[test]
+    fn test_build_client_for_settings_with_proxy_basic_auth_succeeds() {
+        let settings = RequestSettings {
+            timeout: 0,
+            follow_redirects: true,
+            ssl_verify: true,
+            proxy: Some(ProxyConfig {
+                enabled: true,
+                url: "http://127.0.0.1:8888".into(),
+                username: "proxyuser".into(),
+                password: "proxypass".into(),
+            }),
+        };
+        assert!(build_client_for_settings(&settings).is_ok());
+    }
+
+    #[test]
+    fn test_build_client_for_settings_disabled_proxy_ignored() {
+        let settings = RequestSettings {
+            timeout: 0,
+            follow_redirects: true,
+            ssl_verify: true,
+            proxy: Some(ProxyConfig {
+                enabled: false, // disabled — bad URL should be ignored
+                url: "not-a-valid-url".into(),
+                username: String::new(),
+                password: String::new(),
+            }),
+        };
+        assert!(build_client_for_settings(&settings).is_ok());
+    }
 }
 
 #[cfg(test)]
@@ -578,6 +696,7 @@ mod integration_tests {
         ].into();
 
         let resolved = apply_variables(&request, &[], &[], &env_vars, &[]);
+        
         let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
 
@@ -612,6 +731,7 @@ mod integration_tests {
         ].into();
 
         let resolved = apply_variables(&request, &[], &[], &env_vars, &[]);
+        
         let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
 
@@ -655,6 +775,7 @@ mod integration_tests {
             "Body should be resolved"
         );
 
+        
         let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
 
@@ -695,6 +816,7 @@ mod integration_tests {
             "URL should not include query params (they are sent separately)"
         );
 
+        
         let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
         assert!(result.is_ok());
@@ -731,10 +853,7 @@ mod integration_tests {
 
         // When execute_request sends this, it will actually send {{missing}} literally
         // reqwest will try to connect to that URL which has {{missing}} as the path
-        let client = Client::builder()
-            .timeout(Duration::from_secs(2))
-            .build()
-            .unwrap();
+        let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
         assert!(result.is_ok());
 
@@ -786,6 +905,7 @@ mod integration_tests {
         assert!(resolved.url.contains("script_val"), "Should contain script_val");
         assert!(resolved.url.contains("script_override"), "Script should override env and global");
 
+        
         let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
         assert!(result.is_ok());
@@ -822,6 +942,7 @@ mod integration_tests {
         assert!(!resolved.url.contains("{{$uuid}}"), "$uuid should be resolved");
         assert!(!resolved.url.contains("{{$timestamp}}"), "$timestamp should be resolved");
 
+        
         let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
         assert!(result.is_ok());
@@ -863,10 +984,7 @@ mod integration_tests {
         let resolved = apply_variables(&request, &global, &[], &HashMap::new(), &[]);
         assert!(resolved.url.contains("{{key}}"), "Disabled var should remain unresolved");
 
-        let client = Client::builder()
-            .timeout(Duration::from_secs(2))
-            .build()
-            .unwrap();
+        let client = Client::new();
         let result = execute_request(&client, &resolved, &[]).await;
         assert!(result.is_ok());
 
@@ -876,6 +994,123 @@ mod integration_tests {
         // reqwest URL-encodes { and } as %7B and %7D in the path
         assert!(raw.contains("%7B%7Bkey%7D%7D"), "Disabled global var should NOT be resolved in the sent request");
         assert!(!raw.contains("should_not_appear"), "The disabled var's value should not appear");
+    }
+
+    // ── form_urlencoded body parsing tests ───────────────────────────────
+
+    fn build_form_urlencoded_request(
+        url: &str,
+        body: &str,
+        form_fields: Vec<FormField>,
+    ) -> HttpRequest {
+        HttpRequest {
+            id: "form-test".into(),
+            name: String::new(),
+            method: HttpMethod::POST,
+            url: url.into(),
+            headers: vec![],
+            query_params: vec![],
+            body_type: BodyType::form_urlencoded,
+            body: body.into(),
+            form_fields,
+            auth: AuthConfig {
+                auth_type: AuthType::none,
+                username: String::new(),
+                password: String::new(),
+                token: String::new(),
+                api_key: String::new(),
+                api_key_name: String::new(),
+                api_key_in: String::new(),
+            },
+            settings: RequestSettings {
+                timeout: 5,
+                follow_redirects: false,
+                ssl_verify: false,
+                proxy: None,
+            },
+            pre_script: String::new(),
+            post_script: String::new(),
+            examples: vec![],
+            extractions: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_form_urlencoded_prefers_form_fields_when_present() {
+        let (port, captured) = start_capture_server().await;
+        let url = format!("http://127.0.0.1:{}/submit", port);
+
+        // Both form_fields AND a JSON body are populated — form_fields must win
+        let fields = vec![
+            FormField {
+                key: "username".into(),
+                value: "alice".into(),
+                file_path: None, file_name: None, file_data: None, content_type: None,
+                field_type: "text".to_string(),
+                enabled: true,
+            },
+            FormField {
+                key: "disabled_field".into(),
+                value: "ignored".into(),
+                file_path: None, file_name: None, file_data: None, content_type: None,
+                field_type: "text".to_string(),
+                enabled: false, // should be skipped
+            },
+        ];
+        let request = build_form_urlencoded_request(&url, r#"{"ignored":"json"}"#, fields);
+
+        let client = build_client_for_settings(&request.settings).unwrap();
+        let result = execute_request(&client, &request, &[]).await;
+        assert!(result.is_ok(), "execute_request failed: {:?}", result.err());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        assert!(raw.contains("username=alice"), "Expected form_fields to be used. Got: {}", raw);
+        assert!(!raw.contains("disabled_field"), "Disabled field should be skipped. Got: {}", raw);
+        assert!(!raw.contains("ignored"), "JSON body should not be used when form_fields present. Got: {}", raw);
+    }
+
+    #[tokio::test]
+    async fn test_form_urlencoded_parses_url_encoded_body_string() {
+        let (port, captured) = start_capture_server().await;
+        let url = format!("http://127.0.0.1:{}/token", port);
+
+        // OAuth-style raw url-encoded body — no form_fields populated
+        let request = build_form_urlencoded_request(
+            &url,
+            "grant_type=client_credentials&scope=read",
+            vec![],
+        );
+
+        let client = build_client_for_settings(&request.settings).unwrap();
+        let result = execute_request(&client, &request, &[]).await;
+        assert!(result.is_ok(), "execute_request failed: {:?}", result.err());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        assert!(raw.contains("grant_type=client_credentials"), "Expected url-encoded body to be parsed. Got: {}", raw);
+        assert!(raw.contains("scope=read"), "Expected scope param. Got: {}", raw);
+    }
+
+    #[tokio::test]
+    async fn test_form_urlencoded_parses_json_body_fallback() {
+        let (port, captured) = start_capture_server().await;
+        let url = format!("http://127.0.0.1:{}/api", port);
+
+        // Legacy: JSON object body, no form_fields
+        let request = build_form_urlencoded_request(&url, r#"{"foo":"bar","baz":"qux"}"#, vec![]);
+
+        let client = build_client_for_settings(&request.settings).unwrap();
+        let result = execute_request(&client, &request, &[]).await;
+        assert!(result.is_ok(), "execute_request failed: {:?}", result.err());
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let raw = captured.lock().unwrap().clone();
+
+        assert!(raw.contains("foo=bar"), "Expected JSON body to be parsed as form pairs. Got: {}", raw);
+        assert!(raw.contains("baz=qux"), "Expected baz=qux. Got: {}", raw);
     }
 }
 

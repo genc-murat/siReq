@@ -107,7 +107,6 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     try {
       const response = await sendRequest(
         { ...request, id: generateId() },
-        request.settings.timeout,
         environmentId
       );
       // Save previous response as lastResponse before overwriting

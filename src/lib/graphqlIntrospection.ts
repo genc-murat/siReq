@@ -55,7 +55,7 @@ export async function introspectEndpoint(
     extractions: [],
   };
 
-  const response = await sendRequest(request, 30, environmentId);
+  const response = await sendRequest(request, environmentId);
 
   if (response.status === 401 || response.status === 403) {
     throw new Error(

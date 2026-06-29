@@ -37,14 +37,15 @@ export function generateCurl(request: HttpRequest): string {
       break;
   }
 
-  if (request.body_type === "form" && request.form_fields) {
+  if ((request.body_type === "form" || request.body_type === "form_urlencoded") && request.form_fields) {
     const enabled = request.form_fields.filter((f: FormField) => f.enabled && f.key);
+    const flag = request.body_type === "form" ? "-F" : "-d";
     for (const field of enabled) {
       if (field.field_type === "file") {
         // Files are uploaded via Tauri file API, cannot fully represent in cURL
         parts.push(`-F '${field.key}=@${field.value}'`);
       } else {
-        parts.push(`-F '${field.key}=${field.value}'`);
+        parts.push(`${flag} '${field.key}=${field.value}'`);
       }
     }
   } else if (request.body_type !== "none" && request.body) {

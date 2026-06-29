@@ -39,7 +39,7 @@ export function BodyTab() {
           </button>
         ))}
       </div>
-      {bodyType === "form" ? (
+      {bodyType === "form" || bodyType === "form_urlencoded" ? (
         <div className="flex-1 min-h-0">
           <FormFieldEditor fields={formFields} onChange={setFormFields} />
         </div>

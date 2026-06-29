@@ -206,7 +206,7 @@ describe("requestStore", () => {
   // ── send ────────────────────────────────────────────────────────────
 
   describe("send", () => {
-    it("calls sendRequest with request, timeout, and environmentId", async () => {
+    it("calls sendRequest with request and environmentId", async () => {
       useRequestStore.getState().setUrl("https://example.com/api");
       useRequestStore.getState().setMethod("POST");
       mockInvoke.sendRequest.mockResolvedValue(sampleResponse);
@@ -214,12 +214,11 @@ describe("requestStore", () => {
       await useRequestStore.getState().send("env-1");
 
       expect(mockInvoke.sendRequest).toHaveBeenCalledTimes(1);
-      const [requestArg, timeoutArg, envArg] = mockInvoke.sendRequest.mock.calls[0];
+      const [requestArg, envArg] = mockInvoke.sendRequest.mock.calls[0];
       expect(requestArg.url).toBe("https://example.com/api");
       expect(requestArg.method).toBe("POST");
       expect(requestArg.id).toBeTruthy();
       expect(requestArg.id).not.toBe("default-id"); // new id generated
-      expect(timeoutArg).toBe(30);
       expect(envArg).toBe("env-1");
     });
 
@@ -305,7 +304,6 @@ describe("requestStore", () => {
 
       expect(mockInvoke.sendRequest).toHaveBeenCalledWith(
         expect.objectContaining({ method: "GET" }),
-        30,
         undefined
       );
     });

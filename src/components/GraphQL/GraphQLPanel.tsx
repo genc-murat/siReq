@@ -506,7 +506,7 @@ export function GraphQLPanel() {
     };
 
     try {
-      const httpResp = await sendRequest(httpRequest, 30, activeEnvironmentId);
+      const httpResp = await sendRequest(httpRequest, activeEnvironmentId);
       const timeMs = Date.now() - startMs;
 
       let parsed: { data?: unknown; errors?: unknown } = {};

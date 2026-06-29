@@ -8,16 +8,13 @@ use crate::scripts::*;
 use crate::variables::*;
 use crate::secrets::*;
 use crate::grpc::{self, GrpcState};
-use reqwest::Client;
 
 #[tauri::command]
 pub async fn send_request(
     request: HttpRequest,
-    _timeout: u64,
     environment_id: Option<String>,
-    client: State<'_, Client>,
-    handles: State<'_, RequestHandles>,
     db: State<'_, Db>,
+    handles: State<'_, RequestHandles>,
 ) -> Result<HttpResponse, String> {
     // Load global variables
     let global_vars = get_global_variables(&db)?;
@@ -55,23 +52,16 @@ pub async fn send_request(
         &env_vars,
         &script_vars,
     );
-    let owned_client = (*client).clone();
 
     // Load stored cookies for the request domain
-    let stored_cookies: Vec<StoredCookie> = if let Some(domain) = extract_domain(&resolved.url) {
-        let conn = db.0.lock().map_err(|e| e.to_string())?;
-        let cookies = load_cookies_for_domain_conn(&conn, &domain)?;
-        drop(conn);
-        cookies
-    } else {
-        vec![]
-    };
+    let stored_cookies: Vec<StoredCookie> = load_cookies_for_url(&db, &resolved.url)?;
+    let request_client = crate::http::build_client_for_settings(&resolved.settings)?;
 
     let request_id = request.id.clone();
     let (tx, rx) = tokio::sync::oneshot::channel::<Result<(HttpResponse, Vec<StoredCookie>), String>>();
 
     let handle = tokio::spawn(async move {
-        let result = execute_request(&owned_client, &resolved, &stored_cookies).await;
+        let result = execute_request(&request_client, &resolved, &stored_cookies).await;
         let _ = tx.send(result);
     });
 
@@ -180,6 +170,20 @@ pub async fn cancel_request(
     crate::http::cancel_request(&handles, &request_id)
 }
 
+/// Load stored cookies matching the host of `url`.
+/// Returns an empty vec if the URL cannot be parsed or has no host.
+fn load_cookies_for_url(db: &State<'_, Db>, url: &str) -> Result<Vec<StoredCookie>, String> {
+    match extract_domain(url) {
+        Some(domain) => {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            let cookies = load_cookies_for_domain_conn(&conn, &domain)?;
+            drop(conn);
+            Ok(cookies)
+        }
+        None => Ok(vec![]),
+    }
+}
+
 #[tauri::command]
 pub fn get_history(
     limit: i64,
@@ -282,7 +286,6 @@ pub async fn benchmark_request(
     request: HttpRequest,
     count: u64,
     environment_id: Option<String>,
-    client: State<'_, Client>,
     db: State<'_, Db>,
 ) -> Result<BenchmarkResult, String> {
     use std::time::Instant;
@@ -308,7 +311,9 @@ pub async fn benchmark_request(
     };
     let resolved = apply_variables(&request, &global_vars.variables, &[], &env_vars, &[]);
 
-    let owned_client = (*client).clone();
+    // Build a single client honoring request settings (timeout/redirects/SSL/proxy)
+    // and reuse it across all iterations to benefit from keep-alive connection pooling.
+    let client = crate::http::build_client_for_settings(&resolved.settings)?;
     let stored_cookies: Vec<StoredCookie> = vec![];
 
     let mut times_ms: Vec<u64> = Vec::with_capacity(count as usize);
@@ -316,9 +321,11 @@ pub async fn benchmark_request(
     let mut errors: Vec<String> = Vec::new();
     let mut total_bytes: u64 = 0;
 
+    // NOTE: Benchmark intentionally measures raw HTTP timing only — pre/post scripts,
+    // extractions, and cookie persistence are skipped to keep measurements consistent.
     for _ in 0..count {
         let start = Instant::now();
-        match execute_request(&owned_client, &resolved, &stored_cookies).await {
+        match execute_request(&client, &resolved, &stored_cookies).await {
             Ok((resp, _)) => {
                 times_ms.push(start.elapsed().as_millis() as u64);
                 statuses.push(resp.status);
@@ -563,19 +570,24 @@ pub async fn run_collection(
             &script_vars,
         );
 
-        let stored_cookies: Vec<StoredCookie> = vec![];
+        let stored_cookies: Vec<StoredCookie> = load_cookies_for_url(&db, &resolved.url)?;
 
         let request_start = Instant::now();
 
-        // Step 3: Execute the request using a dedicated client
-        let client = Client::builder()
-            .timeout(Duration::from_secs(if resolved.settings.timeout > 0 { resolved.settings.timeout } else { 30 }))
-            .build()
-            .map_err(|e| e.to_string())?;
+        // Step 3: Execute the request using a dedicated client honoring per-request settings
+        let client = crate::http::build_client_for_settings(&resolved.settings)?;
 
-        let req_result = match execute_request(&client, &resolved, &stored_cookies).await {
-            Ok((response, _new_cookies)) => {
+            let req_result = match execute_request(&client, &resolved, &stored_cookies).await {
+            Ok((response, new_cookies)) => {
                 let elapsed = response.time_ms;
+
+                // Persist any new cookies from Set-Cookie headers
+                if !new_cookies.is_empty() {
+                    let conn = db.0.lock().map_err(|e| e.to_string())?;
+                    for cookie in &new_cookies {
+                        let _ = save_cookie_to_db(&conn, cookie);
+                    }
+                }
 
                 // Step 4: Execute post-response script
                 let post_script_results = execute_post_response(
@@ -831,17 +843,22 @@ pub async fn run_collection_data_driven(
                 &script_vars,
             );
 
-            let stored_cookies: Vec<StoredCookie> = vec![];
+            let stored_cookies: Vec<StoredCookie> = load_cookies_for_url(&db, &resolved.url)?;
             let request_start = Instant::now();
 
-            let client = Client::builder()
-                .timeout(Duration::from_secs(if resolved.settings.timeout > 0 { resolved.settings.timeout } else { 30 }))
-                .build()
-                .map_err(|e| e.to_string())?;
+            let client = crate::http::build_client_for_settings(&resolved.settings)?;
 
-            let req_result = match execute_request(&client, &resolved, &stored_cookies).await {
-                Ok((response, _new_cookies)) => {
+        let req_result = match execute_request(&client, &resolved, &stored_cookies).await {
+                Ok((response, new_cookies)) => {
                     let elapsed = response.time_ms;
+
+                    // Persist any new cookies from Set-Cookie headers
+                    if !new_cookies.is_empty() {
+                        let conn = db.0.lock().map_err(|e| e.to_string())?;
+                        for cookie in &new_cookies {
+                            let _ = save_cookie_to_db(&conn, cookie);
+                        }
+                    }
 
                     let post_script_results = execute_post_response(
                         &request.post_script,

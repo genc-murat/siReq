@@ -757,7 +757,6 @@ export const useFlowStore = create<FlowState>()(
               const startTime = Date.now();
               const response: HttpResponse = await sendRequest(
                 interpolatedRequest,
-                interpolatedRequest.settings.timeout,
                 environmentId
               );
               set({ currentRequestId: null });
