@@ -83,6 +83,7 @@ export interface HttpRequest {
   json_schema?: string;
   examples?: RequestExample[];
   extractions?: VariableExtraction[];
+  tags?: string[];
 }
 
 // ─── Variable Extraction Types ──────────────────────────────────────────────
@@ -139,6 +140,7 @@ export interface CollectionRequest {
   json_schema?: string;
   examples?: RequestExample[];
   extractions?: VariableExtraction[];
+  tags?: string[];
 }
 
 export interface RequestExample {
@@ -274,6 +276,18 @@ export interface CollectionRunResult {
   failed: number;
   total_time_ms: number;
   extracted_variables?: [string, string][];
+  mode?: RunMode;
+  tags_filter?: string[];
+  baseline_id?: string | null;
+}
+
+export type RunMode = "functional" | "smoke" | "regression" | "load";
+
+export interface TestSuiteConfig {
+  tags: string[];
+  delay_ms: number;
+  stop_on_failure: boolean;
+  baseline_id?: string | null;
 }
 
 export interface BenchmarkHistoryEntry {
@@ -429,6 +443,23 @@ export async function runCollection(
     environmentId: environmentId ?? null,
     delayMs: delayMs ?? 0,
     stopOnFailure: stopOnFailure ?? false,
+  });
+}
+
+/// Unified test suite runner supporting Functional / Smoke / Regression / Load modes.
+/// Backend currently implements Functional + Smoke; Regression and Load will be
+/// added in subsequent phases (currently behave like Functional).
+export async function runTestSuite(
+  collectionId: string,
+  mode: RunMode,
+  environmentId: string | null,
+  config: TestSuiteConfig
+): Promise<CollectionRunResult> {
+  return safeInvoke("run_test_suite", {
+    collectionId,
+    mode,
+    environmentId,
+    config,
   });
 }
 

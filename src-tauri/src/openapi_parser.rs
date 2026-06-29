@@ -296,6 +296,7 @@ fn parse_operation(
         post_script: String::new(),
         examples: vec![],
         extractions: vec![],
+        tags: vec![],
     })
 }
 

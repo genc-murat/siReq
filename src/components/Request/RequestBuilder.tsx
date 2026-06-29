@@ -8,6 +8,7 @@ import { BodyTab } from "./BodyTab";
 import { ScriptsTab } from "./ScriptsTab";
 import { SchemaTab } from "./SchemaTab";
 import { ContractTab } from "./ContractTab";
+import { TagsField } from "./TagsField";
 import { Tabs } from "@/components/Tabs";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -203,6 +204,19 @@ export function RequestBuilder() {
             }}
             placeholder="Request name..."
             className="flex-1 bg-transparent text-xs text-muted-foreground border-b border-dotted border-transparent hover:border-border/50 focus:border-primary/50 focus:outline-none px-0 py-0.5 transition-all duration-150"
+          />
+        </div>
+      )}
+
+      {/* === Tags (only when set) === */}
+      {request.name !== undefined && (
+        <div className="shrink-0 px-1">
+          <TagsField
+            tags={request.tags ?? []}
+            onChange={(tags) => {
+              useRequestStore.getState().setRequest({ ...request, tags });
+              useTabStore.getState().syncCurrentToTab();
+            }}
           />
         </div>
       )}

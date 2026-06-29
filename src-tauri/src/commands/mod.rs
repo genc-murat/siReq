@@ -716,6 +716,9 @@ pub async fn run_collection(
         failed,
         total_time_ms,
         extracted_variables: all_extracted,
+        mode: RunMode::Functional,
+        tags_filter: vec![],
+        baseline_id: None,
     };
 
     // Save to run history
@@ -990,10 +993,290 @@ pub async fn run_collection_data_driven(
         failed,
         total_time_ms,
         extracted_variables: all_extracted,
+        mode: RunMode::Functional,
+        tags_filter: vec![],
+        baseline_id: None,
     };
 
     let _ = save_run_result(&db, &result);
 
+    Ok(result)
+}
+
+// ─── Test Suite: unified runner for Functional / Smoke / Regression / Load ─
+
+/// Filter a flat list of collection requests by the requested tags (OR semantics).
+/// Returns the original list if `tags` is empty (no filter = include all).
+fn filter_requests_by_tags<'a>(
+    requests: &'a [&HttpRequest],
+    tags: &[String],
+) -> Vec<&'a HttpRequest> {
+    if tags.is_empty() {
+        requests.iter().copied().collect()
+    } else {
+        requests
+            .iter()
+            .copied()
+            .filter(|r| tags.iter().any(|t| r.tags.iter().any(|rt| rt == t)))
+            .collect()
+    }
+}
+
+/// Unified test suite runner. Currently supports:
+/// - `Functional`: identical to `run_collection` (no filtering)
+/// - `Smoke`: filters requests by `config.tags` (OR semantics)
+/// - `Regression`/`Load`: reserved for future phases; currently behave like Functional
+///
+/// The result is persisted in `run_history` with the active `mode` column so
+/// the UI can split smoke runs from functional runs in the history list.
+#[tauri::command]
+pub async fn run_test_suite(
+    collection_id: String,
+    mode: RunMode,
+    environment_id: Option<String>,
+    config: TestSuiteConfig,
+    db: State<'_, Db>,
+) -> Result<CollectionRunResult, String> {
+    // Load the collection
+    let collections = get_all_collections(&db)?;
+    let collection = collections.into_iter()
+        .find(|c| c.id == collection_id)
+        .ok_or_else(|| "Collection not found".to_string())?;
+
+    // Load global + collection + environment variables
+    let global_vars = get_global_variables(&db)?;
+    let collection_vars = collection.variables.clone();
+    let env_vars: HashMap<String, String> = match &environment_id {
+        Some(env_id) => {
+            let conn = db.0.lock().map_err(|e| e.to_string())?;
+            let env = get_environment_by_id(&conn, env_id)?;
+            drop(conn);
+            env.map(|e| e.variables.into_iter()
+                .filter(|v| v.enabled && !v.key.is_empty())
+                .map(|v| (v.key, v.value))
+                .collect()
+            ).unwrap_or_default()
+        }
+        None => HashMap::new(),
+    };
+
+    // Flatten and (optionally) filter by tags. Smoke mode without tags acts as
+    // a plain functional run (sensible default rather than running nothing).
+    let flat_refs: Vec<&HttpRequest> = flatten_collection_items(&collection.items);
+    let filtered_refs: Vec<&HttpRequest> = match mode {
+        RunMode::Smoke => filter_requests_by_tags(&flat_refs, &config.tags),
+        // Functional / Regression / Load: no tag filtering in this phase.
+        // Regression will add baseline diffing; Load will replace the engine.
+        _ => flat_refs,
+    };
+
+    let total = filtered_refs.len();
+    if total == 0 {
+        return Err(format!(
+            "No requests match the current {} configuration (collection '{}')",
+            match mode {
+                RunMode::Smoke => "smoke tag",
+                RunMode::Regression => "regression",
+                RunMode::Load => "load",
+                RunMode::Functional => "functional",
+            },
+            collection.name
+        ));
+    }
+
+    let delay_ms = config.delay_ms;
+    let stop_on_failure = config.stop_on_failure;
+
+    let started_at = chrono::Utc::now().to_rfc3339();
+    let start_instant = Instant::now();
+    let mut results: Vec<RunRequestResult> = Vec::with_capacity(total);
+    let mut passed: u32 = 0;
+    let mut failed: u32 = 0;
+    let mut run_vars: HashMap<String, String> = HashMap::new();
+
+    for (idx, request) in filtered_refs.iter().enumerate() {
+        // Inherit collection auth if request has none
+        let effective_request = if request.auth.auth_type == AuthType::none {
+            if let Some(ref col_auth) = collection.auth {
+                let mut r = (*request).clone();
+                r.auth = col_auth.clone();
+                r
+            } else {
+                (*request).clone()
+            }
+        } else {
+            (*request).clone()
+        };
+
+        // Merge run_vars into env (chained extractions from prior requests)
+        let merged_env: HashMap<String, String> = {
+            let mut m = env_vars.clone();
+            for (k, v) in &run_vars {
+                m.insert(k.clone(), v.clone());
+            }
+            m
+        };
+
+        let (modified_request, pre_script_results) = execute_pre_request(
+            &effective_request.pre_script,
+            &effective_request,
+            &merged_env,
+        )?;
+        let script_vars = pre_script_results.modified_variables.clone();
+
+        let resolved = apply_variables(
+            &modified_request,
+            &global_vars.variables,
+            &collection_vars,
+            &merged_env,
+            &script_vars,
+        );
+
+        let stored_cookies = load_cookies_for_url(&db, &resolved.url)?;
+        let request_start = Instant::now();
+        let client = crate::http::build_client_for_settings(&resolved.settings)?;
+
+        let req_result = match execute_request(&client, &resolved, &stored_cookies).await {
+            Ok((response, new_cookies)) => {
+                let elapsed = response.time_ms;
+
+                if !new_cookies.is_empty() {
+                    let conn = db.0.lock().map_err(|e| e.to_string())?;
+                    for cookie in &new_cookies {
+                        let _ = save_cookie_to_db(&conn, cookie);
+                    }
+                }
+
+                let post_script_results = execute_post_response(
+                    &request.post_script,
+                    &modified_request,
+                    &response,
+                    &merged_env,
+                )?;
+
+                let mut all_logs = pre_script_results.logs.clone();
+                all_logs.extend(post_script_results.logs.clone());
+                let mut all_tests = pre_script_results.tests.clone();
+                all_tests.extend(post_script_results.tests.clone());
+                let mut all_errors = pre_script_results.errors.clone();
+                all_errors.extend(post_script_results.errors.clone());
+
+                if !all_errors.is_empty() {
+                    all_logs.push(ScriptLog {
+                        level: "error".to_string(),
+                        message: all_errors.join("\n"),
+                    });
+                }
+
+                let extracted_vars = execute_extractions(
+                    &request.extractions,
+                    &response.body,
+                ).unwrap_or_default();
+
+                for kv in &post_script_results.modified_variables {
+                    if kv.enabled && !kv.key.is_empty() {
+                        run_vars.insert(kv.key.clone(), kv.value.clone());
+                    }
+                }
+                for (var_name, var_value) in &extracted_vars {
+                    run_vars.insert(var_name.clone(), var_value.clone());
+                }
+
+                if response.status >= 200 && response.status < 400 {
+                    passed += 1;
+                } else {
+                    failed += 1;
+                }
+
+                RunRequestResult {
+                    request_name: request.name.clone(),
+                    request_method: format!("{:?}", request.method),
+                    request_url: request.url.clone(),
+                    status_code: response.status,
+                    status_text: response.status_text.clone(),
+                    time_ms: elapsed,
+                    size: response.size,
+                    test_results: all_tests,
+                    script_logs: all_logs,
+                    error: None,
+                    extracted_variables: extracted_vars,
+                    iteration: None,
+                }
+            }
+            Err(e) => {
+                let mut all_logs = pre_script_results.logs.clone();
+                let mut all_errors = pre_script_results.errors.clone();
+                all_errors.push(e.clone());
+                if !all_errors.is_empty() {
+                    all_logs.push(ScriptLog {
+                        level: "error".to_string(),
+                        message: all_errors.join("\n"),
+                    });
+                }
+                failed += 1;
+                RunRequestResult {
+                    request_name: request.name.clone(),
+                    request_method: format!("{:?}", request.method),
+                    request_url: request.url.clone(),
+                    status_code: 0,
+                    status_text: String::new(),
+                    time_ms: request_start.elapsed().as_millis() as u64,
+                    size: 0,
+                    test_results: pre_script_results.tests.clone(),
+                    script_logs: all_logs,
+                    error: Some(e),
+                    extracted_variables: vec![],
+                    iteration: None,
+                }
+            }
+        };
+
+        results.push(req_result);
+
+        if stop_on_failure && failed > 0 {
+            break;
+        }
+
+        if delay_ms > 0 && idx < total - 1 {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+        }
+    }
+
+    let total_time_ms = start_instant.elapsed().as_millis() as u64;
+    let completed_at = chrono::Utc::now().to_rfc3339();
+    let all_extracted: Vec<(String, String)> = run_vars.into_iter().collect();
+
+    let collection_name = match mode {
+        RunMode::Smoke if !config.tags.is_empty() => {
+            format!("{} (Smoke: {})", collection.name, config.tags.join(", "))
+        }
+        RunMode::Smoke => format!("{} (Smoke)", collection.name),
+        RunMode::Regression => format!("{} (Regression)", collection.name),
+        RunMode::Load => format!("{} (Load)", collection.name),
+        RunMode::Functional => collection.name.clone(),
+    };
+
+    let result = CollectionRunResult {
+        id: uuid::Uuid::new_v4().to_string(),
+        collection_id,
+        collection_name,
+        environment_id,
+        started_at,
+        completed_at,
+        delay_ms,
+        stop_on_failure,
+        results,
+        total: (passed + failed),
+        passed,
+        failed,
+        total_time_ms,
+        extracted_variables: all_extracted,
+        mode,
+        tags_filter: config.tags.clone(),
+        baseline_id: config.baseline_id.clone(),
+    };
+
+    let _ = save_run_result(&db, &result);
     Ok(result)
 }
 

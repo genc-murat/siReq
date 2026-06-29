@@ -4,6 +4,8 @@ import { useFlowStore } from "@/stores/flowStore";
 import { useUIStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 import { buildRunnerChainData } from "@/lib/runnerChainUtils";
+import { RunnerModeSelector } from "@/components/RunnerModeSelector";
+import { RunnerSmokeConfig } from "@/components/RunnerSmokeConfig";
 
 function statusColor(status: number): string {
   if (status === 0) return "text-red-500";
@@ -31,7 +33,12 @@ export function RunnerPanel() {
   const stopOnFailure = useRunnerStore((s) => s.stopOnFailure);
   const setDelayMs = useRunnerStore((s) => s.setDelayMs);
   const setStopOnFailure = useRunnerStore((s) => s.setStopOnFailure);
+  const setRunMode = useRunnerStore((s) => s.setRunMode);
+  const runMode = useRunnerStore((s) => s.runMode);
+  const selectedTags = useRunnerStore((s) => s.selectedTags);
+  const setSelectedTags = useRunnerStore((s) => s.setSelectedTags);
   const startRun = useRunnerStore((s) => s.startRun);
+  const startTestSuite = useRunnerStore((s) => s.startTestSuite);
   const runFlow = useRunnerStore((s) => s.runFlow);
   const resetRunState = useRunnerStore((s) => s.resetRunState);
 
@@ -62,7 +69,11 @@ export function RunnerPanel() {
       runFlow(flowName, activeEnvironmentId);
     } else if (collectionId) {
       setParseError(null);
-      startRun(collectionId, collectionName, activeEnvironmentId);
+      if (runMode !== "functional") {
+        startTestSuite(collectionId, collectionName, activeEnvironmentId);
+      } else {
+        startRun(collectionId, collectionName, activeEnvironmentId);
+      }
     }
   };
 
@@ -168,11 +179,15 @@ export function RunnerPanel() {
               </svg>
             )}
             <div>
-              <h2 className="text-sm font-semibold truncate">{mode === "flow" ? flowName : collectionName}</h2>
+              <h2 className="text-sm font-semibold truncate">
+                {mode === "flow" ? flowName : runMode !== "functional" ? `${collectionName} (${runMode})` : collectionName}
+              </h2>
               <p className="text-[10px] text-muted-foreground">
                 {mode === "flow"
                   ? dataDrivenMode ? "Data-Driven Flow Runner" : "Flow Runner"
-                  : dataDrivenMode ? "Data-Driven Runner" : "Collection Runner"}
+                  : runMode !== "functional"
+                    ? `${runMode.charAt(0).toUpperCase() + runMode.slice(1)} Test`
+                    : dataDrivenMode ? "Data-Driven Runner" : "Collection Runner"}
               </p>
             </div>
           </div>
@@ -282,6 +297,20 @@ export function RunnerPanel() {
           </div>
         )}
 
+        {/* Mode selector */}
+        {!isRunning && !completed && mode !== "flow" && (
+          <RunnerModeSelector value={runMode} onChange={setRunMode} />
+        )}
+
+        {/* Smoke config */}
+        {!isRunning && !completed && mode !== "flow" && runMode === "smoke" && (
+          <RunnerSmokeConfig
+            collectionId={collectionId}
+            selectedTags={selectedTags}
+            onChange={setSelectedTags}
+          />
+        )}
+
         {/* Controls section */}
         {!isRunning && !completed && (
           <div className="space-y-4">
@@ -317,6 +346,7 @@ export function RunnerPanel() {
             </div>
 
             {/* Data-driven mode toggle */}
+            {runMode === "functional" && (
             <div className="border rounded-lg p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -410,13 +440,14 @@ export function RunnerPanel() {
                 </div>
               )}
             </div>
-
+            )}
+ 
             <button
               onClick={handleRun}
-              disabled={dataDrivenMode && !dataset}
+              disabled={runMode === "functional" && dataDrivenMode && !dataset}
               className={cn(
                 "px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-all duration-150 flex items-center gap-2",
-                (dataDrivenMode && !dataset) && "opacity-50 cursor-not-allowed"
+                (runMode === "functional" && dataDrivenMode && !dataset) && "opacity-50 cursor-not-allowed"
               )}
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -426,9 +457,11 @@ export function RunnerPanel() {
                 ? dataDrivenMode && dataset
                   ? `Run Flow (${dataset.rows.length} iterations)`
                   : `Run Flow`
-                : dataDrivenMode && dataset
-                  ? `Run (${totalRequests * dataset.rows.length} executions)`
-                  : `Run Collection (${totalRequests} requests)`}
+                : runMode !== "functional"
+                  ? `Run ${runMode.charAt(0).toUpperCase() + runMode.slice(1)} (${totalRequests} requests)`
+                  : dataDrivenMode && dataset
+                    ? `Run (${totalRequests * dataset.rows.length} executions)`
+                    : `Run Collection (${totalRequests} requests)`}
             </button>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { CollectionRunResult, RunRequestResult, RunDataset } from "@/lib/invoke";
-import { runCollection, runCollectionDataDriven, getRunHistory, deleteRunHistory, clearRunHistory } from "@/lib/invoke";
+import type { CollectionRunResult, RunRequestResult, RunDataset, RunMode } from "@/lib/invoke";
+import { runCollection, runCollectionDataDriven, runTestSuite, getRunHistory, deleteRunHistory, clearRunHistory } from "@/lib/invoke";
 import { useFlowStore } from "./flowStore";
 
 interface RunnerState {
@@ -24,11 +24,18 @@ interface RunnerState {
   dataset: RunDataset | null;
   datasetFileName: string;
 
+  // Test suite state
+  runMode: RunMode;
+  selectedTags: string[];
+
   setDelayMs: (ms: number) => void;
   setStopOnFailure: (stop: boolean) => void;
   setDataDrivenMode: (enabled: boolean) => void;
   setDataset: (dataset: RunDataset | null, fileName: string) => void;
+  setRunMode: (mode: RunMode) => void;
+  setSelectedTags: (tags: string[]) => void;
   startRun: (collectionId: string, collectionName: string, environmentId?: string | null) => Promise<void>;
+  startTestSuite: (collectionId: string, collectionName: string, environmentId?: string | null) => Promise<void>;
   runFlow: (flowName: string, environmentId?: string | null) => Promise<void>;
   setMode: (mode: "collection" | "flow", flowName?: string) => void;
   loadRunHistory: () => Promise<void>;
@@ -56,11 +63,15 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
   dataDrivenMode: false,
   dataset: null,
   datasetFileName: "",
+  runMode: "functional",
+  selectedTags: [],
 
   setDelayMs: (delayMs) => set({ delayMs }),
   setStopOnFailure: (stopOnFailure) => set({ stopOnFailure }),
   setDataDrivenMode: (dataDrivenMode) => set({ dataDrivenMode }),
   setDataset: (dataset, fileName) => set({ dataset, datasetFileName: fileName }),
+  setRunMode: (runMode) => set({ runMode, selectedTags: runMode === "functional" ? [] : get().selectedTags }),
+  setSelectedTags: (selectedTags) => set({ selectedTags }),
 
   setMode: (mode, flowName) => set({ mode, flowName: flowName ?? "" }),
 
@@ -142,6 +153,76 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
     }
   },
 
+  startTestSuite: async (collectionId, collectionName, environmentId) => {
+    const { runMode, delayMs, stopOnFailure, selectedTags } = get();
+    set({
+      isRunning: true,
+      currentIndex: 0,
+      totalRequests: 0,
+      results: [],
+      collectionName,
+      collectionId,
+      completed: false,
+      runResult: null,
+    });
+
+    try {
+      const result = await runTestSuite(collectionId, runMode, environmentId ?? null, {
+        tags: selectedTags,
+        delay_ms: delayMs,
+        stop_on_failure: stopOnFailure,
+      });
+      set({
+        isRunning: false,
+        completed: true,
+        runResult: result,
+        results: result.results,
+        totalRequests: result.total,
+        currentIndex: result.total,
+      });
+      get().loadRunHistory();
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : e?.toString() ?? "Test suite run failed";
+      set({
+        isRunning: false,
+        completed: true,
+        runResult: {
+          id: "error",
+          collection_id: collectionId,
+          collection_name: collectionName,
+          environment_id: environmentId ?? null,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          delay_ms: delayMs,
+          stop_on_failure: stopOnFailure,
+          results: [{
+            request_name: "Error",
+            request_method: "",
+            request_url: "",
+            status_code: 0,
+            status_text: "",
+            time_ms: 0,
+            size: 0,
+            test_results: [],
+            script_logs: [{ level: "error", message: errMsg }],
+            error: errMsg,
+            extracted_variables: [],
+            iteration: null,
+          }],
+          total: 1,
+          passed: 0,
+          failed: 1,
+          total_time_ms: 0,
+          extracted_variables: [],
+        },
+        results: [],
+        totalRequests: 1,
+        currentIndex: 1,
+      });
+      get().loadRunHistory();
+    }
+  },
+
   loadRunHistory: async () => {
     set({ runHistoryLoading: true });
     try {
@@ -175,6 +256,8 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
     runResult: null,
     runHistory: [],
     runHistoryLoading: false,
+    runMode: "functional",
+    selectedTags: [],
   }),
 
   runFlow: async (flowName, environmentId) => {
@@ -333,5 +416,7 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
     mode: "collection",
     completed: false,
     runResult: null,
+    runMode: "functional",
+    selectedTags: [],
   }),
 }));

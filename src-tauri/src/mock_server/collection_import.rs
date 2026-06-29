@@ -283,6 +283,7 @@ mod tests {
             post_script: String::new(),
             examples: vec![],
             extractions: vec![],
+            tags: vec![],
         };
 
         let collection = Collection {
@@ -346,6 +347,7 @@ mod tests {
                     post_script: String::new(),
                     examples: vec![],
                     extractions: vec![],
+            tags: vec![],
                 },
                 response: Some(HttpResponse {
                     status: 201,
@@ -363,6 +365,7 @@ mod tests {
                 created_at: "".into(),
             }],
             extractions: vec![],
+            tags: vec![],
         };
 
         let collection = Collection {
@@ -420,6 +423,7 @@ mod tests {
             post_script: String::new(),
             examples: vec![],
             extractions: vec![],
+            tags: vec![],
         };
 
         let folder = CollectionItem::Folder(CollectionFolder {

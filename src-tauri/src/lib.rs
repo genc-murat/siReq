@@ -81,6 +81,7 @@ pub fn run() {
             commands::decrypt_secret_value,
             commands::run_collection,
             commands::run_collection_data_driven,
+            commands::run_test_suite,
             commands::get_run_history,
             commands::delete_run_history,
             commands::clear_run_history,

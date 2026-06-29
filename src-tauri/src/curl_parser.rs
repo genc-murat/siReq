@@ -259,5 +259,6 @@ pub fn parse_curl(input: &str) -> Result<HttpRequest, String> {
         post_script: String::new(),
         examples: vec![],
         extractions: vec![],
+        tags: vec![],
     })
 }

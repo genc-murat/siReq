@@ -127,6 +127,9 @@ pub struct HttpRequest {
     /// Variable extractions (extract values from response using JSONPath)
     #[serde(default)]
     pub extractions: Vec<VariableExtraction>,
+    /// User-defined tags used for filtering in test suites (e.g. ["smoke", "critical"])
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -402,6 +405,16 @@ pub struct CollectionRunResult {
     /// Extracted variables during this run
     #[serde(default)]
     pub extracted_variables: Vec<(String, String)>,
+    /// Run mode that produced this result. Defaults to "functional" for
+    /// results created before the test suite feature existed.
+    #[serde(default)]
+    pub mode: RunMode,
+    /// Tags filter used (Smoke mode only)
+    #[serde(default)]
+    pub tags_filter: Vec<String>,
+    /// Baseline id compared against (Regression mode only)
+    #[serde(default)]
+    pub baseline_id: Option<String>,
 }
 
 /// A single row in a data-driven dataset
@@ -423,6 +436,45 @@ pub struct BenchmarkHistoryEntry {
     pub request: HttpRequest,
     pub result: BenchmarkResult,
     pub created_at: String,
+}
+
+// ─── Test Suite Types (Smoke / Regression / Load) ─────────────────────
+
+/// Test suite run mode. `Functional` is the default and matches the historical
+/// collection runner behavior; the other modes extend it with additional
+/// filtering (smoke), baseline comparison (regression), or concurrency (load).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RunMode {
+    Functional,
+    Smoke,
+    Regression,
+    Load,
+}
+
+impl Default for RunMode {
+    fn default() -> Self {
+        RunMode::Functional
+    }
+}
+
+/// Mode-specific configuration payload accepted by `run_test_suite`.
+/// Only the field matching the requested `mode` is used; others are ignored.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TestSuiteConfig {
+    /// Tags to match for Smoke mode (OR semantics: any tag match includes the request).
+    /// Empty vec = include all requests (equivalent to Functional).
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Delay between sequential requests in milliseconds.
+    #[serde(default)]
+    pub delay_ms: u64,
+    /// Stop the suite on the first failed request.
+    #[serde(default)]
+    pub stop_on_failure: bool,
+    /// Regression baseline id to compare against (Regression mode only).
+    #[serde(default)]
+    pub baseline_id: Option<String>,
 }
 
 // ─── gRPC Types ────────────────────────────────────────────────────────

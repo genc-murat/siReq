@@ -140,6 +140,22 @@ pub fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
         }
     }
 
+    // Migrate run_history table: add 'mode' column for test suite tracking
+    // (functional | smoke | regression | load). Existing rows default to 'functional'.
+    {
+        let cols: Vec<String> = conn
+            .prepare("SELECT * FROM run_history LIMIT 0")?
+            .column_names()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        if !cols.contains(&"mode".to_string()) {
+            conn.execute_batch(
+                "ALTER TABLE run_history ADD COLUMN mode TEXT NOT NULL DEFAULT 'functional';"
+            )?;
+        }
+    }
+
     Ok(())
 }
 

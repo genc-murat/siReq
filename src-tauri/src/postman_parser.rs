@@ -200,6 +200,7 @@ fn parse_postman_request(
         post_script,
         examples: vec![],
         extractions: vec![],
+        tags: vec![],
     })
 }
 

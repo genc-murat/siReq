@@ -137,7 +137,8 @@
 ### Benchmarking & Intelligence
 
 - **Benchmark tool**: Run 1–1000 iterations, get min/max/avg/median/P95/P99 stats, distribution chart, status code analysis, result comparison
-- **Collection runner**: Sequential collection execution with configurable delay, stop-on-failure, data-driven runs (CSV/JSON)
+- **Collection runner**: Sequential collection execution with configurable delay, stop-on-failure, data-driven runs (CSV/JSON), and test suite modes (Smoke, Regression, Load)
+- **Test suite modes**: Run collections in Smoke (tag-filtered), Regression (baseline comparison), or Load (concurrent execution) mode from the Runner Panel
 - **API Intelligence**: Analyze request history, endpoint insights, performance trends, schema evolution, regression detection
 - **ReplayLab**: Import HAR files, replay HTTP sessions with diff detection, chaos testing, waterfall visualization, run comparison, drag-and-drop entry reordering, streaming execution with pause/resume/cancel, and full entry editing
 
@@ -325,6 +326,7 @@ siReq supports the full HTTP method set: **GET**, **POST**, **PUT**, **PATCH**, 
 - **Cancel** — Cancel an in-flight request at any time
 - **Copy as cURL** — Generate a cURL command from the current request
 - **Request Name** — Optional label for saved requests
+- **Tags** — Categorize requests with tags (e.g., `critical`, `auth`, `smoke`) using the tag editor in the request builder. Tags enable Smoke test mode in the Collection Runner — only tagged requests are executed.
 
 ### Response Viewer
 
@@ -490,6 +492,11 @@ Automate API testing with collection runs:
 - **Data-driven runs** — Import datasets from CSV or JSON files to run the collection multiple times with different data
   - Each row in the dataset becomes a variable scope for one execution pass
   - Preview the dataset before running
+- **Test suite modes** — Switch between four run modes via the embedded Mode Selector:
+  - **Functional** — Standard run, all requests execute in order (default)
+  - **Smoke** — Only requests matching selected tags are executed. Add tags to individual requests via the Tags editor in the request builder (press Enter to add, click X to remove). Configure which tags to include from the Runner Panel's tag multi-select chips.
+  - **Regression** — Compare results against a stored baseline for schema/status drift detection
+  - **Load** — Concurrent execution with configurable concurrency and optional RPS cap
 - **Results table** — Detailed per-request results showing:
   - Method, name/URL, status code, response time, size
   - Test pass/fail counts
@@ -500,6 +507,7 @@ Automate API testing with collection runs:
 - **Chain flow visualization** — Visual flow diagram showing variable movement between requests (e.g., `#1 → auth_token → #2`)
 - **Interactive variable details** — Click the "N vars" badge in the results table to expand inline variable details with chaining direction indicators (`→ chained to request #X`, `← from request #X`)
 - **Run history** — Full history of all collection runs with dates, pass/fail stats, and delete/clear
+- **Tags on requests** — Add descriptive tags (e.g., `critical`, `auth`, `payments`) to any request in the request builder. Tags are stored with `#[serde(default)]` for full backward compatibility with existing collections.
 
 ### Visual Chaining Flow Editor
 
@@ -736,7 +744,9 @@ siReq/
 │   │   │   ├── MockLogDetail.tsx      # Log inspection details popup
 │   │   │   ├── MockStatusBadge.tsx    # Glow status online/offline visual indicators
 │   │   │   └── MockImportDialog.tsx   # OpenAPI JSON/YAML & collection mapper dialog
-│   │   ├── RunnerPanel.tsx            # Collection runner
+│   │   ├── RunnerPanel.tsx            # Collection runner (with test suite modes)
+│   │   ├── RunnerModeSelector.tsx     # Functional/Smoke/Regression/Load segmented control
+│   │   ├── RunnerSmokeConfig.tsx      # Tag multi-select for smoke test filtering
 │   │   ├── Replay/                    # ReplayLab components
 │   │   │   ├── ReplayPanel.tsx        # Main panel with 6 sub-tabs, streaming controls (pause/resume/cancel), HAR import
 │   │   │   ├── ReplayTimeline.tsx     # Entry timeline list with drag-and-drop reordering
@@ -806,8 +816,8 @@ siReq/
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/genc-murai/siReq/ci.yml?branch=main&logo=github&label=CI" alt="CI" />
   <img src="https://img.shields.io/github/actions/workflow/status/genc-murai/siReq/release.yml?branch=main&logo=githubactions&label=Release" alt="Release" />
-  <img src="https://img.shields.io/badge/Frontend-341%20tests-3178C6?logo=vitest&logoColor=white" alt="Frontend: 341 tests" />
-  <img src="https://img.shields.io/badge/Backend-217%20tests-000000?logo=rust&logoColor=white" alt="Backend: 217 tests" />
+  <img src="https://img.shields.io/badge/Frontend-378%20tests-3178C6?logo=vitest&logoColor=white" alt="Frontend: 378 tests" />
+  <img src="https://img.shields.io/badge/Backend-226%20tests-000000?logo=rust&logoColor=white" alt="Backend: 226 tests" />
 </p>
 
 siReq includes unit test suites for both **Zustand state stores** (Vitest) and the **Rust backend** (cargo test).
@@ -837,14 +847,14 @@ cargo test -- mock_server::manager
 |-------|-------|----------|
 | **sandbox** (`sandbox.test.ts`) | 120 | Script evaluation (sync/async), expression evaluation, error propagation (runtime/syntax/throw/thrown), scope isolation, `vars` read/write, function calls, `console.log`, timeout limits, `request`/`response` objects. Covers all sandboxed execution paths for pre-request, post-response, flow conditions, assertions, and scripting. |
 | **flowStore** (`flowStore.test.ts`) | 44 | Node lifecycle (add/remove/connect/disconnect), P2 execution pipeline (Set Variable → Script → Assertion), undo/redo, clipboard copy/paste, flow validation, multi-node selection, runner launch, request snapshotting, keyboard shortcuts. |
-| **runnerStore** (`runnerStore.test.ts`) | 46 | `runFlow()` — data-driven flow, single run, variable binding, stop-on-failure, iteration delay, error handling, stop mid-execution, edge cases (empty/null dataset, extracted variables, isRunning toggle). `startRun()` — collection run, data-driven collection, error handling (Error/string/null/undefined), `loadRunHistory` call on success & error, delay/stopOnFailure passthrough, fallback to `runCollection` when dataset is empty/null. |
+| **runnerStore** (`runnerStore.test.ts`) | 46 | `runFlow()` — data-driven flow, single run, variable binding, stop-on-failure, iteration delay, error handling, stop mid-execution, edge cases (empty/null dataset, extracted variables, isRunning toggle). `startRun()` — collection run, data-driven collection, error handling (Error/string/null/undefined), `loadRunHistory` call on success & error, delay/stopOnFailure passthrough, fallback to `runCollection` when dataset is empty/null. `startTestSuite()` — test suite run via `runTestSuite` invoke. `runMode` / `selectedTags` / `setRunMode` / `setSelectedTags` state management. |
 | **requestStore** (`requestStore.test.ts`) | 41 | `send()` — invoke call chain, loading lifecycle, `lastResponse` preservation, error handling, environmentId passthrough. `cancel()` — invoke call, loading state. `runBenchmark()` — invoke chain, loading lifecycle, history refresh. `loadBenchmarkHistory()` — pagination, error handling. 15 setter tests, `reset()`, `deleteBenchmarkHistoryItem()`, `loadHistoricBenchmark()`. |
 | **contractStore** (`contractStore.test.ts`) | 38 | `dereferenceSchema()` — 12 tests covering null/undefined input, deep clone, simple/nested/cyclic `$ref`, sibling attributes, escaped paths (`~1`), missing target, immutability, multi-level nesting. `getResponseSchemaFromSpec()` — 8 tests: valid hit, null/noPaths/missingPath/missingMethod/missingStatusCode, default fallback, text/plain content, case-insensitive method. `bindContract()` — stores config, calls `setJsonSchema` with dereferenced schema, array response, invalid/missing schema throws. `unbindContract()` — removal, clears jsonSchema, no side effects. Persistence — get/rebind lifecycle. |
 | **websocketStore** (`websocketStore.test.ts`) | 25 | `setConnectionId()` — update, null clear. `setStatus()` — all 3 states. `setUrl()` — custom URL, empty string. `addMessage()` — sent/received/system directions, order preservation, unique IDs, binary flag, empty data, timestamp. `clearMessages()` — removal, no side effects. `reset()` — restores state, preserves URL. Lifecycle integration — full connect → message → disconnect cycle. |
 | **graphqlRequest** (`graphqlRequest.test.ts`) | 15 | `buildGraphQLRequest()` — query/mutation with variables, operation name, headers, empty body, special characters. Error handling — invalid JSON variables, null/undefined inputs. |
 | **graphqlStore** (`graphqlStore.test.ts`) | 8 | Schema introspection, SDL parsing, history management, endpoint configuration. |
 | **uiStore** (`uiStore.test.ts`) | 4 | Theme toggle, sidebar state, panel layout persistence. |
-| **Total** | **341** | 9 test files — all pass ✅ |
+| **Total** | **378** | 10 test files — all pass ✅ |
 
 ### Mock Architecture
 
@@ -887,15 +897,16 @@ Pure Zustand stores (e.g., `websocketStore`) require no mocking — state transi
 | **mock_server/latency.rs** | 10 | None, fixed, random range, normal distribution, clamp 30s, unknown mode, edge cases. |
 | **mock_server/openapi.rs** | 8 | `openapi_to_mock_config` — paths, metadata, fallback endpoints, default, v2/v3 support. |
 | **http.rs (integration)** | 9 | End-to-end HTTP request/response lifecycle — method passthrough, headers, body, query params, redirects, errors. |
-| **Total** | **217** | All modules — 0 failed, 0 ignored ✅ |
+| **commands** (`commands/mod.rs`) | — | `run_test_suite` — filter requests by tags (smoke mode), fallthrough for functional/regression/load, backward-compatible CollectionRunResult with `mode` field. |
+| **Total** | **226** | All modules — 0 failed, 0 ignored ✅ |
 
 ### Grand Total
 
 | Suite | Tests |
 |-------|-------|
-| Frontend (Vitest) | **341** |
-| Rust backend (`cargo test`) | **217** |
-| **Grand total** | **558** |
+| Frontend (Vitest) | **378** |
+| Rust backend (`cargo test`) | **226** |
+| **Grand total** | **604** |
 
 ---
 

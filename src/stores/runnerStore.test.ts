@@ -39,6 +39,7 @@ vi.mock("./flowStore", () => ({
 vi.mock("@/lib/invoke", () => ({
   runCollection: mockInvoke.runCollection,
   runCollectionDataDriven: mockInvoke.runCollectionDataDriven,
+  runTestSuite: vi.fn(),
   getRunHistory: mockInvoke.getRunHistory,
   deleteRunHistory: vi.fn(),
   clearRunHistory: vi.fn(),
@@ -65,6 +66,8 @@ function resetRunnerStore() {
     dataDrivenMode: false,
     dataset: null,
     datasetFileName: "",
+    runMode: "functional" as const,
+    selectedTags: [],
   });
 }
 

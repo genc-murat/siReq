@@ -135,6 +135,7 @@ pub fn parse_har(json_str: &str) -> Result<Vec<HarEntry>, String> {
             post_script: String::new(),
             examples: vec![],
             extractions: vec![],
+            tags: vec![],
         };
 
         let resp_headers: Vec<(String, String)> = raw.response.headers.iter()
