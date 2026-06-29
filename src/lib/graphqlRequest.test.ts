@@ -4,6 +4,7 @@ import {
   buildGraphQLHeaders,
   detectOperationType,
   isValidVariablesJson,
+  parseVariablesSafe,
 } from "@/lib/graphqlRequest";
 import type { AuthConfig, KeyValue } from "@/lib/invoke";
 import fc from "fast-check";
@@ -104,6 +105,29 @@ describe("graphqlRequest", () => {
     expect(detectOperationType("  SUBSCRIPTION { userAdded { id } }")).toBe("subscription");
   });
 
+  it("buildGraphQLHeaders adds X-API-Key header for api_key auth in header", () => {
+    const auth: AuthConfig = { ...defaultAuth(), type: "api_key", api_key: "my-api-key-123", api_key_name: "X-API-Key", api_key_in: "header" };
+    const headers = buildGraphQLHeaders([], auth);
+    const apiKeyHeader = headers.find((h) => h.key === "X-API-Key");
+    expect(apiKeyHeader).toBeDefined();
+    expect(apiKeyHeader!.value).toBe("my-api-key-123");
+  });
+
+  it("buildGraphQLHeaders uses default X-API-Key name when api_key_name is empty", () => {
+    const auth: AuthConfig = { ...defaultAuth(), type: "api_key", api_key: "key-value", api_key_name: "", api_key_in: "header" };
+    const headers = buildGraphQLHeaders([], auth);
+    const apiKeyHeader = headers.find((h) => h.key === "X-API-Key");
+    expect(apiKeyHeader).toBeDefined();
+    expect(apiKeyHeader!.value).toBe("key-value");
+  });
+
+  it("buildGraphQLHeaders does NOT add auth header for api_key in query (not header)", () => {
+    const auth: AuthConfig = { ...defaultAuth(), type: "api_key", api_key: "key", api_key_name: "", api_key_in: "query" };
+    const headers = buildGraphQLHeaders([], auth);
+    const apiKeyHeader = headers.find((h) => h.key === "X-API-Key");
+    expect(apiKeyHeader).toBeUndefined();
+  });
+
   // ─── Unit: isValidVariablesJson ─────────────────────────────────────────────
 
   it("isValidVariablesJson returns true for valid JSON objects", () => {
@@ -115,6 +139,35 @@ describe("graphqlRequest", () => {
   it("isValidVariablesJson returns false for invalid JSON", () => {
     expect(isValidVariablesJson("{invalid")).toBe(false);
     expect(isValidVariablesJson("not json")).toBe(false);
+  });
+
+  // ─── Unit: parseVariablesSafe ──────────────────────────────────────────────
+
+  it("parseVariablesSafe returns parsed object for valid JSON", () => {
+    const result = parseVariablesSafe('{"id": "1", "name": "test"}');
+    expect(result).toEqual({ id: "1", name: "test" });
+  });
+
+  it("parseVariablesSafe returns empty object for empty object", () => {
+    expect(parseVariablesSafe("{}")).toEqual({});
+  });
+
+  it("parseVariablesSafe returns empty object for invalid JSON (branch: catch)", () => {
+    expect(parseVariablesSafe("{invalid")).toEqual({});
+  });
+
+  it("parseVariablesSafe returns empty object for JSON array (not an object)", () => {
+    expect(parseVariablesSafe("[1, 2, 3]")).toEqual({});
+  });
+
+  it("parseVariablesSafe returns empty object for null", () => {
+    expect(parseVariablesSafe("null")).toEqual({});
+  });
+
+  it("parseVariablesSafe returns empty object for primitive values", () => {
+    expect(parseVariablesSafe('"string"')).toEqual({});
+    expect(parseVariablesSafe("42")).toEqual({});
+    expect(parseVariablesSafe("true")).toEqual({});
   });
 
   // ─── Property 7: HTTP POST Body Formatı ─────────────────────────────────────

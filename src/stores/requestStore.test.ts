@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useRequestStore } from "./requestStore";
+import { useToastStore } from "./toastStore";
 import type { HttpRequest, HttpResponse, BenchmarkResult, BenchmarkHistoryEntry } from "@/lib/invoke";
 
 // ── Hoisted mutable mock state ─────────────────────────────────────────────
@@ -306,6 +307,56 @@ describe("requestStore", () => {
         expect.objectContaining({ method: "GET" }),
         undefined
       );
+    });
+
+    it("shows toast notification when response has modified_variables", async () => {
+      const addToastSpy = vi.spyOn(useToastStore.getState(), "addToast");
+      const responseWithVars: HttpResponse = {
+        ...sampleResponse,
+        modified_variables: [{ key: "userId", value: "42", enabled: true }],
+      };
+      mockInvoke.sendRequest.mockResolvedValue(responseWithVars);
+
+      await useRequestStore.getState().send();
+
+      expect(addToastSpy).toHaveBeenCalledWith(
+        "1 variable extracted: userId",
+        "success"
+      );
+      addToastSpy.mockRestore();
+    });
+
+    it("shows toast with truncated list when more than 3 variables extracted", async () => {
+      const addToastSpy = vi.spyOn(useToastStore.getState(), "addToast");
+      const responseWithVars: HttpResponse = {
+        ...sampleResponse,
+        modified_variables: [
+          { key: "a", value: "1", enabled: true },
+          { key: "b", value: "2", enabled: true },
+          { key: "c", value: "3", enabled: true },
+          { key: "d", value: "4", enabled: true },
+          { key: "e", value: "5", enabled: true },
+        ],
+      };
+      mockInvoke.sendRequest.mockResolvedValue(responseWithVars);
+
+      await useRequestStore.getState().send();
+
+      expect(addToastSpy).toHaveBeenCalledWith(
+        "5 variables extracted: a, b, c +2 more",
+        "success"
+      );
+      addToastSpy.mockRestore();
+    });
+
+    it("does NOT show toast when response has no modified_variables", async () => {
+      const addToastSpy = vi.spyOn(useToastStore.getState(), "addToast");
+      mockInvoke.sendRequest.mockResolvedValue(sampleResponse);
+
+      await useRequestStore.getState().send();
+
+      expect(addToastSpy).not.toHaveBeenCalled();
+      addToastSpy.mockRestore();
     });
   });
 

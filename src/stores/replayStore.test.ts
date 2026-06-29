@@ -503,6 +503,15 @@ describe("replayStore", () => {
       expect(mockReplay.replayPauseRun).not.toHaveBeenCalled();
     });
 
+    it("sets error when pause fails", async () => {
+      useReplayStore.setState({ streamingRunId: "run-1" });
+      mockReplay.replayPauseRun.mockRejectedValue(new Error("Pause failed"));
+
+      await useReplayStore.getState().pauseReplay();
+
+      expect(useReplayStore.getState().error).toBe("Pause failed");
+    });
+
     it("resumes the paused replay", async () => {
       useReplayStore.setState({ streamingRunId: "run-1" });
       mockReplay.replayResumeRun.mockResolvedValue(undefined);
@@ -510,6 +519,20 @@ describe("replayStore", () => {
       await useReplayStore.getState().resumeReplay();
 
       expect(useReplayStore.getState().playbackState).toBe("playing");
+    });
+
+    it("does nothing when resume is called with no streamingRunId", async () => {
+      await useReplayStore.getState().resumeReplay();
+      expect(mockReplay.replayResumeRun).not.toHaveBeenCalled();
+    });
+
+    it("sets error when resume fails", async () => {
+      useReplayStore.setState({ streamingRunId: "run-1" });
+      mockReplay.replayResumeRun.mockRejectedValue(new Error("Resume failed"));
+
+      await useReplayStore.getState().resumeReplay();
+
+      expect(useReplayStore.getState().error).toBe("Resume failed");
     });
 
     it("cancels the running replay", async () => {
@@ -527,6 +550,15 @@ describe("replayStore", () => {
       await useReplayStore.getState().cancelReplay();
       expect(useReplayStore.getState().playbackState).toBe("idle");
       expect(useReplayStore.getState().loading).toBe(false);
+    });
+
+    it("sets error when cancel fails", async () => {
+      useReplayStore.setState({ streamingRunId: "run-1" });
+      mockReplay.replayCancelRun.mockRejectedValue(new Error("Cancel failed"));
+
+      await useReplayStore.getState().cancelReplay();
+
+      expect(useReplayStore.getState().error).toBe("Cancel failed");
     });
   });
 
@@ -613,6 +645,17 @@ describe("replayStore", () => {
       expect(updated.remap_rules[0].replacement).toBe("https://new.api/");
     });
 
+    it("addRemapRule does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().addRemapRule("/api/", "https://new.api/");
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
+    });
+
+    it("addRemapRule does nothing when session not found", async () => {
+      useReplayStore.setState({ activeSessionId: "nonexistent", sessions: [createMockSession("s1")] });
+      await useReplayStore.getState().addRemapRule("/api/", "https://new.api/");
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
+    });
+
     it("updates a remap rule", async () => {
       const rule = { id: "r1", pattern: "/old/", replacement: "https://old.api/", enabled: true };
       const session = createMockSession("s1", { remap_rules: [rule] });
@@ -625,6 +668,11 @@ describe("replayStore", () => {
       expect(updated.pattern).toBe("/old/"); // unchanged
     });
 
+    it("updateRemapRule does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().updateRemapRule("r1", { enabled: false });
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
+    });
+
     it("deletes a remap rule", async () => {
       const rule = { id: "r1", pattern: "/delete/", replacement: "", enabled: true };
       const session = createMockSession("s1", { remap_rules: [rule] });
@@ -633,6 +681,11 @@ describe("replayStore", () => {
       await useReplayStore.getState().deleteRemapRule("r1");
 
       expect(useReplayStore.getState().sessions[0].remap_rules).toHaveLength(0);
+    });
+
+    it("deleteRemapRule does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().deleteRemapRule("r1");
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
     });
   });
 
@@ -651,6 +704,43 @@ describe("replayStore", () => {
       expect(useReplayStore.getState().sessions[0].assertions).toHaveLength(1);
       expect(useReplayStore.getState().sessions[0].assertions[0].type).toBe("status_code");
       expect(useReplayStore.getState().sessions[0].assertions[0].expected).toBe("200");
+    });
+
+    it("addAssertion does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().addAssertion({
+        type: "status_code", expression: "status", expected: "200", enabled: true,
+      });
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
+    });
+
+    it("updates an assertion", async () => {
+      const assertion = { id: "a1", type: "status_code" as const, expression: "status", expected: "200", enabled: true };
+      const session = createMockSession("s1", { assertions: [assertion] });
+      useReplayStore.setState({ sessions: [session], activeSessionId: "s1" });
+
+      await useReplayStore.getState().updateAssertion("a1", { expected: "404" });
+
+      expect(useReplayStore.getState().sessions[0].assertions[0].expected).toBe("404");
+    });
+
+    it("updateAssertion does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().updateAssertion("a1", { expected: "404" });
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
+    });
+
+    it("deletes an assertion", async () => {
+      const assertion = { id: "a1", type: "status_code" as const, expression: "status", expected: "200", enabled: true };
+      const session = createMockSession("s1", { assertions: [assertion] });
+      useReplayStore.setState({ sessions: [session], activeSessionId: "s1" });
+
+      await useReplayStore.getState().deleteAssertion("a1");
+
+      expect(useReplayStore.getState().sessions[0].assertions).toHaveLength(0);
+    });
+
+    it("deleteAssertion does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().deleteAssertion("a1");
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
     });
   });
 
@@ -675,6 +765,14 @@ describe("replayStore", () => {
       expect(useReplayStore.getState().sessions[0].chaos_config.enabled).toBe(true);
       expect(useReplayStore.getState().sessions[0].chaos_config.timeout_probability).toBe(0.1);
     });
+
+    it("updateChaosConfig does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().updateChaosConfig({
+        enabled: true, timeout_probability: 0, timeout_min_ms: 0, timeout_max_ms: 0,
+        delay_probability: 0, delay_min_ms: 0, delay_max_ms: 0, error_probability: 0, error_status_codes: [],
+      });
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
+    });
   });
 
   // ── Run Management ───────────────────────────────────────────────────
@@ -688,6 +786,11 @@ describe("replayStore", () => {
       await useReplayStore.getState().loadRuns();
 
       expect(useReplayStore.getState().runs).toEqual(runs);
+    });
+
+    it("loadRuns does nothing when no activeSessionId", async () => {
+      await useReplayStore.getState().loadRuns();
+      expect(mockReplay.replayGetRuns).not.toHaveBeenCalled();
     });
   });
 
@@ -715,6 +818,33 @@ describe("replayStore", () => {
       expect(useReplayStore.getState().runs).toHaveLength(1);
       expect(useReplayStore.getState().runs[0].id).toBe("r2");
     });
+
+    it("clears activeRunDetail when the deleted run matches it", async () => {
+      const runs = [createMockRun("r1", "s1")];
+      useReplayStore.setState({
+        runs,
+        activeRunDetail: { run: createMockRun("r1", "s1"), entry_results: [] },
+      });
+      mockReplay.replayDeleteRun.mockResolvedValue(undefined);
+
+      await useReplayStore.getState().deleteRun("r1");
+
+      expect(useReplayStore.getState().activeRunDetail).toBeNull();
+    });
+
+    it("preserves activeRunDetail when deleting a different run", async () => {
+      const runs = [createMockRun("r1", "s1"), createMockRun("r2", "s1")];
+      useReplayStore.setState({
+        runs,
+        activeRunDetail: { run: createMockRun("r1", "s1"), entry_results: [] },
+      });
+      mockReplay.replayDeleteRun.mockResolvedValue(undefined);
+
+      await useReplayStore.getState().deleteRun("r2");
+
+      expect(useReplayStore.getState().activeRunDetail).not.toBeNull();
+      expect(useReplayStore.getState().activeRunDetail!.run.id).toBe("r1");
+    });
   });
 
   describe("compareSelectedRuns", () => {
@@ -735,6 +865,15 @@ describe("replayStore", () => {
     it("does nothing when no runs selected", async () => {
       await useReplayStore.getState().compareSelectedRuns();
       expect(mockReplay.replayCompareRuns).not.toHaveBeenCalled();
+    });
+
+    it("sets error on failure", async () => {
+      useReplayStore.setState({ selectedRunIds: ["run-a", "run-b"] });
+      mockReplay.replayCompareRuns.mockRejectedValue(new Error("Compare failed"));
+
+      await useReplayStore.getState().compareSelectedRuns();
+
+      expect(useReplayStore.getState().error).toBe("Compare failed");
     });
   });
 

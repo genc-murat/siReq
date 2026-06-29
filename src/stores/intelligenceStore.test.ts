@@ -236,6 +236,22 @@ describe("intelligenceStore", () => {
       expect(useIntelligenceStore.getState().error).toBe("Failed");
       expect(useIntelligenceStore.getState().loading).toBe(false);
     });
+
+    it("handles non-Error thrown value (string)", async () => {
+      mockIntelligence.getApiIntelligenceOverview.mockRejectedValue("string error");
+
+      await useIntelligenceStore.getState().loadOverview();
+
+      expect(useIntelligenceStore.getState().error).toBe("string error");
+    });
+
+    it("handles null thrown value (falls back to default)", async () => {
+      mockIntelligence.getApiIntelligenceOverview.mockRejectedValue(null);
+
+      await useIntelligenceStore.getState().loadOverview();
+
+      expect(useIntelligenceStore.getState().error).toBe("Failed to load overview");
+    });
   });
 
   // ── loadEndpoints ────────────────────────────────────────────────────
@@ -269,6 +285,22 @@ describe("intelligenceStore", () => {
 
       expect(useIntelligenceStore.getState().error).toBe("Endpoint error");
     });
+
+    it("handles non-Error thrown value (string)", async () => {
+      mockIntelligence.getAllEndpointInsights.mockRejectedValue("string");
+
+      await useIntelligenceStore.getState().loadEndpoints();
+
+      expect(useIntelligenceStore.getState().error).toBe("string");
+    });
+
+    it("handles null thrown value (falls back to default)", async () => {
+      mockIntelligence.getAllEndpointInsights.mockRejectedValue(null);
+
+      await useIntelligenceStore.getState().loadEndpoints();
+
+      expect(useIntelligenceStore.getState().error).toBe("Failed to load endpoints");
+    });
   });
 
   // ── selectEndpoint / clearSelection ──────────────────────────────────
@@ -300,6 +332,22 @@ describe("intelligenceStore", () => {
 
       expect(useIntelligenceStore.getState().error).toBe("Detail error");
       expect(useIntelligenceStore.getState().loading).toBe(false);
+    });
+
+    it("handles non-Error thrown value (string)", async () => {
+      mockIntelligence.getEndpointDetail.mockRejectedValue("detail error string");
+
+      await useIntelligenceStore.getState().selectEndpoint("GET /fail");
+
+      expect(useIntelligenceStore.getState().error).toBe("detail error string");
+    });
+
+    it("handles null thrown value (falls back to default)", async () => {
+      mockIntelligence.getEndpointDetail.mockRejectedValue(null);
+
+      await useIntelligenceStore.getState().selectEndpoint("GET /fail");
+
+      expect(useIntelligenceStore.getState().error).toBe("Failed to load endpoint detail");
     });
   });
 
