@@ -382,6 +382,37 @@ describe("Console is safe", () => {
     `, vars);
     expect(vars._ok).toBe("yes");
   });
+
+  it("console handles array arguments (Array.isArray branch)", () => {
+    const vars: Record<string, string> = { _ok: "no" };
+    executeSandboxed(`
+      console.log([1, 2, 3]);
+      console.log([{ a: 1 }, { b: 2 }]);
+      vars._ok = "yes";
+    `, vars);
+    expect(vars._ok).toBe("yes");
+  });
+
+  it("console handles objects that cannot be JSON.stringified (catch → String)", () => {
+    const vars: Record<string, string> = { _ok: "no" };
+    executeSandboxed(`
+      var circular = { name: "test" };
+      circular.self = circular;
+      console.log(circular);
+      vars._ok = "yes";
+    `, vars);
+    expect(vars._ok).toBe("yes");
+  });
+
+  it("console handles non-object non-primitive types (falls through to String)", () => {
+    const vars: Record<string, string> = { _ok: "no" };
+    executeSandboxed(`
+      console.log(function() { return 1; });
+      console.log(Symbol("test"));
+      vars._ok = "yes";
+    `, vars);
+    expect(vars._ok).toBe("yes");
+  });
 });
 
 // ─── evaluateInSandbox ─────────────────────────────────────────────────────
@@ -573,5 +604,36 @@ describe("evaluateInSandbox edge cases", () => {
   it("expression using safe console in evaluateInSandbox", () => {
     // console is available in evaluateInSandbox too
     expect(evaluateInSandbox("true", {})).toBe(true);
+  });
+
+  it("returns false on runtime error in expression (fn.call catch block)", () => {
+    // Accessing property on undefined throws a runtime error (not syntax error)
+    expect(evaluateInSandbox("nonexistent.foo", {})).toBe(false);
+    expect(evaluateInSandbox("obj.data.value", {})).toBe(false);
+  });
+
+  it("returns false when expression throws during evaluation", () => {
+    // Direct throw in expression should be caught by the runtime try/catch
+    expect(evaluateInSandbox("(function(){ throw new Error('boom'); })()", {})).toBe(false);
+  });
+
+  it("evaluates expression with variable names that have special characters", () => {
+    // Variable names like "my-var" or "my var" get sanitized to "my_var"
+    // The expression still evaluates using the original vars
+    const result = evaluateInSandbox(
+      "true",
+      { "special-name": "value", "another key": "2" }
+    );
+    expect(result).toBe(true);
+  });
+
+  it("evaluates expression with variable name collision (same sanitized key)", () => {
+    // Two different variable names that sanitize to the same identifier
+    // should each get unique keys (e.g. my_var and my_var_2)
+    const result = evaluateInSandbox(
+      "true",
+      { "my-var": "first", "my var": "second" }
+    );
+    expect(result).toBe(true);
   });
 });
