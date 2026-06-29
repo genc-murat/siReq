@@ -125,7 +125,7 @@ export function getValueByJsonPath(obj: any, path: string): any {
   try {
     const parts = path
       .replace(/^\$/, "")
-      .split(/.(?![^[]*\])/)
+      .split(/\.(?![^[]*\])/)
       .filter((p) => p !== "");
     
     let current = obj;
