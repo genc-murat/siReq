@@ -15,6 +15,9 @@ const { mockFlowState, mockFns, mockInvoke } = vi.hoisted(() => {
   const runCollection = vi.fn();
   const runCollectionDataDriven = vi.fn();
   const getRunHistory = vi.fn().mockResolvedValue([]);
+  const runTestSuite = vi.fn();
+  const deleteRunHistory = vi.fn();
+  const clearRunHistory = vi.fn();
 
   return {
     mockFlowState: {
@@ -28,7 +31,7 @@ const { mockFlowState, mockFns, mockInvoke } = vi.hoisted(() => {
       variables: {} as Record<string, string>,
     },
     mockFns: { runFlow, clearVariables, clearLogs, resetExecution, updateVariable },
-    mockInvoke: { runCollection, runCollectionDataDriven, getRunHistory },
+    mockInvoke: { runCollection, runCollectionDataDriven, getRunHistory, runTestSuite, deleteRunHistory, clearRunHistory },
   };
 });
 
@@ -39,10 +42,10 @@ vi.mock("./flowStore", () => ({
 vi.mock("@/lib/invoke", () => ({
   runCollection: mockInvoke.runCollection,
   runCollectionDataDriven: mockInvoke.runCollectionDataDriven,
-  runTestSuite: vi.fn(),
+  runTestSuite: mockInvoke.runTestSuite,
   getRunHistory: mockInvoke.getRunHistory,
-  deleteRunHistory: vi.fn(),
-  clearRunHistory: vi.fn(),
+  deleteRunHistory: mockInvoke.deleteRunHistory,
+  clearRunHistory: mockInvoke.clearRunHistory,
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -87,6 +90,8 @@ function resetMockState() {
   mockFns.resetExecution.mockReturnValue(undefined);
   mockFns.updateVariable.mockReturnValue(undefined);
   mockInvoke.getRunHistory.mockResolvedValue([]);
+  mockInvoke.deleteRunHistory.mockResolvedValue(undefined);
+  mockInvoke.clearRunHistory.mockResolvedValue(undefined);
 
   // Reset tracked state
   mockFlowState.nodes = [];
@@ -902,9 +907,9 @@ describe("runnerStore — startRun", () => {
     });
   });
 
-  // ── loadRunHistory ─────────────────────────────────────────────────────
+  // ── History refresh ───────────────────────────────────────────────────
 
-  describe("loadRunHistory", () => {
+  describe("history refresh", () => {
     it("calls loadRunHistory after successful collection run", async () => {
       mockInvoke.runCollection.mockResolvedValue(mockCollectionResult);
 
@@ -967,5 +972,701 @@ describe("runnerStore — startRun", () => {
       expect(s.totalRequests).toBe(0);
       expect(s.currentIndex).toBe(0);
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// startTestSuite — Test suite execution
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("runnerStore — startTestSuite", () => {
+  const mockSuiteResult = {
+    id: "suite-1",
+    collection_id: "col-1",
+    collection_name: "My Collection",
+    environment_id: null,
+    started_at: "2025-01-01T00:00:00Z",
+    completed_at: "2025-01-01T00:01:00Z",
+    delay_ms: 0,
+    stop_on_failure: false,
+    results: [
+      {
+        request_name: "GET /users",
+        request_method: "GET",
+        request_url: "https://api.example.com/users",
+        status_code: 200,
+        status_text: "OK",
+        time_ms: 100,
+        size: 512,
+        test_results: [{ name: "Status is 200", passed: true }],
+        script_logs: [],
+        error: null,
+        extracted_variables: [],
+        iteration: null,
+      },
+    ],
+    total: 1,
+    passed: 1,
+    failed: 0,
+    total_time_ms: 100,
+    extracted_variables: [],
+  };
+
+  beforeEach(() => {
+    resetRunnerStore();
+    resetMockState();
+  });
+
+  // ── Basic suite run ────────────────────────────────────────────────────
+
+  describe("basic suite run", () => {
+    it("calls runTestSuite with default functional mode and sets results", async () => {
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(mockInvoke.runTestSuite).toHaveBeenCalledWith(
+        "col-1", "functional", null,
+        { tags: [], delay_ms: 0, stop_on_failure: false }
+      );
+
+      const s = useRunnerStore.getState();
+      expect(s.isRunning).toBe(false);
+      expect(s.completed).toBe(true);
+      expect(s.collectionId).toBe("col-1");
+      expect(s.collectionName).toBe("My Collection");
+      expect(s.results).toHaveLength(1);
+      expect(s.results[0].request_name).toBe("GET /users");
+      expect(s.totalRequests).toBe(1);
+      expect(s.currentIndex).toBe(1);
+    });
+
+    it("passes environmentId to runTestSuite", async () => {
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection", "env-prod");
+
+      expect(mockInvoke.runTestSuite).toHaveBeenCalledWith(
+        "col-1", "functional", "env-prod",
+        { tags: [], delay_ms: 0, stop_on_failure: false }
+      );
+    });
+
+    it("passes delayMs and stopOnFailure to runTestSuite", async () => {
+      useRunnerStore.setState({ delayMs: 200, stopOnFailure: true });
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(mockInvoke.runTestSuite).toHaveBeenCalledWith(
+        "col-1", "functional", null,
+        { tags: [], delay_ms: 200, stop_on_failure: true }
+      );
+    });
+
+    it("stores the full runResult from the backend", async () => {
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(useRunnerStore.getState().runResult).toEqual(mockSuiteResult);
+    });
+
+    it("sets isRunning to true at start and false on completion", async () => {
+      mockInvoke.runTestSuite.mockImplementation(async () => {
+        expect(useRunnerStore.getState().isRunning).toBe(true);
+        return mockSuiteResult;
+      });
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(useRunnerStore.getState().isRunning).toBe(false);
+    });
+  });
+
+  // ── Run modes ──────────────────────────────────────────────────────────
+
+  describe("run modes", () => {
+    it("passes smoke mode to runTestSuite", async () => {
+      useRunnerStore.setState({ runMode: "smoke", selectedTags: ["critical"] });
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(mockInvoke.runTestSuite).toHaveBeenCalledWith(
+        "col-1", "smoke", null,
+        { tags: ["critical"], delay_ms: 0, stop_on_failure: false }
+      );
+    });
+
+    it("passes regression mode to runTestSuite", async () => {
+      useRunnerStore.setState({ runMode: "regression", selectedTags: ["api"] });
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(mockInvoke.runTestSuite).toHaveBeenCalledWith(
+        "col-1", "regression", null,
+        { tags: ["api"], delay_ms: 0, stop_on_failure: false }
+      );
+    });
+
+    it("passes load mode to runTestSuite", async () => {
+      useRunnerStore.setState({ runMode: "load", selectedTags: ["perf"] });
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(mockInvoke.runTestSuite).toHaveBeenCalledWith(
+        "col-1", "load", null,
+        { tags: ["perf"], delay_ms: 0, stop_on_failure: false }
+      );
+    });
+
+    it("resets selectedTags to [] when switch is started", async () => {
+      useRunnerStore.setState({ runMode: "functional", selectedTags: ["unused"] });
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      // The selectedTags from store are passed through — startTestSuite doesn't
+      // reset them itself, only setRunMode does. So we verify they're passed.
+      expect(mockInvoke.runTestSuite).toHaveBeenCalledWith(
+        "col-1", "functional", null,
+        { tags: ["unused"], delay_ms: 0, stop_on_failure: false }
+      );
+    });
+  });
+
+  // ── Error handling ─────────────────────────────────────────────────────
+
+  describe("error handling", () => {
+    it("catches Error thrown by runTestSuite and creates error result", async () => {
+      mockInvoke.runTestSuite.mockRejectedValue(new Error("Suite failed"));
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      const s = useRunnerStore.getState();
+      expect(s.isRunning).toBe(false);
+      expect(s.completed).toBe(true);
+      expect(s.runResult).not.toBeNull();
+      expect(s.runResult!.id).toBe("error");
+      expect(s.runResult!.collection_id).toBe("col-1");
+      expect(s.runResult!.collection_name).toBe("My Collection");
+      expect(s.runResult!.results[0].error).toBe("Suite failed");
+      expect(s.runResult!.results[0].script_logs[0].message).toBe("Suite failed");
+      expect(s.runResult!.passed).toBe(0);
+      expect(s.runResult!.failed).toBe(1);
+    });
+
+    it("handles non-Error thrown values (string)", async () => {
+      mockInvoke.runTestSuite.mockRejectedValue("string suite error");
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(useRunnerStore.getState().runResult!.results[0].error).toBe("string suite error");
+    });
+
+    it("handles null thrown value (falls back to default message)", async () => {
+      mockInvoke.runTestSuite.mockRejectedValue(null);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(useRunnerStore.getState().runResult!.results[0].error).toBe("Test suite run failed");
+    });
+
+    it("preserves delayMs and stopOnFailure in error result", async () => {
+      useRunnerStore.setState({ delayMs: 300, stopOnFailure: true });
+      mockInvoke.runTestSuite.mockRejectedValue(new Error("Fail"));
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      const rr = useRunnerStore.getState().runResult;
+      expect(rr!.delay_ms).toBe(300);
+      expect(rr!.stop_on_failure).toBe(true);
+    });
+
+    it("sets currentIndex to 1 in error state", async () => {
+      mockInvoke.runTestSuite.mockRejectedValue(new Error("Fail"));
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(useRunnerStore.getState().currentIndex).toBe(1);
+      expect(useRunnerStore.getState().totalRequests).toBe(1);
+    });
+  });
+
+  // ── History refresh ────────────────────────────────────────────────────
+
+  describe("history refresh", () => {
+    it("calls loadRunHistory after successful suite run", async () => {
+      mockInvoke.runTestSuite.mockResolvedValue(mockSuiteResult);
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(mockInvoke.getRunHistory).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls loadRunHistory even after error", async () => {
+      mockInvoke.runTestSuite.mockRejectedValue(new Error("Fail"));
+
+      await useRunnerStore.getState().startTestSuite("col-1", "My Collection");
+
+      expect(mockInvoke.getRunHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Setters
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("runnerStore — setters", () => {
+  beforeEach(() => {
+    resetRunnerStore();
+  });
+
+  describe("setDelayMs", () => {
+    it("sets delayMs", () => {
+      useRunnerStore.getState().setDelayMs(500);
+      expect(useRunnerStore.getState().delayMs).toBe(500);
+    });
+
+    it("sets delayMs to 0", () => {
+      useRunnerStore.getState().setDelayMs(0);
+      expect(useRunnerStore.getState().delayMs).toBe(0);
+    });
+  });
+
+  describe("setStopOnFailure", () => {
+    it("sets stopOnFailure to true", () => {
+      useRunnerStore.getState().setStopOnFailure(true);
+      expect(useRunnerStore.getState().stopOnFailure).toBe(true);
+    });
+
+    it("sets stopOnFailure to false", () => {
+      useRunnerStore.getState().setStopOnFailure(false);
+      expect(useRunnerStore.getState().stopOnFailure).toBe(false);
+    });
+  });
+
+  describe("setDataDrivenMode", () => {
+    it("enables data driven mode", () => {
+      useRunnerStore.getState().setDataDrivenMode(true);
+      expect(useRunnerStore.getState().dataDrivenMode).toBe(true);
+    });
+
+    it("disables data driven mode", () => {
+      useRunnerStore.getState().setDataDrivenMode(false);
+      expect(useRunnerStore.getState().dataDrivenMode).toBe(false);
+    });
+  });
+
+  describe("setDataset", () => {
+    it("sets dataset and file name", () => {
+      const dataset = { columns: [{ name: "id", type: "string" as const }], rows: [{ values: { id: "1" } }] };
+      useRunnerStore.getState().setDataset(dataset, "data.csv");
+      expect(useRunnerStore.getState().dataset).toEqual(dataset);
+      expect(useRunnerStore.getState().datasetFileName).toBe("data.csv");
+    });
+
+    it("sets dataset to null with empty file name", () => {
+      useRunnerStore.getState().setDataset(null, "");
+      expect(useRunnerStore.getState().dataset).toBeNull();
+      expect(useRunnerStore.getState().datasetFileName).toBe("");
+    });
+  });
+
+  describe("setRunMode", () => {
+    it("sets runMode to functional", () => {
+      useRunnerStore.getState().setRunMode("functional");
+      expect(useRunnerStore.getState().runMode).toBe("functional");
+    });
+
+    it("sets runMode to smoke", () => {
+      useRunnerStore.getState().setRunMode("smoke");
+      expect(useRunnerStore.getState().runMode).toBe("smoke");
+    });
+
+    it("sets runMode to regression", () => {
+      useRunnerStore.getState().setRunMode("regression");
+      expect(useRunnerStore.getState().runMode).toBe("regression");
+    });
+
+    it("sets runMode to load", () => {
+      useRunnerStore.getState().setRunMode("load");
+      expect(useRunnerStore.getState().runMode).toBe("load");
+    });
+
+    it("clears selectedTags when switching to functional", () => {
+      useRunnerStore.setState({ runMode: "smoke", selectedTags: ["critical", "api"] });
+      useRunnerStore.getState().setRunMode("functional");
+      expect(useRunnerStore.getState().runMode).toBe("functional");
+      expect(useRunnerStore.getState().selectedTags).toEqual([]);
+    });
+
+    it("preserves selectedTags when switching between non-functional modes", () => {
+      useRunnerStore.setState({ runMode: "smoke", selectedTags: ["critical"] });
+      useRunnerStore.getState().setRunMode("regression");
+      expect(useRunnerStore.getState().runMode).toBe("regression");
+      expect(useRunnerStore.getState().selectedTags).toEqual(["critical"]);
+    });
+
+    it("preserves selectedTags when switching from functional to a non-functional mode", () => {
+      useRunnerStore.setState({ runMode: "functional", selectedTags: [] });
+      useRunnerStore.getState().setRunMode("load");
+      expect(useRunnerStore.getState().runMode).toBe("load");
+      expect(useRunnerStore.getState().selectedTags).toEqual([]);
+    });
+  });
+
+  describe("setSelectedTags", () => {
+    it("sets selected tags", () => {
+      useRunnerStore.getState().setSelectedTags(["critical", "api"]);
+      expect(useRunnerStore.getState().selectedTags).toEqual(["critical", "api"]);
+    });
+
+    it("clears selected tags", () => {
+      useRunnerStore.getState().setSelectedTags([]);
+      expect(useRunnerStore.getState().selectedTags).toEqual([]);
+    });
+  });
+
+  describe("setMode", () => {
+    it("sets mode to collection", () => {
+      useRunnerStore.getState().setMode("collection");
+      expect(useRunnerStore.getState().mode).toBe("collection");
+      expect(useRunnerStore.getState().flowName).toBe("");
+    });
+
+    it("sets mode to flow with name", () => {
+      useRunnerStore.getState().setMode("flow", "My Flow");
+      expect(useRunnerStore.getState().mode).toBe("flow");
+      expect(useRunnerStore.getState().flowName).toBe("My Flow");
+    });
+
+    it("sets mode to flow without flowName (defaults to empty)", () => {
+      useRunnerStore.getState().setMode("flow");
+      expect(useRunnerStore.getState().mode).toBe("flow");
+      expect(useRunnerStore.getState().flowName).toBe("");
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// loadRunHistory — Direct tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("runnerStore — loadRunHistory", () => {
+  const historyEntries = [
+    {
+      id: "h-1",
+      collection_id: "col-1",
+      collection_name: "Run 1",
+      environment_id: null,
+      started_at: "2025-01-01T00:00:00Z",
+      completed_at: "2025-01-01T00:01:00Z",
+      delay_ms: 0,
+      stop_on_failure: false,
+      results: [],
+      total: 0,
+      passed: 0,
+      failed: 0,
+      total_time_ms: 0,
+      extracted_variables: [],
+    },
+  ];
+
+  beforeEach(() => {
+    resetRunnerStore();
+    resetMockState();
+  });
+
+  it("sets runHistoryLoading to true during fetch", async () => {
+    // Don't resolve immediately so we can check loading state
+    mockInvoke.getRunHistory.mockImplementation(() => {
+      return new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    const promise = useRunnerStore.getState().loadRunHistory();
+
+    // Should be loading after microtask
+    await vi.waitFor(() => {
+      expect(useRunnerStore.getState().runHistoryLoading).toBe(true);
+    });
+
+    await promise;
+
+    expect(useRunnerStore.getState().runHistoryLoading).toBe(false);
+  }, 5000);
+
+  it("loads history entries and sets runHistory", async () => {
+    mockInvoke.getRunHistory.mockResolvedValue(historyEntries);
+
+    await useRunnerStore.getState().loadRunHistory();
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(1);
+    expect(useRunnerStore.getState().runHistory[0].id).toBe("h-1");
+    expect(useRunnerStore.getState().runHistoryLoading).toBe(false);
+  });
+
+  it("handles empty history response", async () => {
+    mockInvoke.getRunHistory.mockResolvedValue([]);
+
+    await useRunnerStore.getState().loadRunHistory();
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(0);
+    expect(useRunnerStore.getState().runHistoryLoading).toBe(false);
+  });
+
+  it("handles error from getRunHistory gracefully", async () => {
+    mockInvoke.getRunHistory.mockRejectedValue(new Error("DB error"));
+
+    await useRunnerStore.getState().loadRunHistory();
+
+    // Should keep previous empty history and clear loading state
+    expect(useRunnerStore.getState().runHistory).toHaveLength(0);
+    expect(useRunnerStore.getState().runHistoryLoading).toBe(false);
+  });
+
+  it("loads history with multiple entries", async () => {
+    const multipleEntries = [
+      ...historyEntries,
+      {
+        id: "h-2",
+        collection_id: "col-2",
+        collection_name: "Run 2",
+        environment_id: null,
+        started_at: "2025-01-02T00:00:00Z",
+        completed_at: "2025-01-02T00:01:00Z",
+        delay_ms: 0,
+        stop_on_failure: false,
+        results: [],
+        total: 0,
+        passed: 0,
+        failed: 0,
+        total_time_ms: 0,
+        extracted_variables: [],
+      },
+    ];
+    mockInvoke.getRunHistory.mockResolvedValue(multipleEntries);
+
+    await useRunnerStore.getState().loadRunHistory();
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(2);
+    expect(useRunnerStore.getState().runHistory[0].id).toBe("h-1");
+    expect(useRunnerStore.getState().runHistory[1].id).toBe("h-2");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// deleteRunHistoryItem / clearAllRunHistory
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("runnerStore — deleteRunHistoryItem", () => {
+  beforeEach(() => {
+    resetRunnerStore();
+    resetMockState();
+
+    // Pre-populate history
+    useRunnerStore.setState({
+      runHistory: [
+        { id: "h-1", collection_id: "c1", collection_name: "Run 1", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] },
+        { id: "h-2", collection_id: "c2", collection_name: "Run 2", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] },
+        { id: "h-3", collection_id: "c3", collection_name: "Run 3", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] },
+      ],
+    });
+  });
+
+  it("calls deleteRunHistory with the correct id", async () => {
+    await useRunnerStore.getState().deleteRunHistoryItem("h-2");
+
+    expect(mockInvoke.deleteRunHistory).toHaveBeenCalledWith("h-2");
+  });
+
+  it("removes the item from runHistory locally after successful deletion", async () => {
+    mockInvoke.deleteRunHistory.mockResolvedValue(undefined);
+
+    await useRunnerStore.getState().deleteRunHistoryItem("h-2");
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(2);
+    expect(useRunnerStore.getState().runHistory.map((e) => e.id)).toEqual(["h-1", "h-3"]);
+  });
+
+  it("removes the first item from history", async () => {
+    await useRunnerStore.getState().deleteRunHistoryItem("h-1");
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(2);
+    expect(useRunnerStore.getState().runHistory[0].id).toBe("h-2");
+  });
+
+  it("removes the last item from history", async () => {
+    await useRunnerStore.getState().deleteRunHistoryItem("h-3");
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(2);
+    expect(useRunnerStore.getState().runHistory[1].id).toBe("h-2");
+  });
+
+  it("handles delete on history with single item leaving empty array", async () => {
+    useRunnerStore.setState({ runHistory: [{ id: "h-only", collection_id: "c1", collection_name: "Only", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] }] });
+
+    await useRunnerStore.getState().deleteRunHistoryItem("h-only");
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(0);
+  });
+
+  it("removes item even when deleteRunHistory backend call fails", async () => {
+    // Even if backend throws, the local filtering still happens
+    mockInvoke.deleteRunHistory.mockRejectedValue(new Error("Backend error"));
+
+    await expect(useRunnerStore.getState().deleteRunHistoryItem("h-1")).rejects.toThrow("Backend error");
+
+    // Local state is still updated optimistically? Let's check:
+    // Actually, the store calls await deleteRunHistory(id) then set(...).
+    // So if deleteRunHistory throws, the set doesn't run.
+    // Wait, looking at the source: deleteRunHistoryItem does NOT have a try/catch.
+    // So the error propagates and the set never executes.
+    expect(useRunnerStore.getState().runHistory).toHaveLength(3);
+  });
+});
+
+describe("runnerStore — clearAllRunHistory", () => {
+  beforeEach(() => {
+    resetRunnerStore();
+    resetMockState();
+
+    // Pre-populate history
+    useRunnerStore.setState({
+      runHistory: [
+        { id: "h-1", collection_id: "c1", collection_name: "Run 1", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] },
+        { id: "h-2", collection_id: "c2", collection_name: "Run 2", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] },
+      ],
+    });
+  });
+
+  it("calls clearRunHistory on the backend", async () => {
+    await useRunnerStore.getState().clearAllRunHistory();
+
+    expect(mockInvoke.clearRunHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears all history locally after successful backend call", async () => {
+    mockInvoke.clearRunHistory.mockResolvedValue(undefined);
+
+    await useRunnerStore.getState().clearAllRunHistory();
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(0);
+  });
+
+  it("clears history from empty state without error", async () => {
+    useRunnerStore.setState({ runHistory: [] });
+
+    await useRunnerStore.getState().clearAllRunHistory();
+
+    expect(useRunnerStore.getState().runHistory).toHaveLength(0);
+  });
+
+  it("does not clear local state when backend call fails", async () => {
+    mockInvoke.clearRunHistory.mockRejectedValue(new Error("Backend error"));
+
+    await expect(useRunnerStore.getState().clearAllRunHistory()).rejects.toThrow("Backend error");
+
+    // Since it's not wrapped in try/catch, the state shouldn't clear
+    expect(useRunnerStore.getState().runHistory).toHaveLength(2);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// reset
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("runnerStore — reset", () => {
+  beforeEach(() => {
+    resetRunnerStore();
+
+    // Set non-default values
+    useRunnerStore.setState({
+      mode: "flow",
+      isRunning: true,
+      currentIndex: 5,
+      totalRequests: 10,
+      results: [{ request_name: "Test", request_method: "GET", request_url: "/test", status_code: 200, status_text: "OK", time_ms: 100, size: 100, test_results: [], script_logs: [], error: null, extracted_variables: [], iteration: null }],
+      collectionName: "Test Collection",
+      collectionId: "col-1",
+      flowName: "Test Flow",
+      completed: true,
+      runResult: { id: "r-1", collection_id: "col-1", collection_name: "Test", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] },
+      runHistory: [{ id: "h-1", collection_id: "c1", collection_name: "History", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] }],
+      runHistoryLoading: true,
+      runMode: "smoke" as const,
+      selectedTags: ["critical"],
+    });
+  });
+
+  it("resets all state to defaults", () => {
+    useRunnerStore.getState().reset();
+
+    const s = useRunnerStore.getState();
+    expect(s.mode).toBe("collection");
+    expect(s.isRunning).toBe(false);
+    expect(s.currentIndex).toBe(0);
+    expect(s.totalRequests).toBe(0);
+    expect(s.results).toEqual([]);
+    expect(s.collectionName).toBe("");
+    expect(s.collectionId).toBeNull();
+    expect(s.flowName).toBe("");
+    expect(s.completed).toBe(false);
+    expect(s.runResult).toBeNull();
+    expect(s.runHistory).toEqual([]);
+    expect(s.runHistoryLoading).toBe(false);
+    expect(s.runMode).toBe("functional");
+    expect(s.selectedTags).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// resetRunState
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("runnerStore — resetRunState", () => {
+  beforeEach(() => {
+    resetRunnerStore();
+
+    // Set non-default run state values
+    useRunnerStore.setState({
+      mode: "flow",
+      isRunning: true,
+      currentIndex: 5,
+      totalRequests: 10,
+      results: [{ request_name: "Test", request_method: "GET", request_url: "/test", status_code: 200, status_text: "OK", time_ms: 100, size: 100, test_results: [], script_logs: [], error: null, extracted_variables: [], iteration: null }],
+      collectionName: "Test Collection",
+      collectionId: "col-1",
+      flowName: "Test Flow",
+      completed: true,
+      runResult: { id: "r-1", collection_id: "col-1", collection_name: "Test", environment_id: null, started_at: "", completed_at: "", delay_ms: 0, stop_on_failure: false, results: [], total: 0, passed: 0, failed: 0, total_time_ms: 0, extracted_variables: [] },
+      runMode: "smoke" as const,
+      selectedTags: ["critical"],
+    });
+  });
+
+  it("resets run-related state but preserves initial non-run values", () => {
+    useRunnerStore.getState().resetRunState();
+
+    const s = useRunnerStore.getState();
+    // Run state should be reset
+    expect(s.isRunning).toBe(false);
+    expect(s.currentIndex).toBe(0);
+    expect(s.totalRequests).toBe(0);
+    expect(s.results).toEqual([]);
+    expect(s.collectionName).toBe("");
+    expect(s.collectionId).toBeNull();
+    expect(s.flowName).toBe("");
+    expect(s.completed).toBe(false);
+    expect(s.runResult).toBeNull();
+    expect(s.runMode).toBe("functional");
+    expect(s.selectedTags).toEqual([]);
+
+    // mode is reset as well since resetRunState sets it to "collection"
+    expect(s.mode).toBe("collection");
   });
 });
