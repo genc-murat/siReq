@@ -1,0 +1,146 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90m/Users/muratgenc/personal/siReq[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole.log works
+[22m[39mhello from sandbox
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole.info works
+[22m[39minfo from sandbox
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole.debug works
+[22m[39mdebug from sandbox
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole objects are serialized before reaching real console
+[22m[39m{ a: [33m1[39m, b: [ [33m2[39m, [33m3[39m ] }
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole does not leak global references via getters
+[22m[39m{}
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole handles array arguments (Array.isArray branch)
+[22m[39m[ [33m1[39m, [33m2[39m, [33m3[39m ]
+[ [32m'[object Object]'[39m, [32m'[object Object]'[39m ]
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole handles objects that cannot be JSON.stringified (catch → String)
+[22m[39m[object Object]
+
+[90mstdout[2m | src/lib/sandbox.test.ts[2m > [22m[2mConsole is safe[2m > [22m[2mconsole handles non-object non-primitive types (falls through to String)
+[22m[39mfunction() { return 1; }
+Symbol(test)
+
+ [32m✓[39m src/lib/invoke/safe-invoke.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/stores/toastStore.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/runnerChainUtils.test.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/stores/websocketStore.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/stores/uiStore.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/stores/contractStore.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/mock-api.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/sandbox.test.ts [2m([22m[2m127 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/stores/mockStore.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/stores/requestStore.test.ts [2m([22m[2m44 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/stores/intelligenceStore.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m src/stores/replayStore.test.ts [2m([22m[2m74 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/stores/oauthStore.test.ts [2m([22m[2m32 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m src/lib/graphqlRequest.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 101[2mms[22m[39m
+ [32m✓[39m src/stores/runnerStore.test.ts [2m([22m[2m99 tests[22m[2m)[22m[32m 102[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/env-api.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/replay-api.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/intelligence-api.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/collections-api.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/ws-api.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/grpc-api.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/storage-api.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/http-api.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/lib/invoke/runner-api.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/stores/graphqlStore.test.ts [2m([22m[2m35 tests[22m[2m)[22m[33m 600[2mms[22m[39m
+     [33m[2m✓[22m[39m Property 10: addHistory round-trip — url, query, operationType are preserved [33m 467[2mms[22m[39m
+ [32m✓[39m src/stores/flowStore.test.ts [2m([22m[2m169 tests[22m[2m)[22m[33m 16956[2mms[22m[39m
+       [33m[2m✓[22m[39m sets a variable with a literal value [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m sets a variable with {{interpolation}} [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m overrides an existing variable [33m 301[2mms[22m[39m
+       [33m[2m✓[22m[39m logs a warning when variable name is empty but still succeeds [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m trims whitespace from variable name [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m handles missing variableValue gracefully (defaults to '') [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m interpolates with non-existent variable (leaves placeholder) [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m executes JS code and modifies vars object [33m 304[2mms[22m[39m
+       [33m[2m✓[22m[39m creates a new variable not previously in the store [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m chains multiple script nodes passing values through variables [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m routes to failure port when script throws an error [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m handles empty script code gracefully (logs warning, still succeeds) [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m handles whitespace-only script (still succeeds via empty check) [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m catches syntax errors and routes to failure [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m preserves existing variables when script adds new ones [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m passes when expression is true (routes to true port) [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m fails when expression is false (routes to false port) [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m passes when expression is literally true [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m fails when expression is literally false [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m fails gracefully when expression has a syntax error [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m works with compound expression using variables [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m works with no variables in scope (uses undefined for unknown vars) [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m uses defaults when expression and message are not provided [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m set_variable → script reads the variable → assertion validates it [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m assertion failure halts the happy path [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m a failing assertion does not crash subsequent sibling flows [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m executes start node (has delay) and proceeds to next node [33m 1313[2mms[22m[39m
+       [33m[2m✓[22m[39m executes a delay node and proceeds to next node [33m 404[2mms[22m[39m
+       [33m[2m✓[22m[39m uses default delayMs when not provided [33m 1312[2mms[22m[39m
+       [33m[2m✓[22m[39m routes to true port when expression evaluates to true [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m routes to false port when expression evaluates to false [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m defaults to false on syntax error and logs a warning [33m 303[2mms[22m[39m
+       [33m[2m✓[22m[39m uses default expression when not provided [33m 301[2mms[22m[39m
+       [33m[2m✓[22m[39m executes parallel branches from start node [33m 505[2mms[22m[39m
+       [33m[2m✓[22m[39m executes chained branches (start → delay → condition → split) [33m 403[2mms[22m[39m
+       [33m[2m✓[22m[39m stops execution and logs warning [33m 301[2mms[22m[39m
+       [33m[2m✓[22m[39m detects infinite loop and aborts [33m 308[2mms[22m[39m
+       [33m[2m✓[22m[39m falls back to 'flow' port when no matching success/failure edge exists [33m 302[2mms[22m[39m
+       [33m[2m✓[22m[39m logs info for each node execution [33m 403[2mms[22m[39m
+     [33m[2m✓[22m[39m executes a request node and updates variables with response data [33m 303[2mms[22m[39m
+     [33m[2m✓[22m[39m routes to failure port when response status >= 400 [33m 303[2mms[22m[39m
+     [33m[2m✓[22m[39m throws error when no requestId is linked [33m 302[2mms[22m[39m
+     [33m[2m✓[22m[39m interpolates flow variables into request URL [33m 305[2mms[22m[39m
+     [33m[2m✓[22m[39m extracts variables from JSON response body [33m 303[2mms[22m[39m
+     [33m[2m✓[22m[39m logs warning when extraction expression returns empty [33m 303[2mms[22m[39m
+     [33m[2m✓[22m[39m handles non-JSON response body gracefully [33m 303[2mms[22m[39m
+     [33m[2m✓[22m[39m passes environmentId to sendRequest [33m 304[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m26 passed[39m[22m[90m (26)[39m
+[2m      Tests [22m [1m[32m892 passed[39m[22m[90m (892)[39m
+[2m   Start at [22m 00:46:22
+[2m   Duration [22m 17.85s[2m (transform 2.82s, setup 1.46s, import 3.43s, tests 18.05s, environment 9.34s)[22m
+
+[34m % [39m[2mCoverage report from [22m[33mv8[39m
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   96.97 |     90.5 |   99.36 |   97.62 |                   
+ lib               |     100 |    97.18 |     100 |     100 |                   
+  ...hqlRequest.ts |     100 |    97.14 |     100 |     100 | 40                
+  ...ChainUtils.ts |     100 |    91.66 |     100 |     100 | 59                
+  sandbox.ts       |     100 |      100 |     100 |     100 |                   
+ lib/invoke        |     100 |    97.22 |     100 |     100 |                   
+  ...ctions-api.ts |     100 |    92.85 |     100 |     100 | 63                
+  env-api.ts       |     100 |      100 |     100 |     100 |                   
+  grpc-api.ts      |     100 |      100 |     100 |     100 |                   
+  http-api.ts      |     100 |      100 |     100 |     100 |                   
+  ...igence-api.ts |     100 |      100 |     100 |     100 |                   
+  mock-api.ts      |     100 |      100 |     100 |     100 |                   
+  replay-api.ts    |     100 |    91.66 |     100 |     100 | 65                
+  runner-api.ts    |     100 |      100 |     100 |     100 |                   
+  safe-invoke.ts   |     100 |      100 |     100 |     100 |                   
+  storage-api.ts   |     100 |      100 |     100 |     100 |                   
+  test-utils.ts    |     100 |      100 |     100 |     100 |                   
+  ws-api.ts        |     100 |      100 |     100 |     100 |                   
+ stores            |   96.38 |     88.8 |   99.15 |   97.09 |                   
+  contractStore.ts |   98.48 |    93.33 |     100 |     100 | 45-50,130         
+  flowStore.ts     |   97.23 |    89.07 |   98.98 |   97.74 | ...03-704,861-864 
+  graphqlStore.ts  |     100 |      100 |     100 |     100 |                   
+  ...genceStore.ts |     100 |      100 |     100 |     100 |                   
+  mockStore.ts     |    98.9 |     87.5 |   96.42 |     100 | 124-148           
+  oauthStore.ts    |   98.59 |     92.5 |     100 |   98.48 | 108               
+  replayStore.ts   |   90.57 |    75.22 |   98.71 |   91.73 | ...99,526,542,554 
+  requestStore.ts  |     100 |      100 |     100 |     100 |                   
+  runnerStore.ts   |     100 |    98.57 |     100 |     100 | 357               
+  toastStore.ts    |     100 |      100 |     100 |     100 |                   
+  uiStore.ts       |     100 |      100 |     100 |     100 |                   
+  ...ocketStore.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------

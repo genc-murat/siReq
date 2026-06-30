@@ -263,6 +263,22 @@ describe("oauthStore", () => {
         useOauthStore.getState().fetchTokenClientCredentials("req-1")
       ).rejects.toThrow("Token endpoint returned status 400");
     });
+
+    it("throws when token response is missing access_token", async () => {
+      useOauthStore.getState().saveConfig("req-1", {
+        tokenUrl: "https://auth.example.com/token",
+        clientId: "my-client",
+      });
+      const response = makeTokenResponse();
+      const body = JSON.parse(response.body);
+      delete body.access_token;
+      response.body = JSON.stringify(body);
+      mockInvoke.sendRequest.mockResolvedValue(response);
+
+      await expect(
+        useOauthStore.getState().fetchTokenClientCredentials("req-1")
+      ).rejects.toThrow(/missing access_token/);
+    });
   });
 
   // ── generateCodeVerifier ─────────────────────────────────────────────

@@ -194,6 +194,32 @@ describe("mockStore", () => {
       await useMockStore.getState().loadConfigs();
       expect(useMockStore.getState().loading).toBe(false);
     });
+
+    it("handles empty configs without crashing (no auto-select)", async () => {
+      mockFns.getMockConfigs.mockResolvedValue([]);
+
+      await useMockStore.getState().loadConfigs();
+
+      const s = useMockStore.getState();
+      expect(s.configs).toEqual([]);
+      expect(s.loading).toBe(false);
+      expect(s.selectedConfigId).toBeNull();
+    });
+
+    it("handles stats/logs fetch failure when server is running (inner catch)", async () => {
+      mockFns.getMockConfigs.mockResolvedValue([createMockConfig("m1")]);
+      mockFns.getMockServerStatus.mockResolvedValue("running");
+      mockFns.getMockServerStats.mockRejectedValue(new Error("Stats error"));
+      mockFns.getMockServerLogs.mockRejectedValue(new Error("Logs error"));
+
+      await useMockStore.getState().loadConfigs();
+
+      const s = useMockStore.getState();
+      expect(s.serverStatuses["m1"]).toBe("running");
+      // Stats and logs should remain undefined because the inner catch was triggered
+      expect(s.serverStats["m1"]).toBeUndefined();
+      expect(s.serverLogs["m1"]).toBeUndefined();
+    });
   });
 
   describe("createConfig", () => {
@@ -249,6 +275,21 @@ describe("mockStore", () => {
       await useMockStore.getState().deleteConfig("m1");
 
       expect(useMockStore.getState().selectedConfigId).toBeNull();
+    });
+
+    it("preserves selectedConfigId when deleting a different config", async () => {
+      useMockStore.setState({
+        configs: [createMockConfig("m1"), createMockConfig("m2")],
+        selectedConfigId: "m1",
+      });
+      mockFns.deleteMockConfig.mockResolvedValue(undefined);
+
+      await useMockStore.getState().deleteConfig("m2");
+
+      const s = useMockStore.getState();
+      expect(s.configs).toHaveLength(1);
+      expect(s.configs[0].id).toBe("m1");
+      expect(s.selectedConfigId).toBe("m1");
     });
   });
 

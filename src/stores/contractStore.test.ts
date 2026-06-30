@@ -420,6 +420,27 @@ describe("contractStore actions", () => {
   // ── bindContract ──────────────────────────────────────────────────────
 
   describe("bindContract", () => {
+    it("handles non-Error thrown value in catch (String(e) branch)", () => {
+      const origParse = JSON.parse;
+      try {
+        JSON.parse = vi.fn(() => {
+          throw "raw string error";
+        });
+
+        expect(() => {
+          useContractStore.getState().bindContract("req-bad", {
+            specContent: "{}",
+            specName: "Bad",
+            path: "/pets",
+            method: "GET",
+            statusCode: 200,
+          });
+        }).toThrow(/Failed to bind contract: raw string error/);
+      } finally {
+        JSON.parse = origParse;
+      }
+    });
+
     it("binds a contract and syncs dereferenced schema to requestStore", () => {
       useContractStore.getState().bindContract("req-1", {
         specContent: JSON.stringify(petStoreSpec),
