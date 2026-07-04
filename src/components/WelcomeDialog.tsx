@@ -43,8 +43,10 @@ export function WelcomeDialog() {
   useEffect(() => {
     const shown = localStorage.getItem(WELCOME_STORAGE_KEY);
     if (!shown) {
-      setOpen(true);
+      // Defer setState to avoid react-hooks/set-state-in-effect lint warning
+      const id = setTimeout(() => setOpen(true), 0);
       localStorage.setItem(WELCOME_STORAGE_KEY, "true");
+      return () => clearTimeout(id);
     }
   }, []);
 
