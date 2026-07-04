@@ -1012,7 +1012,7 @@ fn filter_requests_by_tags<'a>(
     tags: &[String],
 ) -> Vec<&'a HttpRequest> {
     if tags.is_empty() {
-        requests.iter().copied().collect()
+        requests.to_vec()
     } else {
         requests
             .iter()

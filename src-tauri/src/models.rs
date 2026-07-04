@@ -443,19 +443,14 @@ pub struct BenchmarkHistoryEntry {
 /// Test suite run mode. `Functional` is the default and matches the historical
 /// collection runner behavior; the other modes extend it with additional
 /// filtering (smoke), baseline comparison (regression), or concurrency (load).
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum RunMode {
+    #[default]
     Functional,
     Smoke,
     Regression,
     Load,
-}
-
-impl Default for RunMode {
-    fn default() -> Self {
-        RunMode::Functional
-    }
 }
 
 /// Mode-specific configuration payload accepted by `run_test_suite`.
