@@ -140,7 +140,7 @@ jobs:
 
           SIGNATURE=$(cat "$SIG_PATH")
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-          DL_URL="https://github.com/genc-murai/siReq/releases/download/${GITHUB_REF_NAME}/${ARCHIVE_NAME}"
+          DL_URL="https://github.com/genc-murat/siReq/releases/download/${GITHUB_REF_NAME}/${ARCHIVE_NAME}"
 
           jq -n \
             --arg version "$VERSION" \
