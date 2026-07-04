@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { useFlowStore, getValueByJsonPath, interpolateString } from "@/stores/flowStore";
 import fc from "fast-check";
 import type { FlowNode, FlowNodeType } from "@/stores/flowStore";
+import type { HttpRequest } from "@/lib/invoke";
 
 // Mock sendRequest and cancelRequest — needed for request node execution tests.
 // These mocks are harmless for non-request tests because those code paths
@@ -2176,7 +2177,7 @@ describe("flowStore — request node execution", () => {
           settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
           pre_script: "",
           post_script: "",
-        } as any,
+        } as Partial<HttpRequest>,
         extractions: [],
       },
     };
@@ -2236,7 +2237,7 @@ describe("flowStore — request node execution", () => {
           auth: { type: "none", username: "", password: "", token: "", api_key: "", api_key_name: "", api_key_in: "header" },
           settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
           pre_script: "", post_script: "",
-        } as any,
+        } as Partial<HttpRequest>,
         extractions: [],
       },
     };
@@ -2314,7 +2315,7 @@ describe("flowStore — request node execution", () => {
           auth: { type: "none", username: "", password: "", token: "", api_key: "", api_key_name: "", api_key_in: "header" },
           settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
           pre_script: "", post_script: "",
-        } as any,
+        } as Partial<HttpRequest>,
         extractions: [],
       },
     };
@@ -2367,7 +2368,7 @@ describe("flowStore — request node execution", () => {
           auth: { type: "none", username: "", password: "", token: "", api_key: "", api_key_name: "", api_key_in: "header" },
           settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
           pre_script: "", post_script: "",
-        } as any,
+        } as Partial<HttpRequest>,
         extractions: [
           { expression: "$.token", targetVariable: "auth_token" },
           { expression: "$.user.id", targetVariable: "user_id" },
@@ -2416,7 +2417,7 @@ describe("flowStore — request node execution", () => {
           auth: { type: "none", username: "", password: "", token: "", api_key: "", api_key_name: "", api_key_in: "header" },
           settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
           pre_script: "", post_script: "",
-        } as any,
+        } as Partial<HttpRequest>,
         extractions: [
           { expression: "$.nonexistent", targetVariable: "missing_var" },
         ],
@@ -2457,7 +2458,7 @@ describe("flowStore — request node execution", () => {
           auth: { type: "none", username: "", password: "", token: "", api_key: "", api_key_name: "", api_key_in: "header" },
           settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
           pre_script: "", post_script: "",
-        } as any,
+        } as Partial<HttpRequest>,
         extractions: [],
       },
     };
@@ -2497,7 +2498,7 @@ describe("flowStore — request node execution", () => {
           auth: { type: "none", username: "", password: "", token: "", api_key: "", api_key_name: "", api_key_in: "header" },
           settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
           pre_script: "", post_script: "",
-        } as any,
+        } as Partial<HttpRequest>,
         extractions: [],
       },
     };
@@ -2563,8 +2564,8 @@ describe("getValueByJsonPath", () => {
   });
 
   it("handles null/undefined obj", () => {
-    expect(getValueByJsonPath(null as any, "$.x")).toBeUndefined();
-    expect(getValueByJsonPath(undefined as any, "$.x")).toBeUndefined();
+    expect(getValueByJsonPath(null, "$.x")).toBeUndefined();
+    expect(getValueByJsonPath(undefined, "$.x")).toBeUndefined();
   });
 
   it("handles double-dot path gracefully (skips empty parts)", () => {
