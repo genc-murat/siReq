@@ -816,7 +816,7 @@ siReq/
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/genc-murai/siReq/ci.yml?branch=main&logo=github&label=CI" alt="CI" />
   <img src="https://img.shields.io/github/actions/workflow/status/genc-murai/siReq/release.yml?branch=main&logo=githubactions&label=Release" alt="Release" />
-  <img src="https://img.shields.io/badge/Frontend-378%20tests-3178C6?logo=vitest&logoColor=white" alt="Frontend: 378 tests" />
+  <img src="https://img.shields.io/badge/Frontend-892%20tests-3178C6?logo=vitest&logoColor=white" alt="Frontend: 892 tests" />
   <img src="https://img.shields.io/badge/Backend-226%20tests-000000?logo=rust&logoColor=white" alt="Backend: 226 tests" />
 </p>
 
@@ -854,7 +854,7 @@ cargo test -- mock_server::manager
 | **graphqlRequest** (`graphqlRequest.test.ts`) | 15 | `buildGraphQLRequest()` — query/mutation with variables, operation name, headers, empty body, special characters. Error handling — invalid JSON variables, null/undefined inputs. |
 | **graphqlStore** (`graphqlStore.test.ts`) | 8 | Schema introspection, SDL parsing, history management, endpoint configuration. |
 | **uiStore** (`uiStore.test.ts`) | 4 | Theme toggle, sidebar state, panel layout persistence. |
-| **Total** | **378** | 10 test files — all pass ✅ |
+| **Total** | **892** | 10 test files — all pass ✅ |
 
 ### Mock Architecture
 
@@ -904,9 +904,9 @@ Pure Zustand stores (e.g., `websocketStore`) require no mocking — state transi
 
 | Suite | Tests |
 |-------|-------|
-| Frontend (Vitest) | **378** |
+| Frontend (Vitest) | **892** |
 | Rust backend (`cargo test`) | **226** |
-| **Grand total** | **604** |
+| **Grand total** | **1,118** |
 
 ---
 

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WelcomeDialog } from "@/components/WelcomeDialog";
 import { useTabStore } from "@/stores/tabStore";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -94,9 +95,61 @@ function App() {
     };
   }, []);
 
+  // ── Dynamic Window Title ────────────────────────────────────────────
+  useEffect(() => {
+    const updateTitle = () => {
+      const { tabs, activeTabId } = useTabStore.getState();
+      if (!activeTabId) {
+        document.title = "siReq";
+        return;
+      }
+      const tab = tabs.find((t) => t.id === activeTabId);
+      if (!tab) {
+        document.title = "siReq";
+        return;
+      }
+      const label = tab.request.name || tab.request.url || "New Request";
+      document.title = `${label} — siReq`;
+    };
+
+    // Sync window title to Tauri if available
+    const syncTauriTitle = async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const { tabs, activeTabId } = useTabStore.getState();
+        if (!activeTabId) {
+          getCurrentWindow().setTitle("siReq");
+          return;
+        }
+        const tab = tabs.find((t) => t.id === activeTabId);
+        if (!tab) {
+          getCurrentWindow().setTitle("siReq");
+          return;
+        }
+        const label = tab.request.name || tab.request.url || "New Request";
+        getCurrentWindow().setTitle(`${label} — siReq`);
+      } catch {
+        // Not running in Tauri — ignore
+      }
+    };
+
+    // Subscribe to tab changes
+    const unsub = useTabStore.subscribe(() => {
+      updateTitle();
+      syncTauriTitle();
+    });
+
+    // Set initial title
+    updateTitle();
+    syncTauriTitle();
+
+    return () => unsub();
+  }, []);
+
   return (
     <ThemeProvider>
       <ErrorBoundary>
+        <WelcomeDialog />
         <Layout />
       </ErrorBoundary>
     </ThemeProvider>

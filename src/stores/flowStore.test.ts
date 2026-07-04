@@ -2108,6 +2108,54 @@ describe("flowStore — execution engine", () => {
       expect(state.nodes.find((n) => n.id === "fallback-setvar")?.status).toBe("success");
       expect(state.nodes.find((n) => n.id === "fallback-logger")?.status).toBe("success");
     });
+
+    it("falls back to flow port when a failing request node has no failure port but has flow port", async () => {
+      // A request node that returns 500, wired via "flow" instead of "failure"
+      mockSendRequest.mockResolvedValueOnce({
+        id: "req-fallback", status: 500, status_text: "Error", timeMs: 10,
+        headers: [], body: "error", size: 5,
+      });
+
+      const startNode = useFlowStore.getState().nodes.find((n) => n.type === "start")!;
+      const requestNode: FlowNode = {
+        id: "req-fallback-node", type: "request", x: 200, y: 180,
+        name: "Failing Req", status: "idle",
+        data: {
+          requestId: "req-fallback", requestName: "Fail", requestMethod: "GET",
+          requestUrl: "https://api.example.com/error",
+          requestSnapshot: {
+            id: "req-fallback", method: "GET", url: "https://api.example.com/error",
+            headers: [], query_params: [], body_type: "none", body: "", form_fields: [],
+            auth: { type: "none", username: "", password: "", token: "", api_key: "", api_key_name: "", api_key_in: "header" },
+            settings: { timeout: 30, follow_redirects: true, ssl_verify: true, proxy: null },
+            pre_script: "", post_script: "",
+          } as Partial<HttpRequest>,
+          extractions: [],
+        },
+      };
+      const fallbackLogger: FlowNode = {
+        id: "fallback-flow-logger", type: "logger", x: 400, y: 300,
+        name: "Fallback Logger", status: "idle",
+        data: { logFormat: "Request failed but continuing" },
+      };
+      useFlowStore.setState({
+        nodes: [startNode, requestNode, fallbackLogger],
+        edges: [
+          { id: "e1", fromNodeId: "start-node-1", fromPortId: "flow", toNodeId: "req-fallback-node", toPortId: "trigger" },
+          // Wire via "flow" port, not "failure" — the fallback should catch this
+          { id: "e2", fromNodeId: "req-fallback-node", fromPortId: "flow", toNodeId: "fallback-flow-logger", toPortId: "trigger" },
+        ],
+        logs: [],
+      });
+
+      await useFlowStore.getState().runFlow();
+
+      const state = useFlowStore.getState();
+      // Request node should be marked as failure
+      expect(state.nodes.find((n) => n.id === "req-fallback-node")?.status).toBe("failure");
+      // But the fallback logger via "flow" port should still execute
+      expect(state.nodes.find((n) => n.id === "fallback-flow-logger")?.status).toBe("success");
+    });
   });
 
   describe("execution logging", () => {

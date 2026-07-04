@@ -291,6 +291,29 @@ describe("mockStore", () => {
       expect(s.configs[0].id).toBe("m1");
       expect(s.selectedConfigId).toBe("m1");
     });
+
+    it("cleans up serverErrors, serverLogs, and serverStats on delete", async () => {
+      useMockStore.setState({
+        configs: [createMockConfig("m1"), createMockConfig("m2")],
+        selectedConfigId: "m1",
+        serverStatuses: { m1: "running", m2: "stopped" },
+        serverErrors: { m1: "some error" },
+        serverLogs: { m1: [makeLogEntry()], m2: [makeLogEntry()] },
+        serverStats: { m1: { request_count: 10, error_count: 1, average_latency_ms: 100 } },
+      });
+      mockFns.deleteMockConfig.mockResolvedValue(undefined);
+
+      await useMockStore.getState().deleteConfig("m1");
+
+      const s = useMockStore.getState();
+      expect(s.serverStatuses["m1"]).toBeUndefined();
+      expect(s.serverErrors["m1"]).toBeUndefined();
+      expect(s.serverLogs["m1"]).toBeUndefined();
+      expect(s.serverStats["m1"]).toBeUndefined();
+      // m2 data should be preserved
+      expect(s.serverStatuses["m2"]).toBe("stopped");
+      expect(s.serverLogs["m2"]).toHaveLength(1);
+    });
   });
 
   // ── Server Lifecycle ─────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 {
   "name": "sireq",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -58,6 +58,7 @@
     "react-resizable-panels": "^4.11.2",
     "react-virtuoso": "^4.18.7",
     "recharts": "^3.8.1",
+    "sharp": "^0.35.3",
     "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.13"
   },

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "siReq",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "identifier": "com.sireq.app",
   "build": {
     "frontendDist": "../dist",
@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "siReq",
-        "width": 1280,
-        "height": 800,
+        "width": 1440,
+        "height": 900,
         "resizable": true,
         "fullscreen": false
       }

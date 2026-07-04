@@ -335,6 +335,33 @@ describe("replayStore", () => {
       await useReplayStore.getState().addEntriesFromHistory([]);
       expect(mockReplay.replayAddEntries).not.toHaveBeenCalled();
     });
+
+    it("preserves existing activeEntryId when entries already exist", async () => {
+      useReplayStore.setState({
+        activeSessionId: "s1",
+        activeEntryId: "existing-entry",
+      });
+      const newEntries = [createMockEntry("e1", "s1", 0)];
+      mockReplay.replayAddEntries.mockResolvedValue(newEntries);
+
+      await useReplayStore.getState().addEntriesFromHistory([
+        { request: {} as HttpRequest, response: {} as HttpResponse },
+      ]);
+
+      // Should preserve existing activeEntryId
+      expect(useReplayStore.getState().activeEntryId).toBe("existing-entry");
+    });
+
+    it("sets error on backend failure", async () => {
+      useReplayStore.setState({ activeSessionId: "s1" });
+      mockReplay.replayAddEntries.mockRejectedValue(new Error("Add failed"));
+
+      await useReplayStore.getState().addEntriesFromHistory([
+        { request: {} as HttpRequest, response: {} as HttpResponse },
+      ]);
+
+      expect(useReplayStore.getState().error).toBe("Add failed");
+    });
   });
 
   describe("removeEntry", () => {
@@ -350,6 +377,33 @@ describe("replayStore", () => {
       expect(useReplayStore.getState().entries).toHaveLength(1);
       expect(useReplayStore.getState().entries[0].id).toBe("e2");
       expect(useReplayStore.getState().activeEntryId).toBeNull();
+    });
+
+    it("preserves activeEntryId when removing a different entry", async () => {
+      useReplayStore.setState({
+        entries: [createMockEntry("e1", "s1", 0), createMockEntry("e2", "s1", 1)],
+        activeEntryId: "e1",
+      });
+      mockReplay.replayRemoveEntry.mockResolvedValue(undefined);
+
+      await useReplayStore.getState().removeEntry("e2");
+
+      expect(useReplayStore.getState().entries).toHaveLength(1);
+      expect(useReplayStore.getState().entries[0].id).toBe("e1");
+      // activeEntryId should be preserved since e1 was not removed
+      expect(useReplayStore.getState().activeEntryId).toBe("e1");
+    });
+
+    it("sets error on backend failure", async () => {
+      useReplayStore.setState({
+        entries: [createMockEntry("e1", "s1", 0)],
+        activeEntryId: "e1",
+      });
+      mockReplay.replayRemoveEntry.mockRejectedValue(new Error("Remove failed"));
+
+      await useReplayStore.getState().removeEntry("e1");
+
+      expect(useReplayStore.getState().error).toBe("Remove failed");
     });
   });
 
@@ -603,7 +657,7 @@ describe("replayStore", () => {
       expect(useReplayStore.getState().entries[0].position).toBe(0); // rolled back
     });
 
-    it("does nothing if entry not found", async () => {
+    it("does nothing if entry not found (early return)", async () => {
       await useReplayStore.getState().updateEntry("nonexistent", { position: 5 });
       expect(mockReplay.replayUpdateEntry).not.toHaveBeenCalled();
     });
@@ -626,6 +680,20 @@ describe("replayStore", () => {
       expect(useReplayStore.getState().activeEntryId).toBeNull();
       expect(useReplayStore.getState().currentEntryIndex).toBe(-1);
       expect(useReplayStore.getState().playbackState).toBe("idle");
+    });
+
+    it("does nothing when no active session (early return)", async () => {
+      await useReplayStore.getState().clearEntries();
+      expect(mockReplay.replayClearEntries).not.toHaveBeenCalled();
+    });
+
+    it("sets error on backend failure", async () => {
+      useReplayStore.setState({ activeSessionId: "s1" });
+      mockReplay.replayClearEntries.mockRejectedValue(new Error("Clear failed"));
+
+      await useReplayStore.getState().clearEntries();
+
+      expect(useReplayStore.getState().error).toBe("Clear failed");
     });
   });
 
@@ -773,6 +841,28 @@ describe("replayStore", () => {
       });
       expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
     });
+
+    it("updateChaosConfig does nothing when session not found", async () => {
+      useReplayStore.setState({ activeSessionId: "nonexistent", sessions: [createMockSession("s1")] });
+      await useReplayStore.getState().updateChaosConfig({
+        enabled: true, timeout_probability: 0, timeout_min_ms: 0, timeout_max_ms: 0,
+        delay_probability: 0, delay_min_ms: 0, delay_max_ms: 0, error_probability: 0, error_status_codes: [],
+      });
+      expect(mockReplay.replayUpdateSession).not.toHaveBeenCalled();
+    });
+
+    it("sets error when update fails", async () => {
+      const session = createMockSession("s1");
+      useReplayStore.setState({ sessions: [session], activeSessionId: "s1" });
+      mockReplay.replayUpdateSession.mockRejectedValue(new Error("Chaos update failed"));
+
+      await useReplayStore.getState().updateChaosConfig({
+        enabled: false, timeout_probability: 0, timeout_min_ms: 0, timeout_max_ms: 0,
+        delay_probability: 0, delay_min_ms: 0, delay_max_ms: 0, error_probability: 0, error_status_codes: [],
+      });
+
+      expect(useReplayStore.getState().error).toBe("Chaos update failed");
+    });
   });
 
   // ── Run Management ───────────────────────────────────────────────────
@@ -804,6 +894,24 @@ describe("replayStore", () => {
 
       expect(useReplayStore.getState().activeRunDetail).toEqual(detail);
       expect(useReplayStore.getState().currentRunEntryResults.get("e1")).toBeDefined();
+    });
+
+    it("handles null detail gracefully (no entry results mapping)", async () => {
+      mockReplay.replayGetRunDetail.mockResolvedValue(null);
+
+      await useReplayStore.getState().loadRunDetail("r1");
+
+      expect(useReplayStore.getState().activeRunDetail).toBeNull();
+      // currentRunEntryResults should remain empty since detail is null
+      expect(useReplayStore.getState().currentRunEntryResults.size).toBe(0);
+    });
+
+    it("sets error on failure", async () => {
+      mockReplay.replayGetRunDetail.mockRejectedValue(new Error("Detail error"));
+
+      await useReplayStore.getState().loadRunDetail("r1");
+
+      expect(useReplayStore.getState().error).toBe("Detail error");
     });
   });
 
