@@ -5,6 +5,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useTabStore } from "@/stores/tabStore";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useToastStore } from "@/stores/toastStore";
 
 function App() {
   const initialized = useRef(false);
@@ -46,6 +47,51 @@ function App() {
     }
 
     return () => unsub();
+  }, []);
+
+  // ── Auto-update check ─────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkUpdate() {
+      try {
+        const { check } = await import("@tauri-apps/plugin-updater");
+        const update = await check();
+        if (!update || cancelled) return;
+
+        const toastStore = useToastStore.getState();
+        toastStore.addToast(
+          `Downloading siReq v${update.version}...`,
+          "info"
+        );
+
+        await update.downloadAndInstall((event) => {
+          if (event.event === "Finished") {
+            toastStore.addToast(
+              `Update v${update.version} installed. Restarting siReq to apply...`,
+              "success"
+            );
+          }
+        });
+
+        if (!cancelled) {
+          // Small delay so the user sees the success toast before relaunch
+          await new Promise((r) => setTimeout(r, 1500));
+          const { relaunch } = await import("@tauri-apps/plugin-process");
+          await relaunch();
+        }
+      } catch {
+        // Silently fail — user may be offline or running without the updater
+      }
+    }
+
+    // Delay update check to avoid slowing down initial startup
+    const timer = setTimeout(checkUpdate, 3000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   return (

@@ -10,6 +10,8 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
 
 jobs:
   release:
@@ -71,6 +73,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "siReq v__VERSION__"
@@ -78,3 +82,131 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Determine platform key and updater artifacts
+        id: artifacts
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          case "${{ matrix.target }}" in
+            aarch64-apple-darwin)
+              echo "platform=darwin-aarch64" >> "$GITHUB_OUTPUT"
+              # Find the updater archive (tar.gz) and signature
+              ARCHIVE=$(find src-tauri/target/release -name "*.tar.gz" -not -name "*.AppImage.tar.gz" 2>/dev/null | head -1)
+              SIG=$(find src-tauri/target/release -name "*.sig" 2>/dev/null | head -1)
+              echo "archive_path=$ARCHIVE" >> "$GITHUB_OUTPUT"
+              echo "sig_path=$SIG" >> "$GITHUB_OUTPUT"
+              echo "archive_name=$(basename "$ARCHIVE")" >> "$GITHUB_OUTPUT"
+              ;;
+            x86_64-apple-darwin)
+              echo "platform=darwin-x86_64" >> "$GITHUB_OUTPUT"
+              ARCHIVE=$(find src-tauri/target/release -name "*.tar.gz" -not -name "*.AppImage.tar.gz" 2>/dev/null | head -1)
+              SIG=$(find src-tauri/target/release -name "*.sig" 2>/dev/null | head -1)
+              echo "archive_path=$ARCHIVE" >> "$GITHUB_OUTPUT"
+              echo "sig_path=$SIG" >> "$GITHUB_OUTPUT"
+              echo "archive_name=$(basename "$ARCHIVE")" >> "$GITHUB_OUTPUT"
+              ;;
+            x86_64-unknown-linux-gnu)
+              echo "platform=linux-x86_64" >> "$GITHUB_OUTPUT"
+              ARCHIVE=$(find src-tauri/target/release -name "*.AppImage.tar.gz" 2>/dev/null | head -1)
+              SIG=$(find src-tauri/target/release -name "*.sig" 2>/dev/null | head -1)
+              echo "archive_path=$ARCHIVE" >> "$GITHUB_OUTPUT"
+              echo "sig_path=$SIG" >> "$GITHUB_OUTPUT"
+              echo "archive_name=$(basename "$ARCHIVE")" >> "$GITHUB_OUTPUT"
+              ;;
+            x86_64-pc-windows-msvc)
+              echo "platform=windows-x86_64" >> "$GITHUB_OUTPUT"
+              ARCHIVE=$(find src-tauri/target/release -name "*.zip" 2>/dev/null | head -1)
+              SIG=$(find src-tauri/target/release -name "*.sig" 2>/dev/null | head -1)
+              echo "archive_path=$ARCHIVE" >> "$GITHUB_OUTPUT"
+              echo "sig_path=$SIG" >> "$GITHUB_OUTPUT"
+              echo "archive_name=$(basename "$ARCHIVE")" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Generate platform latest.json
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PLATFORM="${{ steps.artifacts.outputs.platform }}"
+          ARCHIVE_NAME="${{ steps.artifacts.outputs.archive_name }}"
+          SIG_PATH="${{ steps.artifacts.outputs.sig_path }}"
+
+          if [ -z "$SIG_PATH" ]; then
+            echo "Warning: No signature file found. Skipping latest.json for $PLATFORM"
+            exit 0
+          fi
+
+          SIGNATURE=$(cat "$SIG_PATH")
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          DL_URL="https://github.com/genc-murai/siReq/releases/download/${GITHUB_REF_NAME}/${ARCHIVE_NAME}"
+
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "See the release for details." \
+            --arg pub_date "$TIMESTAMP" \
+            --arg platform "$PLATFORM" \
+            --arg signature "$SIGNATURE" \
+            --arg url "$DL_URL" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: { ($platform): { signature: $signature, url: $url } }
+            }' > "latest-${{ matrix.target }}.json"
+
+      - name: Upload latest.json artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-${{ matrix.target }}
+          path: latest-${{ matrix.target }}.json
+          if-no-files-found: ignore
+
+  merge-manifests:
+    name: Merge platform manifests
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: latest-*
+          merge-multiple: true
+
+      - name: Merge platform manifests into single latest.json
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+          # Start with version info and empty platforms
+          echo "{\"version\":\"${VERSION}\",\"notes\":\"See the release for details.\",\"pub_date\":\"${TIMESTAMP}\",\"platforms\":{" > latest.json
+
+          FIRST=true
+          for f in latest-*.json; do
+            [ ! -f "$f" ] && continue
+
+            # Extract the platforms object content (without outer braces)
+            PLATFORM_CONTENT=$(jq -r '.platforms | to_entries | map("\"\(.key)\":\(.value | tojson)") | join(",")' "$f" 2>/dev/null)
+
+            if [ -n "$PLATFORM_CONTENT" ]; then
+              if [ "$FIRST" = true ]; then
+                echo "$PLATFORM_CONTENT" >> latest.json
+                FIRST=false
+              else
+                echo ",$PLATFORM_CONTENT" >> latest.json
+              fi
+            fi
+          done
+
+          echo "}}" >> latest.json
+
+          echo "Generated latest.json:"
+          jq . latest.json
+
+      - name: Upload latest.json to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
