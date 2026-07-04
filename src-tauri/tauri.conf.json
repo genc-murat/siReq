@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "siReq",
   "version": "1.0.0",
-  "identifier": "com.sireq.app",
+  "identifier": "com.sireq.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

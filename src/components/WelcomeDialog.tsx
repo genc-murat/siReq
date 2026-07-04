@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X, Globe, Workflow, Play, Server, Zap, Braces, Plus, Keyboard } from "lucide-react";
+import { X, Globe, Workflow, Play, Server, Plus, Keyboard } from "lucide-react";
 
 const WELCOME_STORAGE_KEY = "sireq-welcome-shown";
 
