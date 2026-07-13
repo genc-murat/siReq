@@ -552,7 +552,7 @@ export function GrpcPanel() {
         </div>
       )}
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left panel: Proto editor, Service tree, Discovered services, or History */}
         <div className="w-72 shrink-0 flex flex-col border-r min-h-0">
           {showHistory ? (
