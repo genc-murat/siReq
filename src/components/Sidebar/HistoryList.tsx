@@ -49,9 +49,12 @@ export function HistoryList() {
   const setActiveHistoryId = useUIStore((s) => s.setActiveHistoryId);
   const addToast = useToastStore((s) => s.addToast);
 
+  const lastResponse = useRequestStore((s) => s.response);
+  const lastError = useRequestStore((s) => s.error);
+
   useEffect(() => {
     getHistory().then(setEntries);
-  }, []);
+  }, [lastResponse, lastError]);
 
   // Filter and group entries
   const { grouped, totalCount } = useMemo(() => {

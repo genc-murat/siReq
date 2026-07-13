@@ -89,14 +89,14 @@ export function MainPanel() {
   return (
     <div className="h-full flex flex-col">
       <Group orientation="horizontal">
-        <Panel defaultSize="45%" minSize="20%">
+        <Panel defaultSize="45%" minSize="400px">
           <RequestBuilder />
         </Panel>
         <Separator
           style={{ width: 4, cursor: "col-resize" }}
           className="bg-border hover:bg-primary/50 active:bg-primary/70 transition-all duration-150"
         />
-        <Panel minSize="20%">
+        <Panel minSize="350px">
           <div className="h-full flex flex-col">
             {error && (
               <div className="px-3 py-2 bg-destructive/10 border-b border-destructive/20 shrink-0">
