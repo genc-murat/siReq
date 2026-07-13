@@ -88,7 +88,7 @@ export function MainPanel() {
 
   return (
     <div className="h-full flex flex-col">
-      <Group orientation="horizontal">
+      <Group orientation="horizontal" className="overflow-hidden">
         <Panel defaultSize="45%" minSize="400px">
           <RequestBuilder />
         </Panel>

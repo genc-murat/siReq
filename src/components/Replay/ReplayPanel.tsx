@@ -375,7 +375,7 @@ export function ReplayPanel() {
 
               <div className="flex-1 overflow-hidden min-h-0 flex">
                 {(activeSubTab === "timeline" || activeSubTab === "waterfall") && (
-                  <Group orientation="horizontal" className="h-full w-full">
+                  <Group orientation="horizontal" className="h-full w-full overflow-hidden">
                     <Panel defaultSize="320px" minSize="240px" maxSize="500px">
                       <div className="h-full flex flex-col p-4 overflow-auto min-h-0">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 px-1 block shrink-0">

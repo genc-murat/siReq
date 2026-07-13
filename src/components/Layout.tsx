@@ -147,7 +147,7 @@ export function Layout() {
         </div>
       </header>
       <TabBar />
-      <Group orientation="horizontal" className="flex-1">
+      <Group orientation="horizontal" className="flex-1 overflow-hidden">
         {sidebarOpen && (
           <>
             <Panel defaultSize="260px" minSize="200px" maxSize="500px">
