@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.1] - 2026-07-13
+
+### 🐛 Fixes
+
+- **History panel**: Artık request gönderildiğinde otomatik güncelleniyor, reload gerekmiyor ([#history])
+- **Sağ panel (Response)**: `minSize="20%"` → `minSize="350px"` — dar ekranda çok küçülmüyor
+- **Sol panel (RequestBuilder)**: `minSize="20%"` → `minSize="400px"` — kullanılamaz hale gelmiyor
+- **Tüm layout'lar**: `overflow-hidden` eklendi — dar ekranda taşma engellendi (Layout, HTTP, Replay, gRPC, GraphQL)
+- **TabBar düzeni**: overflow koruması eklendi
+
+---
+
 ## [1.0.0] - 2026-07-04
 
 ### 🎉 Initial Stable Release
