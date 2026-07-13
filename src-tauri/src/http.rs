@@ -33,12 +33,11 @@ pub fn parse_set_cookie(set_cookie: &str, default_domain: &str) -> Option<Stored
 
     // First part is name=value
     let nv = parts[0].trim();
-    let (name, value) = if let Some(eq_pos) = nv.find('=') {
+    let (name, value) = {
+        let eq_pos = nv.find('=')?;
         let n = nv[..eq_pos].trim().to_string();
         let v = nv[eq_pos + 1..].trim().to_string();
         (n, v)
-    } else {
-        return None;
     };
 
     let mut domain = default_domain.to_string();
