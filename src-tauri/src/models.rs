@@ -18,7 +18,7 @@ pub struct RequestSettings {
     pub proxy: Option<ProxyConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum HttpMethod {
     GET,

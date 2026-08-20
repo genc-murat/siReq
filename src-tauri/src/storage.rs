@@ -204,6 +204,60 @@ pub fn clear_all_history(db: &State<Db>) -> Result<(), String> {
     Ok(())
 }
 
+/// Find the most recent history entry whose request fingerprint matches.
+/// Fingerprint = method + url + body.
+pub fn find_latest_history_by_fingerprint(
+    db: &State<Db>,
+    incoming: &HttpRequest,
+) -> Result<Option<HistoryEntry>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, request, response, created_at FROM history ORDER BY created_at DESC LIMIT 50"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let request_json: String = row.get(1)?;
+        let response_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        Ok((id, request_json, response_json, created_at))
+    }).map_err(|e| e.to_string())?;
+
+    for row in entries.flatten() {
+        let (id, req_json, resp_json, created_at) = row;
+        let stored: HttpRequest = match serde_json::from_str(&req_json) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        let response: HttpResponse = match serde_json::from_str(&resp_json) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        if stored.method == incoming.method
+            && stored.url == incoming.url
+            && stored.body == incoming.body
+        {
+            return Ok(Some(HistoryEntry { id, request: stored, response, created_at }));
+        }
+    }
+    Ok(None)
+}
+
+/// Update an existing history entry's response and timestamp.
+pub fn update_history_entry_response(
+    db: &State<Db>,
+    id: &str,
+    response: &HttpResponse,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let response_json = serde_json::to_string(response).map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE history SET response = ?1, created_at = ?2 WHERE id = ?3",
+        params![response_json, now, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn get_all_collections(db: &State<Db>) -> Result<Vec<Collection>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
