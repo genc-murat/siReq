@@ -12,7 +12,6 @@ import {
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   syntaxHighlighting,
-  defaultHighlightStyle,
   bracketMatching,
   foldGutter,
   indentOnInput,
@@ -20,7 +19,7 @@ import {
   StringStream,
   LanguageSupport,
 } from "@codemirror/language";
-import { oneDark } from "@codemirror/theme-one-dark";
+import { editorThemeExtension, themeHighlightStyle } from "@/components/CodeMirrorEditor";
 import { closeBrackets, closeBracketsKeymap, autocompletion } from "@codemirror/autocomplete";
 import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
@@ -160,18 +159,6 @@ function makeGraphQLCompletions(schema: GraphQLSchema | null) {
   return completions;
 }
 
-// ─── CSS-based dark mode detection ────────────────────────────────────────────
-
-function isDarkMode(): boolean {
-  const bg = getComputedStyle(document.documentElement)
-    .getPropertyValue("--color-background").trim();
-  const match = bg.match(/hsl\(\s*[\d.]+\s+[\d.]+%\s+([\d.]+)%/);
-  if (match) {
-    return parseFloat(match[1]) < 40;
-  }
-  return document.documentElement.classList.contains("dark");
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface GraphQLQueryEditorProps {
@@ -213,8 +200,8 @@ export function GraphQLQueryEditor({
       closeBrackets(),
       highlightActiveLine(),
       highlightSelectionMatches(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      isDarkMode() ? oneDark : [],
+      syntaxHighlighting(themeHighlightStyle),
+      editorThemeExtension,
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,

@@ -32,51 +32,73 @@ export function WebSocketPanel() {
 
   // Listen for Tauri events
   useEffect(() => {
-    const unlisteners: (() => void)[] = [];
+    let mounted = true;
+    let unlistenMessage: (() => void) | null = null;
+    let unlistenStatus: (() => void) | null = null;
+    let unlistenError: (() => void) | null = null;
 
     const setup = async () => {
-      const unlistener1 = await listen<WsMessageEvent>("ws-message", (event) => {
-        addMessage(event.payload);
+      const u1 = await listen<WsMessageEvent>("ws-message", (event) => {
+        if (mounted) {
+          useWebSocketStore.getState().addMessage(event.payload);
+        }
       });
-      unlisteners.push(unlistener1);
+      if (!mounted) {
+        u1();
+      } else {
+        unlistenMessage = u1;
+      }
 
-      const unlistener2 = await listen<{ connectionId: string; status: string }>(
+      const u2 = await listen<{ connectionId: string; status: string }>(
         "ws-status",
         (event) => {
+          if (!mounted) return;
           const { status: s } = event.payload;
-          if (s === "connected") setStatus("connected");
+          if (s === "connected") useWebSocketStore.getState().setStatus("connected");
           if (s === "disconnected") {
-            setStatus("disconnected");
-            setConnectionId(null);
+            useWebSocketStore.getState().setStatus("disconnected");
+            useWebSocketStore.getState().setConnectionId(null);
           }
-          if (s === "connecting") setStatus("connecting");
+          if (s === "connecting") useWebSocketStore.getState().setStatus("connecting");
         }
       );
-      unlisteners.push(unlistener2);
+      if (!mounted) {
+        u2();
+      } else {
+        unlistenStatus = u2;
+      }
 
-      const unlistener3 = await listen<{ connectionId: string; error: string }>(
+      const u3 = await listen<{ connectionId: string; error: string }>(
         "ws-error",
         (event) => {
-          addMessage({
+          if (!mounted) return;
+          useWebSocketStore.getState().addMessage({
             connection_id: event.payload.connectionId,
             direction: "system",
             data: `Error: ${event.payload.error}`,
             is_binary: false,
           });
-          setStatus("disconnected");
-          setConnectionId(null);
-          addToast("WebSocket connection failed", "error");
+          useWebSocketStore.getState().setStatus("disconnected");
+          useWebSocketStore.getState().setConnectionId(null);
+          useToastStore.getState().addToast("WebSocket connection failed", "error");
         }
       );
-      unlisteners.push(unlistener3);
+      if (!mounted) {
+        u3();
+      } else {
+        unlistenError = u3;
+      }
     };
 
     setup();
 
     return () => {
-      unlisteners.forEach((fn) => fn());
+      mounted = false;
+      unlistenMessage?.();
+      unlistenStatus?.();
+      unlistenError?.();
     };
-  }, [addMessage, addToast, setConnectionId, setStatus]);
+  }, []);
 
   const handleConnect = async () => {
     if (!url.trim()) {
