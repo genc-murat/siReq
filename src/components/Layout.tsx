@@ -146,7 +146,7 @@ export function Layout() {
           </button>
         </div>
       </header>
-      <TabBar />
+      {toolMode === "http" && <TabBar />}
       <Group orientation="horizontal" className="flex-1 overflow-hidden">
         {sidebarOpen && (
           <>

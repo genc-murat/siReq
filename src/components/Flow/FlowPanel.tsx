@@ -58,6 +58,7 @@ export const FlowPanel: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
   const [flatRequests, setFlatRequests] = useState<CollectionRequest[]>([]);
   const [terminalCollapsed, setTerminalCollapsed] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [activeRightTab, setActiveRightTab] = useState<"inspector" | "variables">("inspector");
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
@@ -124,6 +125,7 @@ export const FlowPanel: React.FC = () => {
     if (addedNode) {
       setSelectedNode(addedNode);
       setActiveRightTab("inspector");
+      setInspectorOpen(true);
     }
   };
 
@@ -184,6 +186,7 @@ export const FlowPanel: React.FC = () => {
       const firstNode = useFlowStore.getState().nodes.find((n) => n.id === newIds[0]);
       setSelectedNode(firstNode ?? null);
       setActiveRightTab("inspector");
+      setInspectorOpen(true);
     }
   }, [clipboard, pasteNodes, setSelectedNodeIds, setSelectedNode]);
 
@@ -281,88 +284,95 @@ export const FlowPanel: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         
         {/* Toolbar */}
-        <div className="h-12 border-b bg-card px-4 flex items-center justify-between shrink-0 gap-3">
+        <div className="h-12 border-b bg-card px-3 flex items-center justify-between shrink-0 gap-2 overflow-x-auto min-w-0">
           
           {/* Node Adders */}
-          <div className="flex items-center gap-1.5 nodrag">
-            <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mr-1.5">Add Node:</span>
+          <div className="flex items-center gap-1 sm:gap-1.5 nodrag shrink-0">
+            <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mr-1 hidden sm:inline">Add:</span>
             
             <button
               onClick={() => handleAddNode("request")}
-              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-primary transition-all duration-150 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-primary transition-all duration-150 flex items-center gap-1 shrink-0"
+              title="Add HTTP Request node"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <rect x="2" y="3" width="20" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M8 9l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              HTTP Request
+              <span>Request</span>
             </button>
 
             <button
               onClick={() => handleAddNode("condition")}
-              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-purple-400 transition-all duration-150 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-purple-400 transition-all duration-150 flex items-center gap-1 shrink-0"
+              title="Add Condition node"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Condition
+              <span>Condition</span>
             </button>
 
             <button
               onClick={() => handleAddNode("delay")}
-              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-yellow-500 transition-all duration-150 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-yellow-500 transition-all duration-150 flex items-center gap-1 shrink-0"
+              title="Add Wait Timer node"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Wait Timer
+              <span>Wait</span>
             </button>
 
             <button
               onClick={() => handleAddNode("logger")}
-              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-indigo-400 transition-all duration-150 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-indigo-400 transition-all duration-150 flex items-center gap-1 shrink-0"
+              title="Add Console Log node"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              Console Log
+              <span>Log</span>
             </button>
 
             <button
               onClick={() => handleAddNode("set_variable")}
-              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-orange-400 transition-all duration-150 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-orange-400 transition-all duration-150 flex items-center gap-1 shrink-0"
+              title="Add Variable node"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Variable
+              <span>Variable</span>
             </button>
 
             <button
               onClick={() => handleAddNode("script")}
-              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-cyan-400 transition-all duration-150 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-cyan-400 transition-all duration-150 flex items-center gap-1 shrink-0"
+              title="Add JavaScript Script node"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
               </svg>
-              Script
+              <span>Script</span>
             </button>
 
             <button
               onClick={() => handleAddNode("assertion")}
-              className="px-2.5 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-rose-400 transition-all duration-150 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border rounded-lg hover:bg-accent text-rose-400 transition-all duration-150 flex items-center gap-1 shrink-0"
+              title="Add Assertion node"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Assert
+              <span>Assert</span>
             </button>
           </div>
 
-          {/* View Controls: Zoom + Undo/Redo + Clipboard */}
+          {/* View Controls: Zoom + Undo/Redo + Clipboard + Execution */}
           <div className="flex items-center gap-1 shrink-0">
             {/* Zoom Controls */}
-            <div className="flex items-center gap-0.5 mr-1">
+            <div className="flex items-center gap-0.5">
               <button
                 onClick={handleZoomOut}
                 className="p-1 border rounded hover:bg-accent transition-all duration-100"
@@ -399,7 +409,7 @@ export const FlowPanel: React.FC = () => {
               </button>
             </div>
 
-            <div className="h-4 w-px bg-border" />
+            <div className="h-4 w-px bg-border mx-0.5" />
 
             {/* Undo / Redo */}
             <button
@@ -423,7 +433,7 @@ export const FlowPanel: React.FC = () => {
               </svg>
             </button>
 
-            <div className="h-4 w-px bg-border" />
+            <div className="h-4 w-px bg-border mx-0.5" />
 
             {/* Copy / Paste */}
             <button
@@ -448,28 +458,28 @@ export const FlowPanel: React.FC = () => {
               </svg>
             </button>
 
-            <div className="h-4 w-px bg-border" />
+            <div className="h-4 w-px bg-border mx-0.5" />
 
             {/* Execution Controls */}
             {isRunning ? (
               <button
                 onClick={stopFlow}
-                className="px-3 py-1 bg-red-600 text-white hover:bg-red-500 text-xs font-bold rounded-lg shadow-md transition-all duration-150 flex items-center gap-1"
+                className="px-2.5 py-1 bg-red-600 text-white hover:bg-red-500 text-xs font-bold rounded-lg shadow-md transition-all duration-150 flex items-center gap-1"
               >
                 <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>
-                Stop
+                <span>Stop</span>
               </button>
             ) : (
               <button
                 onClick={handleRun}
-                className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg shadow-md shadow-green-600/10 transition-all duration-150 flex items-center gap-1"
+                className="px-2.5 py-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg shadow-md shadow-green-600/10 transition-all duration-150 flex items-center gap-1"
               >
                 <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                Run
+                <span>Run</span>
               </button>
             )}
 
@@ -481,8 +491,6 @@ export const FlowPanel: React.FC = () => {
               Reset
             </button>
 
-            <div className="h-4 w-px bg-border mx-0.5" />
-
             {/* Run in Runner */}
             <button
               onClick={() => {
@@ -490,22 +498,22 @@ export const FlowPanel: React.FC = () => {
                 useUIStore.getState().setShowRunner(true);
               }}
               disabled={isRunning}
-              className="px-2.5 py-1 text-[11px] font-semibold border border-primary/30 text-primary hover:bg-primary/10 rounded-lg transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+              className="px-2 py-1 text-xs font-semibold border border-primary/30 text-primary hover:bg-primary/10 rounded-lg transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
               title="Run this flow in the Runner panel with data-driven support"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <rect x="2" y="3" width="20" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Runner
+              <span>Runner</span>
             </button>
 
-            <div className="h-4 w-px bg-border" />
+            <div className="h-4 w-px bg-border mx-0.5" />
 
             <button
               onClick={handleDeleteSelected}
               disabled={selectedNodeIds.length === 0 && !selectedNode}
-              className="px-2 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
               title="Delete selected (Delete)"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -520,17 +528,39 @@ export const FlowPanel: React.FC = () => {
                   setSelectedNode(null);
                 }
               }}
-              className="px-1.5 py-1 text-[10px] font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-150"
+              className="p-1.5 text-[11px] font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-150"
               title="Reset to default flow"
             >
               Clear
+            </button>
+
+            <div className="h-4 w-px bg-border mx-0.5" />
+
+            {/* Toggle Inspector Sidebar */}
+            <button
+              onClick={() => setInspectorOpen(!inspectorOpen)}
+              className={cn(
+                "p-1.5 border rounded-lg hover:bg-accent transition-all duration-100",
+                inspectorOpen ? "bg-accent text-foreground" : "text-muted-foreground"
+              )}
+              title={inspectorOpen ? "Collapse Inspector" : "Expand Inspector"}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
+              </svg>
             </button>
           </div>
         </div>
 
         {/* The Grid Canvas */}
         <div className="flex-1 relative min-h-0">
-          <FlowCanvas onNodeSelected={setSelectedNode} selectedNodeId={selectedNode?.id ?? null} />
+          <FlowCanvas
+            onNodeSelected={(node) => {
+              setSelectedNode(node);
+              if (node) setInspectorOpen(true);
+            }}
+            selectedNodeId={selectedNode?.id ?? null}
+          />
         </div>
 
         {/* Collapsible Flow Terminal Console */}
@@ -603,9 +633,9 @@ export const FlowPanel: React.FC = () => {
       </div>
 
       {/* Right Utility Sidebar (Selected Node Inspector / Variables Live list) */}
-      <div className="w-80 border-l bg-card flex flex-col shrink-0 h-full">
+      <div className={cn("border-l bg-card flex flex-col shrink-0 h-full transition-all duration-200", inspectorOpen ? "w-80" : "w-0 overflow-hidden border-l-0")}>
         {/* Toggle Head */}
-        <div className="flex border-b text-xs shrink-0 select-none">
+        <div className="flex border-b text-xs shrink-0 select-none items-center">
           <button
             onClick={() => setActiveRightTab("inspector")}
             className={cn(
@@ -627,6 +657,15 @@ export const FlowPanel: React.FC = () => {
             )}
           >
             Live Variables ({Object.keys(variables).length})
+          </button>
+          <button
+            onClick={() => setInspectorOpen(false)}
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md my-auto mr-1.5 transition-colors"
+            title="Hide Inspector"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 

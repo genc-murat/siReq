@@ -21,7 +21,9 @@ vi.mock("@/lib/invoke", () => ({
  * Helper: reset the store to its initial state between tests.
  */
 function resetStore() {
-  localStorage.clear();
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
   const state = useFlowStore.getState();
   state.resetExecution();
   state.clearLogs();
