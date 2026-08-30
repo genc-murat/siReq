@@ -231,7 +231,7 @@ export function MockScenarioEditor({ scenario, onChange }: MockScenarioEditorPro
         <div className="flex-1 rounded-xl border border-border bg-background overflow-hidden relative shadow-inner">
           <CodeMirrorEditor
             value={scenario.body}
-            onChange={(val) => handleFieldChange("body", val)}
+            onChange={(val: string) => handleFieldChange("body", val)}
             language={language}
             placeholder='{"status": "ok"}'
           />
