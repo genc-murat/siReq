@@ -3,6 +3,7 @@ import type { HttpMethod, BodyType, KeyValue, AuthConfig, HttpRequest, HttpRespo
 import { sendRequest, cancelRequest, benchmarkRequest, getBenchmarkHistory, deleteBenchmarkHistory } from "@/lib/invoke";
 import type { BenchmarkResult, BenchmarkHistoryEntry } from "@/lib/invoke";
 import { useToastStore } from "./toastStore";
+import { parseQueryParamsFromUrl, buildUrlWithQueryParams } from "@/lib/urlUtils";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -87,9 +88,29 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   error: null,
 
   setMethod: (method) => set((s) => ({ request: { ...s.request, method } })),
-  setUrl: (url) => set((s) => ({ request: { ...s.request, url } })),
+  setUrl: (url) =>
+    set((s) => {
+      const parsedParams = parseQueryParamsFromUrl(url);
+      return {
+        request: {
+          ...s.request,
+          url,
+          query_params: parsedParams,
+        },
+      };
+    }),
   setHeaders: (headers) => set((s) => ({ request: { ...s.request, headers } })),
-  setQueryParams: (params) => set((s) => ({ request: { ...s.request, query_params: params } })),
+  setQueryParams: (params) =>
+    set((s) => {
+      const updatedUrl = buildUrlWithQueryParams(s.request.url, params);
+      return {
+        request: {
+          ...s.request,
+          query_params: params,
+          url: updatedUrl,
+        },
+      };
+    }),
   setBodyType: (bodyType) => set((s) => ({ request: { ...s.request, body_type: bodyType } })),
   setBody: (body) => set((s) => ({ request: { ...s.request, body } })),
   setFormFields: (formFields) => set((s) => ({ request: { ...s.request, form_fields: formFields } })),
@@ -99,7 +120,15 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   setPreScript: (script) => set((s) => ({ request: { ...s.request, pre_script: script } })),
   setPostScript: (script) => set((s) => ({ request: { ...s.request, post_script: script } })),
   setJsonSchema: (json_schema) => set((s) => ({ request: { ...s.request, json_schema } })),
-  setRequest: (request) => set({ request, response: null, error: null }),
+  setRequest: (request) => {
+    let synced = { ...request };
+    if (synced.query_params && synced.query_params.length > 0) {
+      synced.url = buildUrlWithQueryParams(synced.url || "", synced.query_params);
+    } else if (synced.url) {
+      synced.query_params = parseQueryParamsFromUrl(synced.url);
+    }
+    set({ request: synced, response: null, error: null });
+  },
 
   send: async (environmentId?: string | null) => {
     const { request, response: currentResponse } = get();

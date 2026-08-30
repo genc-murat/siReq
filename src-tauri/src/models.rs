@@ -18,7 +18,7 @@ pub struct RequestSettings {
     pub proxy: Option<ProxyConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum HttpMethod {
     GET,
@@ -51,7 +51,7 @@ pub enum AuthType {
     api_key,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KeyValue {
     pub key: String,
     pub value: String,

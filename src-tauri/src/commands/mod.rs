@@ -152,13 +152,22 @@ pub async fn send_request(
         });
     }
 
-    let entry = HistoryEntry {
-        id: uuid::Uuid::new_v4().to_string(),
-        request,
-        response: response_with_scripts.clone(),
-        created_at: chrono::Utc::now().to_rfc3339(),
-    };
-    let _ = save_history_with_conn(&db, &entry);
+    // Smart history: if the same request (method + url + body) was the most
+    // recent entry, update it in-place instead of creating a duplicate.
+    match find_latest_history_by_fingerprint(&db, &request) {
+        Ok(Some(existing)) => {
+            let _ = update_history_entry_response(&db, &existing.id, &response_with_scripts);
+        }
+        _ => {
+            let entry = HistoryEntry {
+                id: uuid::Uuid::new_v4().to_string(),
+                request,
+                response: response_with_scripts.clone(),
+                created_at: chrono::Utc::now().to_rfc3339(),
+            };
+            let _ = save_history_with_conn(&db, &entry);
+        }
+    }
     Ok(response_with_scripts)
 }
 

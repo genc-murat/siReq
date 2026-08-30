@@ -173,7 +173,7 @@ pub fn save_history_with_conn(db: &State<Db>, entry: &HistoryEntry) -> Result<()
 pub fn get_history_list(db: &State<Db>, limit: i64, offset: i64) -> Result<Vec<HistoryEntry>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
-        "SELECT id, request, response, created_at FROM history ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"
+        "SELECT id, request, response, created_at FROM history ORDER BY rowid DESC LIMIT ?1 OFFSET ?2"
     ).map_err(|e| e.to_string())?;
     let entries = stmt.query_map(params![limit, offset], |row| {
         let id: String = row.get(0)?;
@@ -201,6 +201,89 @@ pub fn delete_history_entry(db: &State<Db>, id: &str) -> Result<(), String> {
 pub fn clear_all_history(db: &State<Db>) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM history", []).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn filter_active_kv(list: &[KeyValue]) -> Vec<(&str, &str, bool)> {
+    list.iter()
+        .filter(|kv| !kv.key.trim().is_empty() || !kv.value.trim().is_empty())
+        .map(|kv| (kv.key.as_str(), kv.value.as_str(), kv.enabled))
+        .collect()
+}
+
+/// Helper to determine if two requests are semantically identical for history deduplication.
+fn is_same_request(stored: &HttpRequest, incoming: &HttpRequest) -> bool {
+    if stored.method != incoming.method || stored.url != incoming.url || stored.body != incoming.body {
+        return false;
+    }
+
+    if filter_active_kv(&stored.query_params) != filter_active_kv(&incoming.query_params) {
+        return false;
+    }
+
+    if filter_active_kv(&stored.headers) != filter_active_kv(&incoming.headers) {
+        return false;
+    }
+
+    true
+}
+
+/// Find the most recent history entry whose request fingerprint matches on a connection.
+/// Fingerprint = method + url + body + query_params + headers.
+pub fn find_latest_history_by_fingerprint_conn(
+    conn: &Connection,
+    incoming: &HttpRequest,
+) -> Result<Option<HistoryEntry>, String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, request, response, created_at FROM history ORDER BY rowid DESC LIMIT 1"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let request_json: String = row.get(1)?;
+        let response_json: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        Ok((id, request_json, response_json, created_at))
+    }).map_err(|e| e.to_string())?;
+
+    for row in entries.flatten() {
+        let (id, req_json, resp_json, created_at) = row;
+        let stored: HttpRequest = match serde_json::from_str(&req_json) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        let response: HttpResponse = match serde_json::from_str(&resp_json) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        if is_same_request(&stored, incoming) {
+            return Ok(Some(HistoryEntry { id, request: stored, response, created_at }));
+        }
+    }
+    Ok(None)
+}
+
+/// Find the most recent history entry whose request fingerprint matches.
+pub fn find_latest_history_by_fingerprint(
+    db: &State<Db>,
+    incoming: &HttpRequest,
+) -> Result<Option<HistoryEntry>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    find_latest_history_by_fingerprint_conn(&conn, incoming)
+}
+
+/// Update an existing history entry's response and timestamp.
+pub fn update_history_entry_response(
+    db: &State<Db>,
+    id: &str,
+    response: &HttpResponse,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let response_json = serde_json::to_string(response).map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE history SET response = ?1, created_at = ?2 WHERE id = ?3",
+        params![response_json, now, id],
+    ).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1006,4 +1089,184 @@ pub fn delete_mock_config(db: &State<Db>, id: &str) -> Result<(), String> {
     conn.execute("DELETE FROM mock_servers WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        conn
+    }
+
+    fn sample_req(url: &str, query_params: Vec<KeyValue>) -> HttpRequest {
+        HttpRequest {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Test Request".to_string(),
+            method: HttpMethod::GET,
+            url: url.to_string(),
+            headers: vec![],
+            query_params,
+            body_type: BodyType::none,
+            body: "".to_string(),
+            form_fields: vec![],
+            auth: AuthConfig {
+                auth_type: AuthType::none,
+                username: "".to_string(),
+                password: "".to_string(),
+                token: "".to_string(),
+                api_key: "".to_string(),
+                api_key_name: "".to_string(),
+                api_key_in: "header".to_string(),
+            },
+            settings: RequestSettings {
+                timeout: 30,
+                follow_redirects: true,
+                ssl_verify: true,
+                proxy: None,
+            },
+            pre_script: "".to_string(),
+            post_script: "".to_string(),
+            examples: vec![],
+            extractions: vec![],
+            tags: vec![],
+        }
+    }
+
+    fn sample_resp() -> HttpResponse {
+        HttpResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers: vec![],
+            cookies: vec![],
+            body: "{\"ok\":true}".to_string(),
+            body_base64: None,
+            size: 11,
+            time_ms: 25,
+            script_logs: vec![],
+            test_results: vec![],
+            modified_variables: vec![],
+        }
+    }
+
+    #[test]
+    fn test_fingerprint_matches_identical_requests() {
+        let conn = create_test_conn();
+        let req = sample_req(
+            "https://api.example.com/posts?userId=1",
+            vec![KeyValue { key: "userId".to_string(), value: "1".to_string(), enabled: true, is_secret: false }],
+        );
+        let entry = HistoryEntry {
+            id: "entry-1".to_string(),
+            request: req.clone(),
+            response: sample_resp(),
+            created_at: "2026-08-30T00:00:00Z".to_string(),
+        };
+        let req_json = serde_json::to_string(&entry.request).unwrap();
+        let resp_json = serde_json::to_string(&entry.response).unwrap();
+        conn.execute(
+            "INSERT INTO history (id, request, response, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![entry.id, req_json, resp_json, entry.created_at],
+        ).unwrap();
+
+        // Exact match should be found
+        let found = find_latest_history_by_fingerprint_conn(&conn, &req).unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, "entry-1");
+    }
+
+    #[test]
+    fn test_fingerprint_differentiates_different_query_params() {
+        let conn = create_test_conn();
+        let req1 = sample_req(
+            "https://api.example.com/posts?userId=1",
+            vec![KeyValue { key: "userId".to_string(), value: "1".to_string(), enabled: true, is_secret: false }],
+        );
+        let entry = HistoryEntry {
+            id: "entry-1".to_string(),
+            request: req1,
+            response: sample_resp(),
+            created_at: "2026-08-30T00:00:00Z".to_string(),
+        };
+        let req_json = serde_json::to_string(&entry.request).unwrap();
+        let resp_json = serde_json::to_string(&entry.response).unwrap();
+        conn.execute(
+            "INSERT INTO history (id, request, response, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![entry.id, req_json, resp_json, entry.created_at],
+        ).unwrap();
+
+        // Request with different query param value must NOT match
+        let req2 = sample_req(
+            "https://api.example.com/posts?userId=2",
+            vec![KeyValue { key: "userId".to_string(), value: "2".to_string(), enabled: true, is_secret: false }],
+        );
+        let found = find_latest_history_by_fingerprint_conn(&conn, &req2).unwrap();
+        assert!(found.is_none());
+
+        // Request with base URL but different query_params array must NOT match
+        let req3 = sample_req(
+            "https://api.example.com/posts",
+            vec![KeyValue { key: "userId".to_string(), value: "1".to_string(), enabled: true, is_secret: false }],
+        );
+        let found3 = find_latest_history_by_fingerprint_conn(&conn, &req3).unwrap();
+        assert!(found3.is_none());
+    }
+
+    #[test]
+    fn test_consecutive_requests_deduplicate_properly() {
+        let conn = create_test_conn();
+        let req1 = sample_req(
+            "https://api.example.com/posts?userId=1",
+            vec![KeyValue { key: "userId".to_string(), value: "1".to_string(), enabled: true, is_secret: false }],
+        );
+        let req2 = sample_req(
+            "https://api.example.com/posts?userId=2",
+            vec![KeyValue { key: "userId".to_string(), value: "2".to_string(), enabled: true, is_secret: false }],
+        );
+
+        // First send req1
+        let entry1 = HistoryEntry {
+            id: "entry-1".to_string(),
+            request: req1.clone(),
+            response: sample_resp(),
+            created_at: "2026-08-30T00:00:00Z".to_string(),
+        };
+        conn.execute(
+            "INSERT INTO history (id, request, response, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![entry1.id, serde_json::to_string(&entry1.request).unwrap(), serde_json::to_string(&entry1.response).unwrap(), entry1.created_at],
+        ).unwrap();
+
+        // Send req1 again immediately -> must match and deduplicate
+        let match1 = find_latest_history_by_fingerprint_conn(&conn, &req1).unwrap();
+        assert!(match1.is_some());
+        assert_eq!(match1.unwrap().id, "entry-1");
+
+        // Send req2 -> does not match
+        let match2 = find_latest_history_by_fingerprint_conn(&conn, &req2).unwrap();
+        assert!(match2.is_none());
+
+        // Insert req2
+        let entry2 = HistoryEntry {
+            id: "entry-2".to_string(),
+            request: req2.clone(),
+            response: sample_resp(),
+            created_at: "2026-08-30T00:01:00Z".to_string(),
+        };
+        conn.execute(
+            "INSERT INTO history (id, request, response, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![entry2.id, serde_json::to_string(&entry2.request).unwrap(), serde_json::to_string(&entry2.response).unwrap(), entry2.created_at],
+        ).unwrap();
+
+        // Now the latest is req2. Sending req1 must NOT match because latest is req2
+        let match3 = find_latest_history_by_fingerprint_conn(&conn, &req1).unwrap();
+        assert!(match3.is_none());
+
+        // Sending req2 again must match because latest is req2
+        let match4 = find_latest_history_by_fingerprint_conn(&conn, &req2).unwrap();
+        assert!(match4.is_some());
+        assert_eq!(match4.unwrap().id, "entry-2");
+    }
+}
+
 

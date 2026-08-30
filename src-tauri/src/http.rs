@@ -166,9 +166,12 @@ pub async fn execute_request(
         req_builder = req_builder.header("Cookie", cookie_header);
     }
 
-    for kv in &request.query_params {
-        if kv.enabled && !kv.key.is_empty() {
-            req_builder = req_builder.query(&[(&kv.key, &kv.value)]);
+    // Only append query_params if URL does not already contain a query string
+    if !request.url.contains('?') {
+        for kv in &request.query_params {
+            if kv.enabled && !kv.key.is_empty() {
+                req_builder = req_builder.query(&[(&kv.key, &kv.value)]);
+            }
         }
     }
 

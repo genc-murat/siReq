@@ -53,10 +53,12 @@ export function generateCurl(request: HttpRequest): string {
   }
 
   let url = request.url;
-  const params = request.query_params.filter((p) => p.enabled && p.key);
-  if (params.length > 0) {
-    const qs = params.map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join("&");
-    url += (url.includes("?") ? "&" : "?") + qs;
+  if (!url.includes("?")) {
+    const params = request.query_params.filter((p) => p.enabled && p.key);
+    if (params.length > 0) {
+      const qs = params.map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join("&");
+      url += `?${qs}`;
+    }
   }
 
   parts.push(`'${url}'`);

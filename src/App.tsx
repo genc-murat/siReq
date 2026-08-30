@@ -17,9 +17,10 @@ function App() {
 
     const tabStore = useTabStore.getState();
 
-    // Subscribe to response/error changes to sync back to active tab
+    // Subscribe to request/response/error changes to sync back to active tab
     const unsub = useRequestStore.subscribe((state, prevState) => {
       if (
+        state.request !== prevState.request ||
         (state.response !== prevState.response && state.response !== null) ||
         (state.error !== prevState.error && state.error !== null)
       ) {
@@ -34,8 +35,8 @@ function App() {
       // Restore active tab state from persisted tabs
       const tab = tabStore.tabs.find((t) => t.id === tabStore.activeTabId);
       if (tab) {
+        useRequestStore.getState().setRequest(tab.request);
         useRequestStore.setState({
-          request: tab.request,
           response: tab.response,
           loading: tab.loading,
           error: tab.error,

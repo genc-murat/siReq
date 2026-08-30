@@ -62,8 +62,8 @@ export const useTabStore = create<TabState>()(
         set((s) => ({ tabs: [...s.tabs, newTab], activeTabId: id }));
 
         // Load this tab's state into the global stores
+        useRequestStore.getState().setRequest(newTab.request);
         useRequestStore.setState({
-          request: newTab.request,
           response: null,
           loading: false,
           error: null,
@@ -96,8 +96,8 @@ export const useTabStore = create<TabState>()(
         if (newActiveId) {
           const tab = newTabs.find((t) => t.id === newActiveId);
           if (tab) {
+            useRequestStore.getState().setRequest(tab.request);
             useRequestStore.setState({
-              request: tab.request,
               response: tab.response,
               loading: tab.loading,
               error: tab.error,
@@ -131,8 +131,8 @@ export const useTabStore = create<TabState>()(
           activeTabId: newId,
         }));
 
+        useRequestStore.getState().setRequest(newTab.request);
         useRequestStore.setState({
-          request: newTab.request,
           response: null,
           loading: false,
           error: null,
@@ -148,8 +148,8 @@ export const useTabStore = create<TabState>()(
 
         set({ activeTabId: id });
 
+        useRequestStore.getState().setRequest(tab.request);
         useRequestStore.setState({
-          request: tab.request,
           response: tab.response,
           loading: tab.loading,
           error: tab.error,

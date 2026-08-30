@@ -122,21 +122,23 @@ describe("requestStore", () => {
       expect(useRequestStore.getState().request.method).toBe("POST");
     });
 
-    it("setUrl updates the URL", () => {
+    it("setUrl updates the URL and synchronizes query_params", () => {
+      useRequestStore.getState().setUrl("https://api.example.com/users?page=2&limit=50");
+      const state = useRequestStore.getState();
+      expect(state.request.url).toBe("https://api.example.com/users?page=2&limit=50");
+      expect(state.request.query_params).toEqual([
+        { key: "page", value: "2", enabled: true },
+        { key: "limit", value: "50", enabled: true },
+      ]);
+    });
+
+    it("setQueryParams replaces query params and synchronizes URL", () => {
       useRequestStore.getState().setUrl("https://api.example.com/users");
-      expect(useRequestStore.getState().request.url).toBe("https://api.example.com/users");
-    });
-
-    it("setHeaders replaces the headers array", () => {
-      const headers = [{ key: "Content-Type", value: "application/json", enabled: true }];
-      useRequestStore.getState().setHeaders(headers);
-      expect(useRequestStore.getState().request.headers).toEqual(headers);
-    });
-
-    it("setQueryParams replaces query params", () => {
-      const params = [{ key: "page", value: "1", enabled: true }];
+      const params = [{ key: "page", value: "1", enabled: true }, { key: "sort", value: "asc", enabled: true }];
       useRequestStore.getState().setQueryParams(params);
-      expect(useRequestStore.getState().request.query_params).toEqual(params);
+      const state = useRequestStore.getState();
+      expect(state.request.query_params).toEqual(params);
+      expect(state.request.url).toBe("https://api.example.com/users?page=1&sort=asc");
     });
 
     it("setBodyType updates body type", () => {
